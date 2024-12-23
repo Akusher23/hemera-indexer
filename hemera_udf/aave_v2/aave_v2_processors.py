@@ -4,9 +4,8 @@ from typing import Any, Type, TypeVar
 
 from hemera.common.utils.abi_code_utils import Event
 from hemera.common.utils.web3_utils import extract_eth_address
-
-from hemera_udf.aave_v2.abi.abi import DECIMALS_FUNCTIOIN, SYMBOL_FUNCTIOIN
 from hemera.indexer.utils.multicall_hemera import Call
+from hemera_udf.aave_v2.abi.abi import DECIMALS_FUNCTIOIN, SYMBOL_FUNCTIOIN
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +52,8 @@ class ReserveInitProcessor(EventProcessor):
     """0x3a0ca721fc364424566385a1aa271ed508cc2c0949c2272575fb3013a163a45f"""
 
     def _get_token_info(self, address: str) -> dict:
-        decimals_call = Call(target=address, function_abi=DECIMALS_FUNCTIOIN, block_number='latest')
-        symbol_call = Call(target=address, function_abi=SYMBOL_FUNCTIOIN, block_number='latest')
+        decimals_call = Call(target=address, function_abi=DECIMALS_FUNCTIOIN, block_number="latest")
+        symbol_call = Call(target=address, function_abi=SYMBOL_FUNCTIOIN, block_number="latest")
         self.multicall_helper.execute_calls([decimals_call, symbol_call])
         return {"decimals": decimals_call.returns["decimals"], "symbol": symbol_call.returns["symbol"]}
 
@@ -185,4 +184,16 @@ class ReserveDataUpdateProcessor(EventProcessor):
             "variable_borrow_rate": decoded_log.get("variableBorrowRate"),
             "liquidity_index": decoded_log.get("liquidityIndex"),
             "variable_borrow_index": decoded_log.get("variableBorrowIndex"),
+        }
+
+
+class TransferProcessor(EventProcessor):
+    """0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"""
+
+    def _process_specific_fields(self, log: Any, decoded_log: Any) -> dict:
+        return {
+            "a_token": log.address,
+            "amount": decoded_log.get("value"),
+            "aave_from": extract_eth_address(log.topic1),
+            "aave_to": extract_eth_address(log.topic2),
         }

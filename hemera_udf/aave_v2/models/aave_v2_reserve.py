@@ -2,7 +2,7 @@ from sqlalchemy import NUMERIC, VARCHAR, Column, PrimaryKeyConstraint, func, tex
 from sqlalchemy.dialects.postgresql import BIGINT, BOOLEAN, BYTEA, INTEGER, TIMESTAMP
 
 from hemera.common.models import HemeraModel, general_converter
-from hemera_udf.aave_v2.domains.aave_v2_domain import AaveV2ReserveD
+from hemera_udf.aave_v2.domains.aave_v2_domain import AaveV2ReserveD, AaveV2ReserveDataCurrentD
 
 
 class AaveV2Reserve(HemeraModel):
@@ -32,7 +32,7 @@ class AaveV2Reserve(HemeraModel):
     variable_borrow_index = Column(NUMERIC(100))
 
     block_number = Column(BIGINT)
-    block_timestamp = Column(BIGINT)
+    block_timestamp = Column(TIMESTAMP)
     transaction_hash = Column(BYTEA)
     log_index = Column(INTEGER)
     create_time = Column(TIMESTAMP, server_default=func.now())
@@ -49,5 +49,11 @@ class AaveV2Reserve(HemeraModel):
                 "conflict_do_update": True,
                 "update_strategy": "EXCLUDED.block_number >= af_aave_v2_reserve.block_number",
                 "converter": general_converter,
-            }
+            },
+            {
+                "domain": AaveV2ReserveDataCurrentD,
+                "conflict_do_update": True,
+                "update_strategy": "EXCLUDED.block_number >= af_aave_v2_reserve.block_number",
+                "converter": general_converter,
+            },
         ]

@@ -166,3 +166,16 @@ RESERVE_DATA_UPDATED_EVENT = Event(
         "type": "event",
     }
 )
+
+TRANSFER_EVENT = Event(
+    {
+        "anonymous": False,
+        "inputs": [
+            {"indexed": True, "internalType": "address", "name": "from", "type": "address"},
+            {"indexed": True, "internalType": "address", "name": "to", "type": "address"},
+            {"indexed": False, "internalType": "uint256", "name": "value", "type": "uint256"},
+        ],
+        "name": "Transfer",
+        "type": "event",
+    }
+)

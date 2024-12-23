@@ -21,6 +21,7 @@ from hemera_udf.aave_v2.domains.aave_v2_domain import (
     AaveV2ReserveD,
     AaveV2ReserveDataCurrentD,
     AaveV2ReserveDataD,
+    AaveV2TransferD,
     AaveV2WithdrawD,
 )
 
@@ -43,5 +44,6 @@ DynamicEntityTypeRegistry.register_output_types(
         AaveV2CallRecordsD,
         AaveV2ReserveDataD,
         AaveV2ReserveDataCurrentD,
+        AaveV2TransferD,
     },
 )

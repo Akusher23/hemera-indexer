@@ -14,6 +14,7 @@ from hemera_udf.aave_v2.domains.aave_v2_domain import (
     AaveV2FlashLoanD,
     AaveV2LiquidationCallD,
     AaveV2RepayD,
+    AaveV2TransferD,
     AaveV2WithdrawD,
 )
 
@@ -29,6 +30,7 @@ class AaveV2Events(HemeraModel):
     topic0 = Column(BYTEA)
 
     reserve = Column(BYTEA)
+    a_token = Column(BYTEA)
     aave_user = Column(BYTEA)
     repayer = Column(BYTEA)
     amount = Column(NUMERIC(100))
@@ -37,6 +39,7 @@ class AaveV2Events(HemeraModel):
     referral = Column(INT)
     borrow_rate_mode = Column(INT)
     borrow_rate = Column(NUMERIC(100))
+    aave_from = Column(BYTEA)
     aave_to = Column(BYTEA)
     collateral_asset = Column(BYTEA)
     debt_asset = Column(BYTEA)
@@ -91,6 +94,12 @@ class AaveV2Events(HemeraModel):
             },
             {
                 "domain": AaveV2LiquidationCallD,
+                "conflict_do_update": True,
+                "update_strategy": None,
+                "converter": general_converter,
+            },
+            {
+                "domain": AaveV2TransferD,
                 "conflict_do_update": True,
                 "update_strategy": None,
                 "converter": general_converter,

@@ -83,6 +83,14 @@ class AaveV2RepayD(AaveV2BaseRecord):
 
 
 @dataclass
+class AaveV2TransferD(AaveV2BaseRecord):
+    aave_from: Optional[str] = None
+    aave_to: Optional[str] = None
+    a_token: Optional[str] = None
+    amount: Optional[int] = None
+
+
+@dataclass
 class AaveV2FlashLoanD(AaveV2BaseRecord):
     target: Optional[str] = None
     # initiator -> user, use `aave_user`

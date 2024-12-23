@@ -6,6 +6,7 @@ from hemera.common.utils.format_utils import bytes_to_hex_str
 from hemera.indexer.domains.log import Log
 from hemera.indexer.jobs import FilterTransactionDataJob
 from hemera.indexer.specification.specification import TopicSpecification, TransactionFilterByLogs
+from hemera.indexer.utils.collection_utils import merge_dataclasses
 from hemera.indexer.utils.multicall_hemera import Call
 from hemera.indexer.utils.multicall_hemera.multi_call_helper import MultiCallHelper
 from hemera_udf.aave_v2.aave_v2_processors import (
@@ -16,6 +17,7 @@ from hemera_udf.aave_v2.aave_v2_processors import (
     RepayProcessor,
     ReserveDataUpdateProcessor,
     ReserveInitProcessor,
+    TransferProcessor,
     WithdrawProcessor,
 )
 from hemera_udf.aave_v2.abi.abi import (
@@ -28,6 +30,7 @@ from hemera_udf.aave_v2.abi.abi import (
     RESERVE_DATA_UPDATED_EVENT,
     RESERVE_INITIALIZED_EVENT,
     SCALED_BALANCE_OF_FUNCTION,
+    TRANSFER_EVENT,
     WITHDRAW_EVENT,
 )
 from hemera_udf.aave_v2.domains.aave_v2_domain import (
@@ -42,6 +45,7 @@ from hemera_udf.aave_v2.domains.aave_v2_domain import (
     AaveV2ReserveD,
     AaveV2ReserveDataCurrentD,
     AaveV2ReserveDataD,
+    AaveV2TransferD,
     AaveV2WithdrawD,
     aave_v2_address_current_factory,
 )
@@ -66,6 +70,7 @@ class ExportAaveV2Job(FilterTransactionDataJob):
         AaveV2LiquidationAddressCurrentD,
         AaveV2CallRecordsD,
         AaveV2ReserveDataD,
+        AaveV2TransferD,
         AaveV2ReserveDataCurrentD,
     ]
     able_to_reorg = False
@@ -78,7 +83,6 @@ class ExportAaveV2Job(FilterTransactionDataJob):
             "POOL_CONFIGURE": self.user_defined_config["POOL_CONFIGURE"],
         }
 
-        self.address_set = set(self.contract_addresses.values())
         self.multicall_helper = MultiCallHelper(self._web3, kwargs)
 
         # sig -> processor
@@ -87,7 +91,10 @@ class ExportAaveV2Job(FilterTransactionDataJob):
 
         # init relative tokens
         self.reserve_dic = {}
+        self.a_token_reserve_dic = {}
         self._read_reserve()
+
+        self.address_set = set(list(self.a_token_reserve_dic.keys()) + list(self.contract_addresses.values()))
 
     def _read_reserve(self):
 
@@ -120,6 +127,7 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                 log_index=rr.log_index,
             )
             self.reserve_dic[item.asset] = item
+            self.a_token_reserve_dic[item.a_token_address] = item
 
     def _initialize_events_and_processors(self):
         processors = [
@@ -131,6 +139,7 @@ class ExportAaveV2Job(FilterTransactionDataJob):
             FlashLoanProcessor(FLUSH_LOAN_EVENT, AaveV2FlashLoanD),
             LiquidationCallProcessor(LIQUIDATION_CALL_EVENT, AaveV2LiquidationCallD),
             ReserveDataUpdateProcessor(RESERVE_DATA_UPDATED_EVENT, AaveV2ReserveDataD),
+            TransferProcessor(TRANSFER_EVENT, AaveV2TransferD),
         ]
         self._event_processors = {p.event.get_signature(): p for p in processors}
 
@@ -139,7 +148,7 @@ class ExportAaveV2Job(FilterTransactionDataJob):
         return TransactionFilterByLogs(
             [
                 TopicSpecification(
-                    addresses=[self.user_defined_config["POOL_V2"], self.user_defined_config["POOL_CONFIGURE"]],
+                    addresses=list(self.address_set),
                     topics=topics,
                 ),
             ]
@@ -148,43 +157,7 @@ class ExportAaveV2Job(FilterTransactionDataJob):
     def is_aave_v2_address(self, address):
         return address in self.address_set
 
-    def _collect(self, **kwargs):
-        logs = self._data_buff[Log.type()]
-        aave_records = []
-        for log in logs:
-            if not self.is_aave_v2_address(log.address):
-                continue
-            try:
-                processor = self._event_processors.get(log.topic0)
-                if processor is None:
-                    continue
-                processed_data = processor.process(log)
-
-                if processed_data.type() == AaveV2ReserveD.type():
-                    # update reserve
-                    self.reserve_dic[processed_data.asset] = processed_data
-                elif processed_data.type() == AaveV2ReserveDataD.type():
-                    self._collect_item(
-                        AaveV2ReserveDataCurrentD.type(),
-                        AaveV2ReserveDataCurrentD(
-                            asset=processed_data.asset,
-                            block_number=processed_data.block_number,
-                            liquidity_rate=processed_data.liquidity_rate,
-                            stable_borrow_rate=processed_data.stable_borrow_rate,
-                            variable_borrow_rate=processed_data.variable_borrow_rate,
-                            liquidity_index=processed_data.liquidity_index,
-                            variable_borrow_index=processed_data.variable_borrow_index,
-                        ),
-                    )
-                self._collect_item(processed_data.type(), processed_data)
-                aave_records.append(processed_data)
-            except Exception as e:
-                logger.error(f"Error processing log {log.log_index} " f"in tx {log.transaction_hash}: {str(e)}")
-                raise FastShutdownError(f"Error processing log {log.log_index} " f"in tx {log.transaction_hash}")
-
-        address_token_block_balance_dic = self._enrich_records(aave_records)
-        liquidation_lis = []
-
+    def update_address_current(self, aave_records, address_token_block_balance_dic):
         def nested_dict():
             return defaultdict(aave_v2_address_current_factory)
 
@@ -200,6 +173,27 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                 res_d[address][reserve.asset].block_number = a_record.block_number
                 res_d[address][reserve.asset].block_timestamp = a_record.block_timestamp
                 res_d[address][reserve.asset].supply_amount = after
+
+            elif a_record.type() == AaveV2TransferD.type():
+                reserve = self.a_token_reserve_dic[a_record.a_token]
+
+                aave_from = a_record.aave_from
+                after_transfer = address_token_block_balance_dic[aave_from][reserve.a_token_address][
+                    a_record.block_number
+                ]
+                res_d[aave_from][reserve.asset].address = aave_from
+                res_d[aave_from][reserve.asset].asset = reserve.asset
+                res_d[aave_from][reserve.asset].block_number = a_record.block_number
+                res_d[aave_from][reserve.asset].block_timestamp = a_record.block_timestamp
+                res_d[aave_from][reserve.asset].supply_amount = after_transfer
+
+                aave_to = a_record.aave_to
+                after_receive = address_token_block_balance_dic[aave_to][reserve.a_token_address][a_record.block_number]
+                res_d[aave_to][reserve.asset].address = aave_to
+                res_d[aave_to][reserve.asset].asset = reserve.asset
+                res_d[aave_to][reserve.asset].block_number = a_record.block_number
+                res_d[aave_to][reserve.asset].block_timestamp = a_record.block_timestamp
+                res_d[aave_to][reserve.asset].supply_amount = after_receive
 
             elif a_record.type() == AaveV2RepayD.type() or a_record.type() == AaveV2BorrowD.type():
                 address = a_record.aave_user
@@ -270,32 +264,55 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                         block_number=a_record.block_number,
                     ),
                 )
+            return res_d
+
+    def _collect(self, **kwargs):
+        logs = self._data_buff[Log.type()]
+        aave_records = []
+        for log in logs:
+            if not self.is_aave_v2_address(log.address):
+                continue
+            try:
+                processor = self._event_processors.get(log.topic0)
+                if processor is None:
+                    continue
+                processed_data = processor.process(log)
+
+                if processed_data.type() == AaveV2ReserveD.type():
+                    # update reserve
+                    self.reserve_dic[processed_data.asset] = processed_data
+                    self.a_token_reserve_dic[processed_data.a_token_address] = processed_data
+                elif processed_data.type() == AaveV2ReserveDataD.type():
+                    self._collect_item(
+                        AaveV2ReserveDataCurrentD.type(),
+                        AaveV2ReserveDataCurrentD(
+                            asset=processed_data.asset,
+                            block_number=processed_data.block_number,
+                            liquidity_rate=processed_data.liquidity_rate,
+                            stable_borrow_rate=processed_data.stable_borrow_rate,
+                            variable_borrow_rate=processed_data.variable_borrow_rate,
+                            liquidity_index=processed_data.liquidity_index,
+                            variable_borrow_index=processed_data.variable_borrow_index,
+                        ),
+                    )
+                self._collect_item(processed_data.type(), processed_data)
+                aave_records.append(processed_data)
+            except Exception as e:
+                logger.error(f"Error processing log {log.log_index} " f"in tx {log.transaction_hash}: {str(e)}")
+                raise FastShutdownError(f"Error processing log {log.log_index} " f"in tx {log.transaction_hash}")
+
+        address_token_block_balance_dic = self._enrich_records(aave_records)
+        res_d = self.update_address_current(aave_records, address_token_block_balance_dic)
         address_currents = []
         for address, outer_dic in res_d.items():
             for reserve, kad in outer_dic.items():
                 address_currents.append(kad)
         self._collect_items(AaveV2AddressCurrentD.type(), address_currents)
-        self._merge_dataclasses(AaveV2ReserveDataD, ["asset"])
-        self._merge_dataclasses(AaveV2ReserveDataCurrentD, ["asset"])
-        self._merge_dataclasses(AaveV2LiquidationAddressCurrentD, ["address", "asset"])
+        merge_dataclasses(self, AaveV2ReserveDataD, ["asset"])
+        merge_dataclasses(self, AaveV2ReserveDataCurrentD, ["asset"])
+        merge_dataclasses(self, AaveV2LiquidationAddressCurrentD, ["address", "asset"])
 
         logger.info("This batch of data have processed")
-
-    def _merge_dataclasses(self, data_class, attributes):
-        """sort dataclass by block_number, then keep the newest data"""
-        if data_class.type() not in self._data_buff:
-            return
-        tmps = self._data_buff.pop(data_class.type())
-        tmps.sort(key=lambda x: x.block_number, reverse=True)
-        lis = []
-        unique_k_set = set()
-        for li in tmps:
-            k = tuple([getattr(li, at) for at in attributes])
-            if k not in unique_k_set:
-                unique_k_set.add(k)
-                lis.append(li)
-        if len(lis) > 0:
-            self._collect_items(data_class.type(), lis)
 
     def _enrich_records(self, aave_records):
         eth_call_lis = []
@@ -317,6 +334,24 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                         target=reserve.a_token_address,
                         function_abi=SCALED_BALANCE_OF_FUNCTION,
                         parameters=[a_record.aave_user],
+                        block_number=a_record.block_number,
+                    )
+                )
+            elif a_record.type() == AaveV2TransferD.type():
+                a_token_address = a_record.a_token
+                eth_call_lis.append(
+                    Call(
+                        target=a_token_address,
+                        function_abi=SCALED_BALANCE_OF_FUNCTION,
+                        parameters=[a_record.aave_from],
+                        block_number=a_record.block_number,
+                    )
+                )
+                eth_call_lis.append(
+                    Call(
+                        target=a_token_address,
+                        function_abi=SCALED_BALANCE_OF_FUNCTION,
+                        parameters=[a_record.aave_to],
                         block_number=a_record.block_number,
                     )
                 )
@@ -404,5 +439,8 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                 address_token_block_balance_dic[address] = dict()
             if token not in address_token_block_balance_dic[address]:
                 address_token_block_balance_dic[address][token] = dict()
-            address_token_block_balance_dic[address][token][block_number] = cl.returns["balance"]
+            if cl.returns is None:
+                address_token_block_balance_dic[address][token][block_number] = 0
+            else:
+                address_token_block_balance_dic[address][token][block_number] = cl.returns["balance"]
         return address_token_block_balance_dic
