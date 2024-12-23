@@ -31,6 +31,7 @@ def test_export_token_id_info_job_on_cyber():
                 batch=True,
             )
         ),
+        item_exporters=[ConsoleItemExporter()],
         batch_size=100,
         debug_batch_size=1,
         max_workers=5,
@@ -99,6 +100,7 @@ def test_export_token_id_info_job_on_cyber_mul():
                 batch=True,
             )
         ),
+        item_exporters=[ConsoleItemExporter()],
         batch_size=100,
         debug_batch_size=1,
         max_workers=5,
@@ -168,6 +170,7 @@ def test_export_token_id_info_job_on_linea():
                 batch=True,
             )
         ),
+        item_exporters=[ConsoleItemExporter()],
         batch_size=10,
         debug_batch_size=1,
         max_workers=1,
@@ -262,6 +265,7 @@ def test_export_token_id_info_job_on_linea_mul():
                 batch=True,
             )
         ),
+        item_exporters=[ConsoleItemExporter()],
         batch_size=10,
         debug_batch_size=1,
         max_workers=1,

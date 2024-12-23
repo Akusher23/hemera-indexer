@@ -12,7 +12,6 @@ from hemera.common.utils.module_loading import import_submodules
 from hemera.indexer.controller.scheduler.job_scheduler import JobScheduler
 from hemera.indexer.controller.stream_controller import StreamController
 from hemera.indexer.exporters.item_exporter import create_item_exporters
-from hemera.indexer.utils.buffer_service import BufferService
 from hemera.indexer.utils.limit_reader import create_limit_reader
 from hemera.indexer.utils.logging_utils import configure_logging, configure_signals
 from hemera.indexer.utils.parameter_utils import (
@@ -135,18 +134,10 @@ def stream_process(
     if source_path and source_path.startswith("postgresql://"):
         source_types = generate_dataclass_type_list_from_parameter(source_types, "source")
 
-    sync_recorder = create_recorder(sync_recorder, config)
-    buffer_service = BufferService(
-        item_exporters=create_item_exporters(output, config),
-        required_output_types=[output.type() for output in output_types],
-        success_callback=sync_recorder.handle_success,
-        exception_callback=sync_recorder.set_failure_record,
-    )
-
     job_scheduler = JobScheduler(
         batch_web3_provider=ThreadLocalProxy(lambda: get_provider_from_uri(provider_uri, batch=True)),
         batch_web3_debug_provider=ThreadLocalProxy(lambda: get_provider_from_uri(debug_provider_uri, batch=True)),
-        buffer_service=buffer_service,
+        item_exporters=create_item_exporters(output, config),
         batch_size=batch_size,
         debug_batch_size=debug_batch_size,
         max_workers=max_workers,
@@ -169,7 +160,7 @@ def stream_process(
     controller = StreamController(
         batch_web3_provider=ThreadLocalProxy(lambda: get_provider_from_uri(provider_uri, batch=False)),
         job_scheduler=job_scheduler,
-        sync_recorder=sync_recorder,
+        sync_recorder=create_recorder(sync_recorder, config),
         limit_reader=create_limit_reader(
             source_path, ThreadLocalProxy(lambda: get_provider_from_uri(provider_uri, batch=False))
         ),
@@ -187,5 +178,3 @@ def stream_process(
         period_seconds=period_seconds,
         pid_file=pid_file,
     )
-
-    buffer_service.shutdown()
