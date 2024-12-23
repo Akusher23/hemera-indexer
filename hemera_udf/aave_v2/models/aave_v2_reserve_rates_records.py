@@ -16,7 +16,7 @@ class AaveV2ReserveRates(HemeraModel):
     liquidity_index = Column(NUMERIC(100))
     variable_borrow_index = Column(NUMERIC(100))
 
-    block_timestamp = Column(BIGINT)
+    block_timestamp = Column(TIMESTAMP)
     transaction_hash = Column(BYTEA)
     log_index = Column(INTEGER)
     create_time = Column(TIMESTAMP, server_default=func.now())
