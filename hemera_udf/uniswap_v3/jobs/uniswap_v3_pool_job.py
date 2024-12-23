@@ -2,6 +2,8 @@ import logging
 
 import hemera_udf.uniswap_v3.abi.swapsicle_abi as swapsicle_abi
 import hemera_udf.uniswap_v3.abi.uniswapv3_abi as uniswapv3_abi
+import hemera_udf.uniswap_v3.abi.aerodrome_abi as aerodrome_abi
+
 from hemera.common.utils.format_utils import bytes_to_hex_str
 from hemera.indexer.domains.transaction import Transaction
 from hemera.indexer.jobs import FilterTransactionDataJob
@@ -48,8 +50,10 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
         for transaction in transactions:
             logs = transaction.receipt.logs
             for log in logs:
+                pool_dict = {}
+                pool_address = None
+
                 if log.topic0 == swapsicle_abi.POOL_CREATED_EVENT.get_signature():
-                    pool_dict = {}
                     decoded_data = swapsicle_abi.POOL_CREATED_EVENT.decode_log(log)
                     pool_address = decoded_data["pool"]
                     # tick_spacing\fee are stored in other logs
@@ -66,13 +70,8 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
                             "tick_spacing": 0,
                         }
                     )
-                    if pool_address not in self._existing_pools:
-                        self._existing_pools.append(pool_address)
-                        uniswap_v3_pool = UniswapV3Pool(**pool_dict)
-                        self._collect_domain(uniswap_v3_pool)
 
                 elif log.topic0 == uniswapv3_abi.POOL_CREATED_EVENT.get_signature():
-                    pool_dict = {}
                     decoded_data = uniswapv3_abi.POOL_CREATED_EVENT.decode_log(log)
                     pool_address = decoded_data["pool"]
                     pool_dict.update(
@@ -88,16 +87,37 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
                             "block_timestamp": log.block_timestamp,
                         }
                     )
-                    if pool_address not in self._existing_pools:
-                        self._existing_pools.append(pool_address)
-                        uniswap_v3_pool = UniswapV3Pool(**pool_dict)
-                        self._collect_domain(uniswap_v3_pool)
+
+                elif log.topic0 == aerodrome_abi.POOL_CREATED_EVENT.get_signature():
+                    decoded_data = aerodrome_abi.POOL_CREATED_EVENT.decode_log(log)
+                    pool_address = decoded_data["pool"]
+                    pool_dict.update(
+                        {
+                            "factory_address": log.address,
+                            "position_token_address": transaction.to_address,
+                            "token0_address": decoded_data["token0"],
+                            "token1_address": decoded_data["token1"],
+                            "fee": 0,
+                            "tick_spacing": decoded_data["tickSpacing"],
+                            "pool_address": pool_address,
+                            "block_number": log.block_number,
+                            "block_timestamp": log.block_timestamp,
+                        }
+                    )
+
+                if pool_address and pool_address not in self._existing_pools:
+                    self._existing_pools.add(pool_address)
+                    uniswap_v3_pool = UniswapV3Pool(**pool_dict)
+                    self._collect_domain(uniswap_v3_pool)
+
 
     def get_existing_pools(self):
         session = self._service.Session()
         try:
+            existing_pools = set()
             pools_orm = session.query(UniswapV3Pools).all()
-            existing_pools = [bytes_to_hex_str(p.pool_address) for p in pools_orm]
+            for pool in pools_orm:
+                existing_pools.add(bytes_to_hex_str(pool.pool_address))
 
         except Exception as e:
             print(e)

@@ -105,7 +105,7 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
         for factory_call, fee_call, token0_call, token1_call, tick_spacing_call in zip(
             factory_list, fee_list, token0_list, token1_list, tick_spacing_list
         ):
-            factory_address = factory_call.returns.get("")
+            factory_address = factory_call.returns.get("") if factory_call.returns else None
             if factory_address:
                 position_token_address = self._address_manager.get_position_by_factory(factory_address)
                 if position_token_address:
