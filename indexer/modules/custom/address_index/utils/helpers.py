@@ -1,10 +1,12 @@
 import binascii
 import copy
+import re
+from collections import defaultdict
 from datetime import date, datetime, timedelta
 from select import select
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from sqlalchemy import and_, func
+from sqlalchemy import and_, distinct, func, or_
 
 from api.app.address.features import register_feature
 from api.app.address.models import AddressBaseProfile
@@ -36,6 +38,7 @@ from indexer.modules.custom.address_index.models.address_nft_1155_holders import
 from indexer.modules.custom.address_index.models.address_token_holders import AddressTokenHolders
 from indexer.modules.custom.address_index.models.address_token_transfers import AddressTokenTransfers
 from indexer.modules.custom.address_index.models.address_transactions import AddressTransactions
+from indexer.modules.custom.address_index.models.distribution_daily_stats import AFDistributionDailyStats
 from indexer.modules.custom.address_index.models.token_address_nft_inventories import TokenAddressNftInventories
 from indexer.modules.custom.address_index.schemas.api import address_base_info_model, filter_and_fill_dict_by_model
 
@@ -1056,3 +1059,67 @@ def parse_address_transactions(transactions: list[AddressTransactions]):
                 ).title()
 
     return transaction_list
+
+
+def get_all_udf_dashboards():
+    all_udf_dashboards = []
+    query = db.session.query(distinct(AFDistributionDailyStats.distribution_name)).order_by(
+        AFDistributionDailyStats.distribution_name
+    )
+    result = query.all()
+
+    distinct_distribution_names = [row[0] for row in result]
+
+    return distinct_distribution_names
+
+
+def get_all_udf_dashboards_data():
+    today = date.today() - timedelta(days=1)
+    week_ago = today - timedelta(days=7)
+    month_ago = today - timedelta(days=30)
+    result = (
+        db.session.query(AFDistributionDailyStats)
+        .filter(
+            or_(
+                AFDistributionDailyStats.block_date == today,
+                AFDistributionDailyStats.block_date == week_ago,
+                AFDistributionDailyStats.block_date == month_ago,
+            )
+        )
+        .order_by(AFDistributionDailyStats.distribution_name, AFDistributionDailyStats.block_date)
+        .all()
+    )
+
+    res = {}
+    for row in result:
+        if row.distribution_name not in res:
+            res[row.distribution_name] = {
+                "name": row.distribution_name,
+                "data": [
+                    {"type": "as_of_today", "data": []},
+                    {"type": "as_of_a_week_ago", "data": []},
+                    {"type": "as_of_a_month_ago", "data": []},
+                ],
+            }
+        if row.block_date == today:
+            res[row.distribution_name]["data"][0]["data"].append(
+                {
+                    "value": str(row.value),
+                    "label": str(row.x),
+                }
+            )
+        elif row.block_date == week_ago:
+            res[row.distribution_name]["data"][1]["data"].append(
+                {
+                    "value": str(row.value),
+                    "label": str(row.x),
+                }
+            )
+        elif row.block_date == month_ago:
+            res[row.distribution_name]["data"][2]["data"].append(
+                {
+                    "value": str(row.value),
+                    "label": str(row.x),
+                }
+            )
+    return res
