@@ -264,7 +264,7 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                         block_number=a_record.block_number,
                     ),
                 )
-            return res_d
+        return res_d
 
     def _collect(self, **kwargs):
         logs = self._data_buff[Log.type()]
