@@ -105,38 +105,39 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
         for factory_call, fee_call, token0_call, token1_call, tick_spacing_call in zip(
             factory_list, fee_list, token0_list, token1_list, tick_spacing_list
         ):
-            factory_address = factory_call.returns.get("")
-            if factory_address:
-                position_token_address = self._address_manager.get_position_by_factory(factory_address)
-                if position_token_address:
-                    if fee_call.returns:
-                        fee = fee_call.returns.get("", 0)
-                    else:
-                        fee = 0
-                    token0 = token0_call.returns.get("")
-                    token1 = token1_call.returns.get("")
-                    pool_address = factory_call.target.lower()
-                    tick_spacing = tick_spacing_call.returns.get("", 0)
+            if factory_call.returns:
+                factory_address = factory_call.returns.get("")
+                if factory_address:
+                    position_token_address = self._address_manager.get_position_by_factory(factory_address)
+                    if position_token_address:
+                        if fee_call.returns:
+                            fee = fee_call.returns.get("", 0)
+                        else:
+                            fee = 0
+                        token0 = token0_call.returns.get("")
+                        token1 = token1_call.returns.get("")
+                        pool_address = factory_call.target.lower()
+                        tick_spacing = tick_spacing_call.returns.get("", 0)
 
-                    uniswap_v_pool_from_swap_event = UniswapV3PoolFromSwapEvent(
-                        position_token_address=position_token_address,
-                        factory_address=factory_address,
-                        pool_address=pool_address,
-                        fee=fee,
-                        token0_address=token0,
-                        token1_address=token1,
-                        block_number=factory_call.block_number,
-                        block_timestamp=factory_call.user_defined_k,
-                        tick_spacing=tick_spacing,
-                    )
+                        uniswap_v_pool_from_swap_event = UniswapV3PoolFromSwapEvent(
+                            position_token_address=position_token_address,
+                            factory_address=factory_address,
+                            pool_address=pool_address,
+                            fee=fee,
+                            token0_address=token0,
+                            token1_address=token1,
+                            block_number=factory_call.block_number,
+                            block_timestamp=factory_call.user_defined_k,
+                            tick_spacing=tick_spacing,
+                        )
 
-                    self._exist_pools[pool_address] = {
-                        "token0_address": token0,
-                        "token1_address": token1,
-                        "position_token_address": position_token_address,
-                        "factory_address": factory_address,
-                    }
-                    self._collect_domain(uniswap_v_pool_from_swap_event)
+                        self._exist_pools[pool_address] = {
+                            "token0_address": token0,
+                            "token1_address": token1,
+                            "position_token_address": position_token_address,
+                            "factory_address": factory_address,
+                        }
+                        self._collect_domain(uniswap_v_pool_from_swap_event)
 
     def _process(self, **kwargs):
         self._exist_pools = self.get_existing_pools()
