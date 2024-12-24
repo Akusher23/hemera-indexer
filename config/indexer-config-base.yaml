@@ -22,3 +22,8 @@ export_meme_token_created_job:
   larry_factory_address:
     - "0x5faAb5D52790916ed9c2C159960006151e311bA0"
     - "0xb3a720f17902b7d2e8c38c5044c3b20e8ac9c27c"
+
+export_tokens_and_transfers_job:
+  filter_token_address:
+    # fBTC
+    - "0x0fd7a301b51d0a83fcaf6718628174d527b373b6"
