@@ -208,6 +208,7 @@ def schedule_jobs(is_yesterday=True):
     fbtc_alarm('bsc', is_yesterday)
     fbtc_alarm('bob', is_yesterday)
     fbtc_alarm('arbitrum', is_yesterday)
+    fbtc_alarm('base', is_yesterday)
 
 
 def get_yesterday_date():
