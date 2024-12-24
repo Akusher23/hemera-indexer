@@ -33,7 +33,7 @@ with farming_config as (select decode('827922686190790b37229fd06084350e74485b72'
                                               on d1.pool_address = d2.pool_address
                                    inner join (select *
                                                from af_uniswap_v3_token_data_period
-                                               where d3.period_date = '{start_date}') d3
+                                               where period_date = '{start_date}') d3
                                               on d1.pool_address = d3.pool_address
                                    inner join af_uniswap_v3_tokens d4
                                               ON d3.position_token_address = d4.position_token_address
