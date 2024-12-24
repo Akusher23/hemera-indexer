@@ -51,7 +51,9 @@ class PeriodWalletProtocolJsonProcessFbtc(PeriodFeatureDefiWalletAggregates):
             'staked': self.get_staked_json,
             'dodo': self.get_dodo_json,
             'eigenlayer': self.get_eigenlayer_json,
-            'thena': self.get_thena_json
+            'thena': self.get_thena_json,
+            "farming_uniswapv3": self.get_farming_uniswap_v3_json,
+
         }
 
     def get_pool_token_pair_data(self, orm_list):
@@ -82,6 +84,22 @@ class PeriodWalletProtocolJsonProcessFbtc(PeriodFeatureDefiWalletAggregates):
     def get_uniswap_v3_json(self):
         uniswapV3_list = self.get_filter_fbtc_orm(PeriodFeatureHoldingBalanceUniswapV3)
         results = self.get_pool_token_pair_data(uniswapV3_list)
+        return results
+
+    def get_farming_uniswap_v3_json(self):
+        orms = self.get_orms_by_sql('uniswapv3_with_farming_detail.sql')
+
+        df = get_detail_df(orms)
+        df = df[df['protocol_id'] != 'other_uniswap_v3']
+
+        liquidity_df = calculate_liquidity(df, self.token_symbol)
+        float_objs = change_df_to_obj(liquidity_df)
+
+        results = get_pool_token_pair_data_with_lp(float_objs, self.token_symbol, self.db_service, self.end_date,
+                                                   self.price_dict,
+                                                   'uniswapv3')
+
+        self.get_pool_token_pair_aggr_by_protocol(float_objs, self.price)
         return results
 
     def get_merchantmoe_json(self):
@@ -256,6 +274,7 @@ class PeriodWalletProtocolJsonProcessFbtc(PeriodFeatureDefiWalletAggregates):
         self.protocol_process_fun('uniswapv3')
         self.protocol_process_fun('merchantmoe')
         self.protocol_process_fun('dodo')
+        self.protocol_process_fun('farming_uniswapv3')
 
     def run(self):
         self.get_middle_json()
