@@ -169,6 +169,7 @@ class AaveV2ReserveDataD(Domain):
 class AaveV2ReserveDataCurrentD(Domain):
     asset: Optional[str] = None
     block_number: Optional[int] = None
+    block_timestamp: Optional[int] = None
     liquidity_rate: Optional[int] = None
     stable_borrow_rate: Optional[int] = None
     variable_borrow_rate: Optional[int] = None

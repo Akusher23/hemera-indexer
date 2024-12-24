@@ -288,6 +288,7 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                         AaveV2ReserveDataCurrentD(
                             asset=processed_data.asset,
                             block_number=processed_data.block_number,
+                            block_timestamp=processed_data.block_timestamp,
                             liquidity_rate=processed_data.liquidity_rate,
                             stable_borrow_rate=processed_data.stable_borrow_rate,
                             variable_borrow_rate=processed_data.variable_borrow_rate,
