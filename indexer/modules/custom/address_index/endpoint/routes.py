@@ -134,13 +134,13 @@ class ACIVolumes(Resource):
 
 @address_profile_namespace.route("/v1/aci/udf_dashboards")
 class UDFDashboards(Resource):
-    @cache.cached(timeout=360, query_string=True)
+    # @cache.cached(timeout=360, query_string=True)
     def get(self):
         return get_all_udf_dashboards()
 
 
 @address_profile_namespace.route("/v1/aci/udf_dashboards_data")
 class UDFDashboards(Resource):
-    @cache.cached(timeout=360, query_string=True)
+    @cache.cached(timeout=10, query_string=True)
     def get(self):
         return get_all_udf_dashboards_data()

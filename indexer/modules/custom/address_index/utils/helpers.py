@@ -1,5 +1,6 @@
 import binascii
 import copy
+import math
 import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta
@@ -1074,6 +1075,10 @@ def get_all_udf_dashboards():
     return distinct_distribution_names
 
 
+def estimate_chart_type():
+    return "value"
+
+
 def get_all_udf_dashboards_data():
     today = date.today() - timedelta(days=1)
     week_ago = today - timedelta(days=7)
@@ -1087,7 +1092,9 @@ def get_all_udf_dashboards_data():
                 AFDistributionDailyStats.block_date == month_ago,
             )
         )
-        .order_by(AFDistributionDailyStats.distribution_name, AFDistributionDailyStats.block_date, AFDistributionDailyStats.x)
+        .order_by(
+            AFDistributionDailyStats.distribution_name, AFDistributionDailyStats.block_date, AFDistributionDailyStats.x
+        )
         .all()
     )
 
@@ -1096,6 +1103,7 @@ def get_all_udf_dashboards_data():
         if row.distribution_name not in res:
             res[row.distribution_name] = {
                 "name": row.distribution_name,
+                "chart_type": "",
                 "data": [
                     {"type": "as_of_today", "data": []},
                     {"type": "as_of_a_week_ago", "data": []},
@@ -1123,4 +1131,48 @@ def get_all_udf_dashboards_data():
                     "label": float(row.x),
                 }
             )
+    for distribution_name, distribution_data in res.items():
+        chart_type = (
+            "log"
+            if (
+                check_logarithmic_pattern(distribution_data["data"][0]["data"])
+                or check_logarithmic_pattern(distribution_data["data"][1]["data"])
+                or check_logarithmic_pattern(distribution_data["data"][0]["data"])
+            )
+            else "value"
+        )
+        res[distribution_name]["chart_type"] = chart_type
     return res
+
+
+def is_logarithmic(labels):
+    """
+    Check if the given list of labels follows a logarithmic pattern.
+
+    :param labels: List of label values.
+    :return: True if the labels are logarithmic, False otherwise.
+    """
+    if len(labels) < 3:
+        return False  # Need at least 3 points to check for logarithmic pattern
+
+    # Calculate differences of consecutive labels
+    differences = []
+    for i in range(1, len(labels)):
+        if labels[i - 1] <= 0 or labels[i] <= 0:
+            return False  # Logarithmic pattern invalid with non-positive values
+        differences.append(math.log(labels[i]) - math.log(labels[i - 1]))
+
+    # Check if all differences are approximately equal
+    threshold = 1e-6  # Allowable error margin
+    return all(abs(d - differences[0]) < threshold for d in differences)
+
+
+def check_logarithmic_pattern(data):
+    """
+    Check if the 'label' field in the given list of dictionaries follows a logarithmic pattern.
+
+    :param data: List of dictionaries with 'label' keys.
+    :return: True if the labels are logarithmic, False otherwise.
+    """
+    labels = [item["label"] for item in data]
+    return is_logarithmic(labels)
