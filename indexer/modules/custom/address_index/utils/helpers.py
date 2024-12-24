@@ -1105,51 +1105,22 @@ def get_all_udf_dashboards_data():
         if row.block_date == today:
             res[row.distribution_name]["data"][0]["data"].append(
                 {
-                    "value": bigdecimal_to_number(row.value),
-                    "label": bigdecimal_to_number(row.x),
+                    "value": float(row.value),
+                    "label": float(row.x),
                 }
             )
         elif row.block_date == week_ago:
             res[row.distribution_name]["data"][1]["data"].append(
                 {
-                    "value": bigdecimal_to_number(row.value),
-                    "label": bigdecimal_to_number(row.x),
+                    "value": float(row.value),
+                    "label": float(row.x),
                 }
             )
         elif row.block_date == month_ago:
             res[row.distribution_name]["data"][2]["data"].append(
                 {
-                    "value": bigdecimal_to_number(row.value),
-                    "label": bigdecimal_to_number(row.x),
+                    "value": float(row.value),
+                    "label": float(row.x),
                 }
             )
     return res
-
-
-def bigdecimal_to_number(value):
-    """
-    Convert a Decimal to a float, int, or scientific notation.
-    If the decimal part is zero, return an integer.
-    If the number is very large or very small, return scientific notation.
-    Otherwise, return a float.
-
-    :param value: Decimal to convert.
-    :return: int, float, or scientific notation string.
-    """
-    if not isinstance(value, Decimal):
-        raise ValueError("Input must be a Decimal type.")
-
-    # If the value is zero, return as is
-    if value == 0:
-        return "0"
-
-    # Check if the value is very small or very large for scientific notation
-    if abs(value) < 1e-6 or abs(value) > 1e6:
-        return f"{value:.2E}"
-
-    # If the value is an integer
-    if value == value.to_integral_value():
-        return int(value)
-
-    # Otherwise, return as a float
-    return float(value)
