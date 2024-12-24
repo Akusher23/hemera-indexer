@@ -7,6 +7,9 @@ from collections import namedtuple
 
 from indexer.aggr_jobs.order_jobs.py_jobs.untils import get_engine
 
+import warnings
+warnings.simplefilter(action='ignore', category=pd.errors.SettingWithCopyWarning)
+
 Q96 = 2 ** 96
 root_c = 1.0001
 
@@ -19,7 +22,8 @@ address_mapping = {
     '0x7d24de60a68ae47be4e852cf03dd4d8588b489ec': 'swapsicle',
     "0xfc3861c04c5ce0883d9f79308e5a65402141df85": "teahouse",
     "0x4ddd37f662871fb49ebbc88a58897961e2c12a60": "teahouse",
-    "0xa51adb08cbe6ae398046a23bec013979816b77ab": "thena"
+    "0xa51adb08cbe6ae398046a23bec013979816b77ab": "thena",
+    "0x827922686190790b37229fd06084350e74485b72": "aerodrome"
 }
 
 
@@ -202,7 +206,7 @@ def get_detail_df(result):
             df[column] = df[column].apply(lambda x: "0x" + x.tobytes().hex() if isinstance(x, memoryview) else x)
         elif df[column].apply(lambda x: isinstance(x, Decimal)).any():
             df[column] = df[column].astype(float)
-    df['protocol_id'] = df['nft_address'].map(address_mapping).fillna('uniswap_v3')
+    df['protocol_id'] = df['nft_address'].map(address_mapping).fillna('other_uniswap_v3')
     return df
 
 
@@ -239,11 +243,14 @@ def calculate_token_balance(df_):
 
 
 def rate_mapping(x):
+    fbtc_pair_list_ = ['FBTC', 'cbBTC']
     fbtc_pair_list = ['FBTC', 'WBTC']
     cmeth_pair_list = ['cmETH', 'WETH']
     cmeth_pair_list_ = ['cmETH', 'mETH']
     meth_pair_list = ['mETH', 'WETH']
 
+    if x.token0_symbol in fbtc_pair_list_ and x.token1_symbol in fbtc_pair_list_:
+        return 0.005  # 0.5%
     if x.token0_symbol in fbtc_pair_list and x.token1_symbol in fbtc_pair_list:
         return 0.005  # 0.5%
     elif x.token0_symbol in cmeth_pair_list and x.token1_symbol in cmeth_pair_list:
@@ -316,7 +323,7 @@ def change_df_to_obj(df):
     for column in df.columns:
         # 检查数据类型并强制转换列为 float 类型
         if df[column].dtype == 'float64' or column in columns:
-            df[column] = df[column].apply(lambda x: Decimal(x) if not pd.isna(x) else x)
+            df.loc[:, column] = df[column].apply(lambda x: Decimal(x) if not pd.isna(x) else x)
 
     # 将 DataFrame 转换为命名元组对象
     Row = namedtuple('Row', df.columns)

@@ -1,5 +1,7 @@
+import os
 from collections import defaultdict
-from datetime import datetime
+
+from sqlalchemy import text
 
 from indexer.aggr_jobs.order_jobs.models.period_address_token_balances import PeriodAddressTokenBalances
 from indexer.aggr_jobs.order_jobs.models.period_feature_defi_cmeth_aggregates import PeriodFeatureDefiCmethAggregates
@@ -24,6 +26,26 @@ class PeriodFeatureDefiWalletAggregates:
         self.decimals = None
         self.price = None
         self.token_address = None
+
+    def get_orms_by_sql(self, file_name):
+        session = self.db_service.Session()
+        sql = self.get_sql_content(file_name)
+        orm_list = session.execute(text(sql))
+        session.close()
+        return orm_list
+
+    def get_sql_content(self, file_name):
+        base_dir = os.path.dirname(__file__)
+        if not file_name.endswith(".sql"):
+            file_name += ".sql"
+        file_path = os.path.join(base_dir, 'sqls', file_name)
+
+        with open(file_path, "r") as f:
+            sql_template = f.read()
+        sql = sql_template.format(
+            start_date=self.start_date, end_date=self.end_date
+        )
+        return sql
 
     def get_token_aggr_by_protocol(self, orm_list, price):
         grouped_data = defaultdict(list)
