@@ -1,3 +1,5 @@
+import os
+
 import click
 
 from hemera.cli.core.stream_process import stream_process
@@ -38,7 +40,7 @@ from hemera.indexer.utils.parameter_utils import default_if_none
 @delay_control
 @log_setting
 @pid_file_storage
-def stream(
+def async_stream(
     provider_uri,
     debug_provider_uri,
     entity_types,
@@ -72,10 +74,20 @@ def stream(
     log_level,
     pid_file,
 ):
-    block_batch_size = default_if_none(block_batch_size, 1)
-    batch_size = default_if_none(batch_size, 1)
+    os.environ["JOB_RETRIES"] = "3"
+
+    # BufferService env
+    os.environ["ASYNC_SUBMIT"] = "true"
+    os.environ["CONCURRENT_SUBMITTERS"] = "5"
+    os.environ["CRASH_INSTANTLY"] = "false"
+
+    # pg performance
+    os.environ["COMMIT_BATCH_SIZE"] = "8000"
+
+    block_batch_size = default_if_none(block_batch_size, 10)
+    batch_size = default_if_none(batch_size, 50)
     debug_batch_size = default_if_none(debug_batch_size, 1)
-    multicall = default_if_none(multicall, False)
+    multicall = default_if_none(multicall, True)
 
     process_numbers = default_if_none(process_numbers, 1)
 
