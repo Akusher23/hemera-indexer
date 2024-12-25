@@ -1,8 +1,6 @@
-from sqlalchemy import VARCHAR, Column, Date, Double, Index, Numeric, PrimaryKeyConstraint, desc, func
-from sqlalchemy.dialects.postgresql import BYTEA, INTEGER, NUMERIC, SMALLINT, TEXT, TIMESTAMP
+from sqlalchemy import VARCHAR, Column, Date, Double, Numeric, PrimaryKeyConstraint
 
-from common.models import HemeraModel, general_converter
-from indexer.modules.custom.address_index.domain import AddressTransaction
+from common.models import HemeraModel
 
 
 class AFDistributionDailyStats(HemeraModel):

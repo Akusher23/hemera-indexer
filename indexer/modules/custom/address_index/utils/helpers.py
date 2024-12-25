@@ -41,6 +41,7 @@ from indexer.modules.custom.address_index.models.address_token_holders import Ad
 from indexer.modules.custom.address_index.models.address_token_transfers import AddressTokenTransfers
 from indexer.modules.custom.address_index.models.address_transactions import AddressTransactions
 from indexer.modules.custom.address_index.models.distribution_daily_stats import AFDistributionDailyStats
+from indexer.modules.custom.address_index.models.metrics_distribution_daily_stats import AFMetricsDistributionDailyStats
 from indexer.modules.custom.address_index.models.token_address_nft_inventories import TokenAddressNftInventories
 from indexer.modules.custom.address_index.schemas.api import address_base_info_model, filter_and_fill_dict_by_model
 
@@ -1075,10 +1076,6 @@ def get_all_udf_dashboards():
     return distinct_distribution_names
 
 
-def estimate_chart_type():
-    return "value"
-
-
 def get_all_udf_dashboards_data():
     today = date.today() - timedelta(days=1)
     week_ago = today - timedelta(days=7)
@@ -1086,10 +1083,13 @@ def get_all_udf_dashboards_data():
     result = (
         db.session.query(AFDistributionDailyStats)
         .filter(
-            or_(
-                AFDistributionDailyStats.block_date == today,
-                AFDistributionDailyStats.block_date == week_ago,
-                AFDistributionDailyStats.block_date == month_ago,
+            and_(
+                AFDistributionDailyStats.x != 0.0,
+                or_(
+                    AFDistributionDailyStats.block_date == today,
+                    AFDistributionDailyStats.block_date == week_ago,
+                    AFDistributionDailyStats.block_date == month_ago,
+                ),
             )
         )
         .order_by(
@@ -1098,6 +1098,25 @@ def get_all_udf_dashboards_data():
         .all()
     )
 
+    metrics = (
+        db.session.query(AFMetricsDistributionDailyStats)
+        .filter(
+            or_(
+                AFMetricsDistributionDailyStats.block_date == today,
+                AFMetricsDistributionDailyStats.block_date == week_ago,
+                AFMetricsDistributionDailyStats.block_date == month_ago,
+            )
+        )
+        .order_by(AFMetricsDistributionDailyStats.distribution_name, AFMetricsDistributionDailyStats.block_date)
+        .all()
+    )
+    metrics_dic = {}
+    for a_metrics in metrics:
+        distribution_name = a_metrics.distribution_name
+        if distribution_name not in metrics_dic:
+            metrics_dic[distribution_name] = {}
+        metrics_dic[distribution_name][a_metrics.block_date] = a_metrics
+
     res = {}
     for row in result:
         if row.distribution_name not in res:
@@ -1105,12 +1124,18 @@ def get_all_udf_dashboards_data():
                 "name": row.distribution_name,
                 "chart_type": "",
                 "data": [
-                    {"type": "as_of_today", "data": []},
-                    {"type": "as_of_a_week_ago", "data": []},
-                    {"type": "as_of_a_month_ago", "data": []},
+                    {"type": "as_of_today", "avg": "", "stdev": "", "data": []},
+                    {"type": "as_of_a_week_ago", "avg": "", "stdev": "", "data": []},
+                    {"type": "as_of_a_month_ago", "avg": "", "stdev": "", "data": []},
                 ],
             }
         if row.block_date == today:
+            target_metrics = metrics_dic.get(row.distribution_name)
+            if target_metrics:
+                target_metrics = target_metrics.get(row.block_date)
+                if target_metrics:
+                    res[row.distribution_name]["data"][0]["avg"] = float(target_metrics.avg)
+                    res[row.distribution_name]["data"][0]["stdev"] = float((target_metrics.stdev))
             res[row.distribution_name]["data"][0]["data"].append(
                 {
                     "value": float(row.value),
@@ -1118,6 +1143,12 @@ def get_all_udf_dashboards_data():
                 }
             )
         elif row.block_date == week_ago:
+            target_metrics = metrics_dic.get(row.distribution_name)
+            if target_metrics:
+                target_metrics = target_metrics.get(row.block_date)
+                if target_metrics:
+                    res[row.distribution_name]["data"][1]["avg"] = float(target_metrics.avg)
+                    res[row.distribution_name]["data"][1]["stdev"] = float(target_metrics.stdev)
             res[row.distribution_name]["data"][1]["data"].append(
                 {
                     "value": float(row.value),
@@ -1125,54 +1156,61 @@ def get_all_udf_dashboards_data():
                 }
             )
         elif row.block_date == month_ago:
+            target_metrics = metrics_dic.get(row.distribution_name)
+            if target_metrics:
+                target_metrics = target_metrics.get(row.block_date)
+                if target_metrics:
+                    res[row.distribution_name]["data"][2]["avg"] = float(target_metrics.avg)
+                    res[row.distribution_name]["data"][2]["stdev"] = float(target_metrics.stdev)
             res[row.distribution_name]["data"][2]["data"].append(
                 {
                     "value": float(row.value),
                     "label": float(row.x),
                 }
             )
+
+    # if as_of_week_ago or as_of_month_ago empty, fill them by as_of_today
+
     for distribution_name, distribution_data in res.items():
         chart_type = (
             "log"
             if (
-                check_logarithmic_pattern(distribution_data["data"][0]["data"])
-                or check_logarithmic_pattern(distribution_data["data"][1]["data"])
-                or check_logarithmic_pattern(distribution_data["data"][0]["data"])
+                check_logarithmic_pattern(distribution_name, distribution_data["data"][0]["data"])
+                or check_logarithmic_pattern(distribution_name, distribution_data["data"][1]["data"])
+                or check_logarithmic_pattern(distribution_name, distribution_data["data"][0]["data"])
             )
             else "value"
         )
         res[distribution_name]["chart_type"] = chart_type
+        if not distribution_data["data"][1]["data"]:
+            res[distribution_name]["data"][1]["avg"] = distribution_data["data"][0]["avg"]
+            res[distribution_name]["data"][1]["stdev"] = distribution_data["data"][0]["stdev"]
+            res[distribution_name]["data"][1]["data"] = distribution_data["data"][0]["data"]
+        if not distribution_data["data"][2]["data"]:
+            res[distribution_name]["data"][2]["avg"] = distribution_data["data"][0]["avg"]
+            res[distribution_name]["data"][2]["stdev"] = distribution_data["data"][0]["stdev"]
+            res[distribution_name]["data"][2]["data"] = distribution_data["data"][0]["data"]
     return res
 
 
 def is_logarithmic(labels):
-    """
-    Check if the given list of labels follows a logarithmic pattern.
-
-    :param labels: List of label values.
-    :return: True if the labels are logarithmic, False otherwise.
-    """
     if len(labels) < 3:
         return False  # Need at least 3 points to check for logarithmic pattern
-
-    # Calculate differences of consecutive labels
     differences = []
     for i in range(1, len(labels)):
         if labels[i - 1] <= 0 or labels[i] <= 0:
             return False  # Logarithmic pattern invalid with non-positive values
         differences.append(math.log(labels[i]) - math.log(labels[i - 1]))
 
-    # Check if all differences are approximately equal
     threshold = 1e-6  # Allowable error margin
     return all(abs(d - differences[0]) < threshold for d in differences)
 
 
-def check_logarithmic_pattern(data):
-    """
-    Check if the 'label' field in the given list of dictionaries follows a logarithmic pattern.
-
-    :param data: List of dictionaries with 'label' keys.
-    :return: True if the labels are logarithmic, False otherwise.
-    """
+def check_logarithmic_pattern(distribution_name, data):
+    log_chart_type = set(
+        ["distribution_job_eigen_layer_udf", "distribution_job_aave2_supply_udf", "distribution_job_aave2_borrow_udf"]
+    )
+    if distribution_name in log_chart_type:
+        return "log"
     labels = [item["label"] for item in data]
     return is_logarithmic(labels)
