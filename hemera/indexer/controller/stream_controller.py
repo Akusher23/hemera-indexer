@@ -14,7 +14,7 @@ from hemera.indexer.utils.sync_recorder import BaseRecorder
 
 logger = logging.getLogger(__name__)
 
-JOB_RETRIES = os.environ.get("JOB_RETRIES", 5)
+JOB_RETRIES = int(os.environ.get("JOB_RETRIES", "5"))
 
 
 class StreamController(BaseController):
@@ -39,6 +39,8 @@ class StreamController(BaseController):
         self.max_retries = JOB_RETRIES
         self.retry_from_record = retry_from_record
         self.delay = delay
+
+        self.buffer_service = job_scheduler.buffer_service
 
         self.process_numbers = process_numbers
         self.process_size = process_size
@@ -107,6 +109,9 @@ class StreamController(BaseController):
                     logger.info("Writing last synced block {}".format(target_block))
                     self.sync_recorder.set_last_synced_block(target_block)
                     last_synced_block = target_block
+                    if self.buffer_service.is_shutdown():
+                        logger.info("By some reason, BufferService was shutdown, Indexer will exit immediately.")
+                        break
 
                 if synced_blocks <= 0:
                     logger.info("Nothing to sync. Sleeping for {} seconds...".format(period_seconds))
