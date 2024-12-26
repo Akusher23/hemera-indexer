@@ -21,7 +21,7 @@ from hemera_udf.uniswap_v3.util import AddressManager
 logger = logging.getLogger(__name__)
 
 
-class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
+class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
     dependency_types = [Transaction]
     output_types = [UniswapV3PoolPrice, UniswapV3PoolCurrentPrice, UniswapV3SwapEvent, UniswapV3PoolFromSwapEvent]
     able_to_reorg = True
