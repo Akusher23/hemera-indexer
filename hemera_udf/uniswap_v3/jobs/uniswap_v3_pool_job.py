@@ -25,7 +25,7 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
         config = kwargs["config"]["uniswap_v3_job"]
         jobs = config.get("jobs", [])
         self._address_manager = AddressManager(jobs)
-        self._existing_pools = self.get_existing_pools()
+        # self._existing_pools = self.get_existing_pools()
 
     def get_filter(self):
 
@@ -50,6 +50,7 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
             pool_dict = {}
             pool_address = None
 
+            position_token_address = self._address_manager.get_position_by_factory(log.address)
             if log.topic0 == swapsicle_abi.POOL_CREATED_EVENT.get_signature():
                 decoded_data = swapsicle_abi.POOL_CREATED_EVENT.decode_log(log)
                 pool_address = decoded_data["pool"]
@@ -57,7 +58,7 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
                 pool_dict.update(
                     {
                         "factory_address": log.address,
-                        "position_token_address": self._address_manager.get_position_by_factory(log.address),
+                        "position_token_address": position_token_address,
                         "token0_address": decoded_data["token0"],
                         "token1_address": decoded_data["token1"],
                         "pool_address": pool_address,
@@ -74,7 +75,7 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
                 pool_dict.update(
                     {
                         "factory_address": log.address,
-                        "position_token_address": self._address_manager.get_position_by_factory(log.address),
+                        "position_token_address": position_token_address,
                         "token0_address": decoded_data["token0"],
                         "token1_address": decoded_data["token1"],
                         "fee": decoded_data["fee"],
@@ -91,7 +92,7 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
                 pool_dict.update(
                     {
                         "factory_address": log.address,
-                        "position_token_address": self._address_manager.get_position_by_factory(log.address),
+                        "position_token_address": position_token_address,
                         "token0_address": decoded_data["token0"],
                         "token1_address": decoded_data["token1"],
                         "fee": 0,
@@ -102,8 +103,8 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
                     }
                 )
 
-            if pool_address and pool_address not in self._existing_pools:
-                self._existing_pools.add(pool_address)
+            if pool_address and position_token_address:
+                # self._existing_pools.add(pool_address)
                 uniswap_v3_pool = UniswapV3Pool(**pool_dict)
                 self._collect_domain(uniswap_v3_pool)
 
