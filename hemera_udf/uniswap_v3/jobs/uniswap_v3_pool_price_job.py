@@ -34,7 +34,7 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
         self._address_manager = AddressManager(jobs)
 
         self.multi_call_helper = MultiCallHelper(self._web3, kwargs, logger)
-        self.pools_requested_by_rpc = []
+        self.pools_requested_by_rpc = set()
 
     def get_filter(self):
         address_list = self._pool_address if self._pool_address else []
@@ -63,15 +63,15 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
                 if log.topic0 == uniswapv3_abi.SWAP_EVENT.get_signature() and log.address not in self._exist_pools:
                     if log.address not in self.pools_requested_by_rpc:
                         abi_module = uniswapv3_abi
-                        self.pools_requested_by_rpc.append(log.address)
+                        self.pools_requested_by_rpc.add(log.address)
                 elif log.topic0 == swapsicle_abi.SWAP_EVENT.get_signature() and log.address not in self._exist_pools:
                     if log.address not in self.pools_requested_by_rpc:
                         abi_module = swapsicle_abi
-                        self.pools_requested_by_rpc.append(log.address)
+                        self.pools_requested_by_rpc.add(log.address)
                 elif log.topic0 == agni_abi.SWAP_EVENT.get_signature() and log.address not in self._exist_pools:
                     if log.address not in self.pools_requested_by_rpc:
                         abi_module = agni_abi
-                        self.pools_requested_by_rpc.append(log.address)
+                        self.pools_requested_by_rpc.add(log.address)
 
                 if abi_module:
                     call_dict = {
