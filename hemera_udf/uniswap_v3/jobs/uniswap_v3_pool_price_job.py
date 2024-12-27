@@ -36,6 +36,11 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
 
         self.multi_call_helper = MultiCallHelper(self._web3, kwargs, logger)
         self.pools_requested_by_rpc = set()
+        # self.token_decimals_map = {}
+
+        stable_tokens_config = kwargs["config"].get("export_block_token_price_job", {})
+
+        self.stable_tokens = stable_tokens_config
 
     def get_filter(self):
         address_list = self._pool_address if self._pool_address else []
@@ -50,6 +55,20 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
                 ),
             ]
         )
+
+    def change_block_token_prices_to_dict(self):
+        symbol_address_dict = {symbol: address for address, symbol in self.stable_tokens.items()}
+
+        token_prices_dict = {}
+
+        block_token_prices = self._data_buff[BlockTokenPrice.type()]
+        for token_price in block_token_prices:
+            address = symbol_address_dict.get(token_price.token_symbol)
+            if address:
+                block_number = token_price.block_number
+                token_prices_dict[address, block_number] = token_price.token_price
+
+        return token_prices_dict
 
     def get_missing_pools_by_rpc(self):
         # pool_logs
@@ -141,6 +160,7 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
 
     def _process(self, **kwargs):
         self._exist_pools = self.get_existing_pools()
+        token_prices_dict = self.change_block_token_prices_to_dict()
 
         if not self._pool_address:
             self.get_missing_pools_by_rpc()
@@ -158,12 +178,13 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
                     factory_address = pool_data.pop("factory_address")
                     key_data_dict = {}
                     decoded_data = {}
+                    block_number = log.block_number
                     if log.topic0 == uniswapv3_abi.SWAP_EVENT.get_signature():
                         decoded_data = uniswapv3_abi.SWAP_EVENT.decode_log(log)
                         key_data_dict = {
                             "tick": decoded_data["tick"],
                             "sqrt_price_x96": decoded_data["sqrtPriceX96"],
-                            "block_number": log.block_number,
+                            "block_number": block_number,
                             "block_timestamp": log.block_timestamp,
                             "pool_address": pool_address,
                         }
@@ -173,7 +194,7 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
                         key_data_dict = {
                             "tick": decoded_data["tick"],
                             "sqrt_price_x96": decoded_data["sqrtPriceX96"],
-                            "block_number": log.block_number,
+                            "block_number": block_number,
                             "block_timestamp": log.block_timestamp,
                             "pool_address": pool_address,
                         }
@@ -184,15 +205,42 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
                         key_data_dict = {
                             "tick": decoded_data["tick"],
                             "sqrt_price_x96": decoded_data["price"],
-                            "block_number": log.block_number,
+                            "block_number": block_number,
                             "block_timestamp": log.block_timestamp,
                             "pool_address": pool_address,
                         }
 
                     if decoded_data:
-                        price = UniswapV3PoolPrice(**key_data_dict, factory_address=factory_address)
-                        price_dict[pool_address, log.block_number] = price
-                        current_price_dict[pool_address] = UniswapV3PoolCurrentPrice(**vars(price))
+                        token0_address = pool_data.get("token0_address")
+                        token1_address = pool_data.get("token1_address")
+
+                        decimals0 = self.tokens.get(token0_address).get("decimals")
+                        decimals1 = self.tokens.get(token1_address).get("decimals")
+
+                        amount0 = abs(decoded_data["amount0"])
+                        amount1 = abs(decoded_data["amount1"])
+                        if token0_address in self.stable_tokens:
+                            token0_price = token_prices_dict.get((token0_address, block_number))
+                            amount_usd = amount0 / 10**decimals0 * token0_price
+                            token1_price = amount_usd / (amount1 / 10**decimals1)
+
+                        elif token1_address in self.stable_tokens:
+                            token1_price = token_prices_dict.get((token1_address, block_number))
+                            amount_usd = amount1 / 10**decimals1 * token1_price
+                            token0_price = amount_usd / (amount0 / 10**decimals0)
+                        else:
+                            token0_price = None
+                            token1_price = None
+                            amount_usd = None
+
+                        pool_price_item = UniswapV3PoolPrice(
+                            **key_data_dict,
+                            factory_address=factory_address,
+                            token0_price=token0_price,
+                            token1_price=token1_price,
+                        )
+                        price_dict[pool_address, block_number] = pool_price_item
+                        current_price_dict[pool_address] = UniswapV3PoolCurrentPrice(**vars(pool_price_item))
 
                         self._collect_domain(
                             UniswapV3SwapEvent(
@@ -201,11 +249,14 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
                                 log_index=log.log_index,
                                 sender=decoded_data["sender"],
                                 recipient=decoded_data["recipient"],
-                                amount0=decoded_data["amount0"],
-                                amount1=decoded_data["amount1"],
+                                amount0=amount0,
+                                amount1=amount1,
                                 liquidity=decoded_data["liquidity"],
                                 **key_data_dict,
                                 **pool_data,
+                                token0_price=token0_price,
+                                token1_price=token1_price,
+                                amount_usd=amount_usd,
                             ),
                         )
 

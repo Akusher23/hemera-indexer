@@ -36,3 +36,10 @@ export_meme_token_created_job:
   larry_factory_address:
     - "0x5faAb5D52790916ed9c2C159960006151e311bA0"
     - "0xb3a720f17902b7d2e8c38c5044c3b20e8ac9c27c"
+
+
+export_block_token_price_job:
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': 'USDC'
+  '0x50c5725949a6f0c72e6c4a641f24049a917db0cb': 'DAI'
+  '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2': 'USDT'
+  '0x4200000000000000000000000000000000000006': 'ETH'
