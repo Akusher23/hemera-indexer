@@ -1077,29 +1077,22 @@ time_ranges = {
 
 def get_daily_active_address(time_range: str):
     today = date.today()
-    start_date = time_ranges[time_range](today)
 
+    start_date = time_ranges[time_range](today)
     result = (
         db.session.query(AFDashboardDailyAddressStats)
         .filter(AFDashboardDailyAddressStats.block_date <= today, AFDashboardDailyAddressStats.block_date >= start_date)
         .order_by(AFDashboardDailyAddressStats.block_date)
         .all()
     )
-
-    date_range = [start_date + timedelta(days=i) for i in range((today - start_date).days + 1)]
-
-    data_dict = {record.block_date: record for record in result}
-
-    data = []
-    for block_date in date_range:
-        record = data_dict.get(block_date)
-        data.append(
-            {
-                "block_date": block_date.strftime("%Y-%m-%d"),
-                "active_addresses": record.active_addresses if record else 0,
-                "new_addresses": record.new_addresses if record else 0,
-            }
-        )
+    data = [
+        {
+            "block_date": record.block_date.isoformat(),
+            "active_addresses": record.active_addresses,
+            "new_addresses": record.new_addresses,
+        }
+        for record in result
+    ]
 
     return {"time_range": time_range, "data": data}
 
@@ -1234,6 +1227,10 @@ def get_all_udf_dashboards_data():
             actual_date, data = get_distribution_exists_data(distribution_name)
             distribution_data["data"][0]["data"] = data
             res[distribution_name]["data"][0]["actual_date"] = actual_date.isoformat()
+            avg, stdev = get_distribution_date_metrics(distribution_name, actual_date)
+            distribution_data["data"][0]["avg"] = avg
+            distribution_data["data"][0]["stdev"] = stdev
+
         if not distribution_data["data"][1]["data"]:
             res[distribution_name]["data"][1]["avg"] = distribution_data["data"][0]["avg"]
             res[distribution_name]["data"][1]["stdev"] = distribution_data["data"][0]["stdev"]
@@ -1278,6 +1275,21 @@ def get_distribution_exists_data(distribution_name: str):
     data = [{"value": float(record.value), "label": float(record.x)} for record in result]
 
     return latest_block_date, data
+
+
+def get_distribution_date_metrics(distribution_name: str, block_date: date):
+    row = (
+        db.session.query(AFMetricsDistributionDailyStats)
+        .filter(
+            AFMetricsDistributionDailyStats.distribution_name == distribution_name,
+            AFMetricsDistributionDailyStats.block_date == block_date,
+        )
+        .order_by(AFMetricsDistributionDailyStats.distribution_name, AFMetricsDistributionDailyStats.block_date)
+        .first()
+    )
+    if row:
+        return float(row.avg), float(row.stdev)
+    return "", ""
 
 
 def is_logarithmic(labels):
