@@ -40,6 +40,7 @@ from indexer.modules.custom.address_index.models.address_nft_1155_holders import
 from indexer.modules.custom.address_index.models.address_token_holders import AddressTokenHolders
 from indexer.modules.custom.address_index.models.address_token_transfers import AddressTokenTransfers
 from indexer.modules.custom.address_index.models.address_transactions import AddressTransactions
+from indexer.modules.custom.address_index.models.dashboard_daily_address import AFDashboardDailyAddressStats
 from indexer.modules.custom.address_index.models.distribution_daily_stats import AFDistributionDailyStats
 from indexer.modules.custom.address_index.models.metrics_distribution_daily_stats import AFMetricsDistributionDailyStats
 from indexer.modules.custom.address_index.models.token_address_nft_inventories import TokenAddressNftInventories
@@ -1062,6 +1063,38 @@ def parse_address_transactions(transactions: list[AddressTransactions]):
                 ).title()
 
     return transaction_list
+
+
+time_ranges = {
+    "1d": lambda now: now - timedelta(days=1),
+    "7d": lambda now: now - timedelta(days=7),
+    "30d": lambda now: now - timedelta(days=30),
+    "6m": lambda now: now - timedelta(days=180),
+    "YTD": lambda now: datetime(now.year, 1, 1),
+    "1y": lambda now: now - timedelta(days=365),
+}
+
+
+def get_daily_active_address(time_range: str):
+    today = datetime.today()
+
+    start_date = time_ranges[time_range](today)
+    result = (
+        db.session.query(AFDashboardDailyAddressStats)
+        .filter(AFDashboardDailyAddressStats.block_date <= today, AFDashboardDailyAddressStats.block_date >= start_date)
+        .order_by(AFDashboardDailyAddressStats.block_date)
+        .all()
+    )
+    data = [
+        {
+            "block_date": record.block_date.isoformat(),
+            "active_addresses": record.active_addresses,
+            "new_addresses": record.new_addresses,
+        }
+        for record in result
+    ]
+
+    return {"time_range": time_range, "data": data}
 
 
 def get_all_udf_dashboards():
