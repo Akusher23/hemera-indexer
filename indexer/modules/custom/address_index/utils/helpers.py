@@ -1157,9 +1157,9 @@ def get_all_udf_dashboards_data():
                 "name": row.distribution_name,
                 "chart_type": "",
                 "data": [
-                    {"type": "as_of_today", "avg": "", "stdev": "", "data": []},
-                    {"type": "as_of_a_week_ago", "avg": "", "stdev": "", "data": []},
-                    {"type": "as_of_a_month_ago", "avg": "", "stdev": "", "data": []},
+                    {"type": "as_of_today", "avg": "", "stdev": "", "actual_date": "", "data": []},
+                    {"type": "as_of_a_week_ago", "avg": "", "stdev": "", "actual_date": "", "data": []},
+                    {"type": "as_of_a_month_ago", "avg": "", "stdev": "", "actual_date": "", "data": []},
                 ],
             }
         if row.block_date == today:
@@ -1169,6 +1169,7 @@ def get_all_udf_dashboards_data():
                 if target_metrics:
                     res[row.distribution_name]["data"][0]["avg"] = float(target_metrics.avg)
                     res[row.distribution_name]["data"][0]["stdev"] = float((target_metrics.stdev))
+            res[row.distribution_name]["data"][0]["actual_date"] = today.isoformat()
             res[row.distribution_name]["data"][0]["data"].append(
                 {
                     "value": float(row.value),
@@ -1182,6 +1183,7 @@ def get_all_udf_dashboards_data():
                 if target_metrics:
                     res[row.distribution_name]["data"][1]["avg"] = float(target_metrics.avg)
                     res[row.distribution_name]["data"][1]["stdev"] = float(target_metrics.stdev)
+            res[row.distribution_name]["data"][0]["actual_date"] = week_ago.isoformat()
             res[row.distribution_name]["data"][1]["data"].append(
                 {
                     "value": float(row.value),
@@ -1195,6 +1197,7 @@ def get_all_udf_dashboards_data():
                 if target_metrics:
                     res[row.distribution_name]["data"][2]["avg"] = float(target_metrics.avg)
                     res[row.distribution_name]["data"][2]["stdev"] = float(target_metrics.stdev)
+            res[row.distribution_name]["data"][0]["actual_date"] = month_ago.isoformat()
             res[row.distribution_name]["data"][2]["data"].append(
                 {
                     "value": float(row.value),
@@ -1215,15 +1218,54 @@ def get_all_udf_dashboards_data():
             else "value"
         )
         res[distribution_name]["chart_type"] = chart_type
+        if not distribution_data["data"][0]["data"]:
+            actual_date, data = get_distribution_exists_data(distribution_name)
+            distribution_data["data"][0]["data"] = data
+            res[distribution_name]["data"][0]["actual_date"] = actual_date.isoformat()
         if not distribution_data["data"][1]["data"]:
             res[distribution_name]["data"][1]["avg"] = distribution_data["data"][0]["avg"]
             res[distribution_name]["data"][1]["stdev"] = distribution_data["data"][0]["stdev"]
             res[distribution_name]["data"][1]["data"] = distribution_data["data"][0]["data"]
+            res[distribution_name]["data"][1]["actual_date"] = distribution_data["data"][0]["actual_date"]
         if not distribution_data["data"][2]["data"]:
             res[distribution_name]["data"][2]["avg"] = distribution_data["data"][0]["avg"]
             res[distribution_name]["data"][2]["stdev"] = distribution_data["data"][0]["stdev"]
             res[distribution_name]["data"][2]["data"] = distribution_data["data"][0]["data"]
+            res[distribution_name]["data"][2]["actual_date"] = distribution_data["data"][0]["actual_date"]
+
     return res
+
+
+def get_distribution_exists_data(distribution_name: str):
+    """
+    Find the last existing data for a given distribution, no matter what date it is.
+    """
+    latest_block_date = (
+        db.session.query(func.max(AFDistributionDailyStats.block_date))
+        .filter(
+            and_(AFDistributionDailyStats.x != 0.0, AFDistributionDailyStats.distribution_name == distribution_name)
+        )
+        .scalar()
+    )
+
+    if not latest_block_date:
+        return []
+    result = (
+        db.session.query(AFDistributionDailyStats)
+        .filter(
+            and_(
+                AFDistributionDailyStats.block_date == latest_block_date,
+                AFDistributionDailyStats.distribution_name == distribution_name,
+                AFDistributionDailyStats.x != 0.0,
+            )
+        )
+        .order_by(AFDistributionDailyStats.x)
+        .all()
+    )
+
+    data = [{"value": float(record.value), "label": float(record.x)} for record in result]
+
+    return latest_block_date, data
 
 
 def is_logarithmic(labels):
@@ -1240,9 +1282,11 @@ def is_logarithmic(labels):
 
 
 def check_logarithmic_pattern(distribution_name, data):
-    log_chart_type = set(
-        ["distribution_job_eigen_layer_udf", "distribution_job_aave2_supply_udf", "distribution_job_aave2_borrow_udf"]
-    )
+    log_chart_type = {
+        "distribution_job_eigen_layer_udf",
+        "distribution_job_aave2_supply_udf",
+        "distribution_job_aave2_borrow_udf",
+    }
     if distribution_name in log_chart_type:
         return "log"
     labels = [item["label"] for item in data]
