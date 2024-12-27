@@ -1294,14 +1294,14 @@ def get_distribution_date_metrics(distribution_name: str, block_date: date):
 
 def is_logarithmic(labels):
     if len(labels) < 3:
-        return False  # Need at least 3 points to check for logarithmic pattern
+        return False
     differences = []
     for i in range(1, len(labels)):
         if labels[i - 1] <= 0 or labels[i] <= 0:
-            return False  # Logarithmic pattern invalid with non-positive values
+            return False
         differences.append(math.log(labels[i]) - math.log(labels[i - 1]))
 
-    threshold = 1e-6  # Allowable error margin
+    threshold = 1e-6
     return all(abs(d - differences[0]) < threshold for d in differences)
 
 
