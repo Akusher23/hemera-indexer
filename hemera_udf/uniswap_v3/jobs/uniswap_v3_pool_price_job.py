@@ -222,12 +222,14 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
                         if token0_address in self.stable_tokens:
                             token0_price = token_prices_dict.get((token0_address, block_number))
                             amount_usd = amount0 / 10**decimals0 * token0_price
-                            token1_price = amount_usd / (amount1 / 10**decimals1)
+                            # token1_price = amount_usd / (amount1 / 10**decimals1)
+                            token1_price = amount_usd / (amount1 / 10**decimals1) if amount1 > 0 else None
 
                         elif token1_address in self.stable_tokens:
                             token1_price = token_prices_dict.get((token1_address, block_number))
                             amount_usd = amount1 / 10**decimals1 * token1_price
-                            token0_price = amount_usd / (amount0 / 10**decimals0)
+                            # token0_price = amount_usd / (amount0 / 10**decimals0)
+                            token0_price = amount_usd / (amount0 / 10**decimals0) if amount0 > 0 else None
                         else:
                             token0_price = None
                             token1_price = None
