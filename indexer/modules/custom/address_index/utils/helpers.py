@@ -1076,23 +1076,30 @@ time_ranges = {
 
 
 def get_daily_active_address(time_range: str):
-    today = datetime.today()
-
+    today = date.today()
     start_date = time_ranges[time_range](today)
+
     result = (
         db.session.query(AFDashboardDailyAddressStats)
         .filter(AFDashboardDailyAddressStats.block_date <= today, AFDashboardDailyAddressStats.block_date >= start_date)
         .order_by(AFDashboardDailyAddressStats.block_date)
         .all()
     )
-    data = [
-        {
-            "block_date": record.block_date.isoformat(),
-            "active_addresses": record.active_addresses,
-            "new_addresses": record.new_addresses,
-        }
-        for record in result
-    ]
+
+    date_range = [start_date + timedelta(days=i) for i in range((today - start_date).days + 1)]
+
+    data_dict = {record.block_date: record for record in result}
+
+    data = []
+    for block_date in date_range:
+        record = data_dict.get(block_date)
+        data.append(
+            {
+                "block_date": block_date.strftime("%Y-%m-%d"),
+                "active_addresses": record.active_addresses if record else 0,
+                "new_addresses": record.new_addresses if record else 0,
+            }
+        )
 
     return {"time_range": time_range, "data": data}
 
@@ -1152,6 +1159,11 @@ def get_all_udf_dashboards_data():
 
     res = {}
     for row in result:
+        if (
+            row.distribution_name in {"distribution_job_ens_holdings_udf", "distribution_job_ens_resolves_udf"}
+            and float(row.x) == 100.0
+        ):
+            continue
         if row.distribution_name not in res:
             res[row.distribution_name] = {
                 "name": row.distribution_name,
