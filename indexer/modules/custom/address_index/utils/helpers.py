@@ -1151,22 +1151,24 @@ def get_all_udf_dashboards_data():
         metrics_dic[distribution_name][a_metrics.block_date] = a_metrics
 
     res = {}
+    all_distribution_names = get_all_udf_dashboards()
+    for distribution_name in all_distribution_names:
+        res[distribution_name] = {
+            "name": distribution_name,
+            "chart_type": "",
+            "data": [
+                {"type": "as_of_today", "avg": "", "stdev": "", "actual_date": "", "data": []},
+                {"type": "as_of_a_week_ago", "avg": "", "stdev": "", "actual_date": "", "data": []},
+                {"type": "as_of_a_month_ago", "avg": "", "stdev": "", "actual_date": "", "data": []},
+            ],
+        }
+
     for row in result:
         if (
             row.distribution_name in {"distribution_job_ens_holdings_udf", "distribution_job_ens_resolves_udf"}
             and float(row.x) == 100.0
         ):
             continue
-        if row.distribution_name not in res:
-            res[row.distribution_name] = {
-                "name": row.distribution_name,
-                "chart_type": "",
-                "data": [
-                    {"type": "as_of_today", "avg": "", "stdev": "", "actual_date": "", "data": []},
-                    {"type": "as_of_a_week_ago", "avg": "", "stdev": "", "actual_date": "", "data": []},
-                    {"type": "as_of_a_month_ago", "avg": "", "stdev": "", "actual_date": "", "data": []},
-                ],
-            }
         if row.block_date == today:
             target_metrics = metrics_dic.get(row.distribution_name)
             if target_metrics:
