@@ -214,8 +214,11 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
                         token0_address = pool_data.get("token0_address")
                         token1_address = pool_data.get("token1_address")
 
-                        decimals0 = self.tokens.get(token0_address).get("decimals")
-                        decimals1 = self.tokens.get(token1_address).get("decimals")
+                        tokens0 = self.tokens.get(token0_address)
+                        tokens1 = self.tokens.get(token1_address)
+
+                        decimals0 = tokens0.get("decimals") if tokens0 else None
+                        decimals1 = tokens1.get("decimals") if tokens1 else None
 
                         amount0 = abs(decoded_data["amount0"])
                         amount1 = abs(decoded_data["amount1"])
