@@ -229,7 +229,7 @@ class BufferService:
             if self.success_callback and len(self.output_in_progress[(start_block, end_block)]) == 0:
                 try:
                     self.output_in_progress.pop((start_block, end_block))
-                    self.success_callback(end_block)
+                    self.success_callback(start_block, end_block)
                 except Exception as e:
                     self.logger.error(f"Writing last synced block number {end_block} error.")
 

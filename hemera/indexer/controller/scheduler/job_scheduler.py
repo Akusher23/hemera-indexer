@@ -283,7 +283,7 @@ class JobScheduler:
     def get_scheduled_jobs(self):
         return self.jobs
 
-    def run_jobs(self, start_block, end_block):
+    def run_jobs(self, start_block, end_block, metrics):
         self.clear_data_buff()
 
         for job in self.jobs:
@@ -291,6 +291,15 @@ class JobScheduler:
 
         for output_type in self.required_output_types:
             message = f"{output_type.type()} : {len(self.get_data_buff().get(output_type.type())) if self.get_data_buff().get(output_type.type()) else 0}"
+            metrics.update_domains_counter(
+                domain=output_type.type,
+                indexed_range=f"{start_block}-{end_block}",
+                amount=(
+                    len(self.get_data_buff().get(output_type.type()))
+                    if self.get_data_buff().get(output_type.type())
+                    else 0
+                ),
+            )
             self.logger.info(f"{message}")
 
     def job_with_retires(self, job, start_block, end_block):

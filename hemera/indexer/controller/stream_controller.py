@@ -10,6 +10,7 @@ from hemera.common.utils.web3_utils import build_web3
 from hemera.indexer.controller.base_controller import BaseController
 from hemera.indexer.controller.scheduler.job_scheduler import JobScheduler
 from hemera.indexer.utils.limit_reader import LimitReader
+from hemera.indexer.utils.metrics_collector import MetricsCollector
 from hemera.indexer.utils.sync_recorder import BaseRecorder
 
 logger = logging.getLogger(__name__)
@@ -50,11 +51,6 @@ class StreamController(BaseController):
         else:
             self.pool = mpire.WorkerPool(n_jobs=self.process_numbers, use_dill=True, keep_alive=True)
 
-        if self.process_numbers <= 1:
-            self.pool = None
-        else:
-            self.pool = mpire.WorkerPool(n_jobs=self.process_numbers, use_dill=True, keep_alive=True)
-
     def action(
         self,
         start_block=None,
@@ -63,6 +59,7 @@ class StreamController(BaseController):
         period_seconds=10,
         retry_errors=True,
         pid_file=None,
+        metrics=None,
     ):
         try:
             if pid_file is not None:
@@ -102,7 +99,7 @@ class StreamController(BaseController):
 
                 if synced_blocks != 0:
                     if not self.pool:
-                        self._do_stream(last_synced_block + 1, target_block)
+                        self._do_stream(last_synced_block + 1, target_block, metrics)
                     else:
                         splits = self.split_blocks(last_synced_block + 1, target_block, self.process_size)
                         self.pool.map(func=self._do_stream, iterable_of_args=splits, task_timeout=self.process_time_out)
@@ -130,8 +127,8 @@ class StreamController(BaseController):
             blocks.append((i, min(i + step - 1, end_block)))
         return blocks
 
-    def _do_stream(self, start_block, end_block):
-        self.job_scheduler.run_jobs(start_block, end_block)
+    def _do_stream(self, start_block, end_block, metrics):
+        self.job_scheduler.run_jobs(start_block, end_block, metrics)
 
     def _get_current_block_number(self):
         return int(self.web3.eth.block_number)

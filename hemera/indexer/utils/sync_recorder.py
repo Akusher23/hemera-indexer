@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import insert
 from hemera.common.models.failure_records import FailureRecords
 from hemera.common.models.sync_record import SyncRecord
 from hemera.common.utils.file_utils import smart_open, write_to_file
+from hemera.indexer.utils.metrics_collector import MetricsCollector
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +18,10 @@ ASYNC_SUBMIT = bool(strtobool(os.environ.get("ASYNC_SUBMIT", "false")))
 
 
 class BaseRecorder(object):
+
+    def __init__(self, metrics: MetricsCollector):
+        self.metrics = metrics
+
     def set_last_synced_block(self, last_synced_block):
         pass
 
@@ -24,16 +29,24 @@ class BaseRecorder(object):
         pass
 
     def set_failure_record(self, output_types, start_block, end_block, exception_stage, exception):
-        pass
+        if self.metrics:
+            self.metrics.update_indexed_range(f"{start_block}-{end_block}", "failure")
+            self.metrics.update_indexed_counter('failure', end_block - start_block + 1)
 
-    def handle_success(self, last_block_number):
-        self.set_last_synced_block(last_block_number)
-        logger.info("Writing last synced block {}".format(last_block_number))
+    def handle_success(self, start_block, end_block):
+        self.set_last_synced_block(end_block)
+        logger.info("Writing last synced block {}".format(end_block))
+
+        if self.metrics:
+            self.metrics.update_indexed_range(f"{start_block}-{end_block}", "success")
+            self.metrics.update_indexed_counter('success', end_block - start_block + 1)
+
 
 
 class FileSyncRecorder(BaseRecorder):
 
-    def __init__(self, file_name):
+    def __init__(self, file_name, metrics: MetricsCollector = None):
+        super().__init__(metrics)
         self.file_name = file_name
 
     def set_last_synced_block(self, last_synced_block):
@@ -69,14 +82,13 @@ class FileSyncRecorder(BaseRecorder):
         }
 
         write_to_file(failure_file, json.dumps(content) + "\n", "a+")
-
-    def handle_success(self, last_block_number):
-        pass
+        super().set_failure_record(output_types, start_block, end_block, exception_stage, exception)
 
 
 class PGSyncRecorder(BaseRecorder):
 
-    def __init__(self, key, service):
+    def __init__(self, key, service, metrics: MetricsCollector = None):
+        super().__init__(metrics)
         self.key = key
         self.service = service
 
@@ -151,8 +163,10 @@ class PGSyncRecorder(BaseRecorder):
         finally:
             session.close()
 
+        super().set_failure_record(output_types, start_block, end_block, exception_stage, exception)
 
-def create_recorder(sync_recorder: str, config: dict) -> BaseRecorder:
+
+def create_recorder(sync_recorder: str, config: dict, metrics: MetricsCollector = None) -> BaseRecorder:
     recorder_sign = sync_recorder.find(":")
     if recorder_sign == -1:
         raise ValueError(f"Invalid sync recorder: {sync_recorder}" "")
@@ -164,10 +178,10 @@ def create_recorder(sync_recorder: str, config: dict) -> BaseRecorder:
             service = config["db_service"]
         except KeyError:
             raise ValueError(f"postgresql sync record must provide pg config.")
-        return PGSyncRecorder(recorder[1], service)
+        return PGSyncRecorder(recorder[1], service, metrics)
 
     elif recorder[0] == "file":
-        return FileSyncRecorder(recorder[1])
+        return FileSyncRecorder(recorder[1], metrics)
 
     else:
         raise ValueError("Unable to determine sync recorder type: " + sync_recorder)

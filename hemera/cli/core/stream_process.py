@@ -15,6 +15,7 @@ from hemera.indexer.exporters.item_exporter import create_item_exporters
 from hemera.indexer.utils.buffer_service import BufferService
 from hemera.indexer.utils.limit_reader import create_limit_reader
 from hemera.indexer.utils.logging_utils import configure_logging, configure_signals
+from hemera.indexer.utils.metrics_collector import MetricsCollector
 from hemera.indexer.utils.parameter_utils import (
     check_file_exporter_parameter,
     check_source_load_parameter,
@@ -135,7 +136,8 @@ def stream_process(
     if source_path and source_path.startswith("postgresql://"):
         source_types = generate_dataclass_type_list_from_parameter(source_types, "source")
 
-    sync_recorder = create_recorder(sync_recorder, config)
+    metrics = MetricsCollector(port=9200)
+    sync_recorder = create_recorder(sync_recorder, config, metrics)
     buffer_service = BufferService(
         item_exporters=create_item_exporters(output, config),
         required_output_types=[output.type() for output in output_types],
@@ -186,6 +188,7 @@ def stream_process(
         block_batch_size=block_batch_size,
         period_seconds=period_seconds,
         pid_file=pid_file,
+        metrics=metrics,
     )
 
     buffer_service.shutdown()
