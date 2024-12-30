@@ -1,12 +1,8 @@
-import binascii
 import copy
 import math
 import re
-from collections import defaultdict
 from datetime import date, datetime, timedelta
-from decimal import Decimal
-from select import select
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 from sqlalchemy import and_, distinct, func, or_
 
@@ -16,7 +12,7 @@ from api.app.contract.contract_verify import get_names_from_method_or_topic_list
 from api.app.db_service.contracts import get_contracts_by_addresses
 from api.app.db_service.wallet_addresses import get_token_txn_cnt_by_address
 from api.app.utils.fill_info import fill_address_display_to_transactions, fill_is_contract_to_transactions
-from api.app.utils.format_utils import format_coin_value, format_transaction
+from api.app.utils.format_utils import format_coin_value
 from api.app.utils.token_utils import get_coin_prices, get_latest_coin_prices, get_token_price
 from api.app.utils.web3_utils import get_balance
 from common.models import db
@@ -1217,7 +1213,7 @@ def get_all_udf_dashboards_data():
     for distribution_name, distribution_data in res.items():
 
         if not distribution_data["data"][0]["data"]:
-            actual_date, data = get_distribution_exists_data(distribution_name)
+            actual_date, data = get_best_match_data(distribution_name, today)
             distribution_data["data"][0]["data"] = data
             res[distribution_name]["data"][0]["actual_date"] = actual_date.isoformat()
             avg, stdev = get_distribution_date_metrics(distribution_name, actual_date)
@@ -1225,15 +1221,21 @@ def get_all_udf_dashboards_data():
             distribution_data["data"][0]["stdev"] = stdev
 
         if not distribution_data["data"][1]["data"]:
-            res[distribution_name]["data"][1]["avg"] = distribution_data["data"][0]["avg"]
-            res[distribution_name]["data"][1]["stdev"] = distribution_data["data"][0]["stdev"]
-            res[distribution_name]["data"][1]["data"] = distribution_data["data"][0]["data"]
-            res[distribution_name]["data"][1]["actual_date"] = distribution_data["data"][0]["actual_date"]
+            actual_date_1, data_1 = get_best_match_data(distribution_name, week_ago)
+            avg_1, stdev_1 = get_distribution_date_metrics(distribution_name, actual_date_1)
+
+            res[distribution_name]["data"][1]["avg"] = avg_1
+            res[distribution_name]["data"][1]["stdev"] = stdev_1
+            res[distribution_name]["data"][1]["data"] = data_1
+            res[distribution_name]["data"][1]["actual_date"] = actual_date_1.isoformat()
         if not distribution_data["data"][2]["data"]:
-            res[distribution_name]["data"][2]["avg"] = distribution_data["data"][0]["avg"]
-            res[distribution_name]["data"][2]["stdev"] = distribution_data["data"][0]["stdev"]
-            res[distribution_name]["data"][2]["data"] = distribution_data["data"][0]["data"]
-            res[distribution_name]["data"][2]["actual_date"] = distribution_data["data"][0]["actual_date"]
+            actual_date_2, data_2 = get_best_match_data(distribution_name, month_ago)
+            avg_2, stdev_2 = get_distribution_date_metrics(distribution_name, actual_date_2)
+
+            res[distribution_name]["data"][2]["avg"] = avg_2
+            res[distribution_name]["data"][2]["stdev"] = stdev_2
+            res[distribution_name]["data"][2]["data"] = data_2
+            res[distribution_name]["data"][2]["actual_date"] = actual_date_2.isoformat()
         chart_type = (
             "log"
             if (
@@ -1246,6 +1248,46 @@ def get_all_udf_dashboards_data():
         res[distribution_name]["chart_type"] = chart_type
 
     return res
+
+
+def get_best_match_data(distribution_name: str, target_date: date):
+    """
+    Find the nearest data for a given distribution and target_date.
+    """
+    # Find the block_date closest to the target_date
+    closest_block_date = (
+        db.session.query(AFDistributionDailyStats.block_date)
+        .filter(AFDistributionDailyStats.distribution_name == distribution_name)
+        .order_by(
+            func.abs(
+                func.date_part("epoch", AFDistributionDailyStats.block_date) - func.date_part("epoch", target_date)
+            )
+        )
+        .limit(1)
+        .scalar()
+    )
+
+    if not closest_block_date:
+        return []
+
+    # Query data for the closest block_date
+    result = (
+        db.session.query(AFDistributionDailyStats)
+        .filter(
+            and_(
+                AFDistributionDailyStats.block_date == closest_block_date,
+                AFDistributionDailyStats.distribution_name == distribution_name,
+                AFDistributionDailyStats.x != 0.0,
+            )
+        )
+        .order_by(AFDistributionDailyStats.x)
+        .all()
+    )
+
+    # Format the result into a list of dictionaries
+    data = [{"value": float(record.value), "label": float(record.x)} for record in result]
+
+    return closest_block_date, data
 
 
 def get_distribution_exists_data(distribution_name: str):
