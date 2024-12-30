@@ -219,13 +219,16 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
 
                         amount0 = abs(decoded_data["amount0"])
                         amount1 = abs(decoded_data["amount1"])
-                        if token0_address in self.stable_tokens:
+
+                        decimals_conditions = decimals0 and decimals1
+
+                        if token0_address in self.stable_tokens and decimals_conditions:
                             token0_price = token_prices_dict.get((token0_address, block_number))
                             amount_usd = amount0 / 10**decimals0 * token0_price
                             # token1_price = amount_usd / (amount1 / 10**decimals1)
                             token1_price = amount_usd / (amount1 / 10**decimals1) if amount1 > 0 else None
 
-                        elif token1_address in self.stable_tokens:
+                        elif token1_address in self.stable_tokens and decimals_conditions:
                             token1_price = token_prices_dict.get((token1_address, block_number))
                             amount_usd = amount1 / 10**decimals1 * token1_price
                             # token0_price = amount_usd / (amount0 / 10**decimals0)
