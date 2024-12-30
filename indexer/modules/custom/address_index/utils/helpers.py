@@ -1215,16 +1215,7 @@ def get_all_udf_dashboards_data():
     # if as_of_week_ago or as_of_month_ago empty, fill them by as_of_today
 
     for distribution_name, distribution_data in res.items():
-        chart_type = (
-            "log"
-            if (
-                check_logarithmic_pattern(distribution_name, distribution_data["data"][0]["data"])
-                or check_logarithmic_pattern(distribution_name, distribution_data["data"][1]["data"])
-                or check_logarithmic_pattern(distribution_name, distribution_data["data"][0]["data"])
-            )
-            else "value"
-        )
-        res[distribution_name]["chart_type"] = chart_type
+
         if not distribution_data["data"][0]["data"]:
             actual_date, data = get_distribution_exists_data(distribution_name)
             distribution_data["data"][0]["data"] = data
@@ -1243,6 +1234,16 @@ def get_all_udf_dashboards_data():
             res[distribution_name]["data"][2]["stdev"] = distribution_data["data"][0]["stdev"]
             res[distribution_name]["data"][2]["data"] = distribution_data["data"][0]["data"]
             res[distribution_name]["data"][2]["actual_date"] = distribution_data["data"][0]["actual_date"]
+        chart_type = (
+            "log"
+            if (
+                check_logarithmic_pattern(distribution_name, distribution_data["data"][0]["data"])
+                or check_logarithmic_pattern(distribution_name, distribution_data["data"][1]["data"])
+                or check_logarithmic_pattern(distribution_name, distribution_data["data"][2]["data"])
+            )
+            else "value"
+        )
+        res[distribution_name]["chart_type"] = chart_type
 
     return res
 
@@ -1312,6 +1313,7 @@ def check_logarithmic_pattern(distribution_name, data):
         "distribution_job_eigen_layer_udf",
         "distribution_job_aave2_supply_udf",
         "distribution_job_aave2_borrow_udf",
+        "",
     }
     if distribution_name in log_chart_type:
         return "log"
