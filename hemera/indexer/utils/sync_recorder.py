@@ -31,7 +31,7 @@ class BaseRecorder(object):
     def set_failure_record(self, output_types, start_block, end_block, exception_stage, exception):
         if self.metrics:
             self.metrics.update_indexed_range(f"{start_block}-{end_block}", "failure")
-            self.metrics.update_indexed_counter('failure', end_block - start_block + 1)
+            self.metrics.update_indexed_counter("failure", end_block - start_block + 1)
 
     def handle_success(self, start_block, end_block):
         self.set_last_synced_block(end_block)
@@ -39,8 +39,7 @@ class BaseRecorder(object):
 
         if self.metrics:
             self.metrics.update_indexed_range(f"{start_block}-{end_block}", "success")
-            self.metrics.update_indexed_counter('success', end_block - start_block + 1)
-
+            self.metrics.update_indexed_counter("success", end_block - start_block + 1)
 
 
 class FileSyncRecorder(BaseRecorder):
