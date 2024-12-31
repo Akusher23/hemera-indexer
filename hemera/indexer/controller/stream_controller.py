@@ -59,7 +59,6 @@ class StreamController(BaseController):
         period_seconds=10,
         retry_errors=True,
         pid_file=None,
-        metrics=None,
     ):
         try:
             if pid_file is not None:
@@ -99,7 +98,7 @@ class StreamController(BaseController):
 
                 if synced_blocks != 0:
                     if not self.pool:
-                        self._do_stream(last_synced_block + 1, target_block, metrics)
+                        self._do_stream(last_synced_block + 1, target_block)
                     else:
                         splits = self.split_blocks(last_synced_block + 1, target_block, self.process_size)
                         self.pool.map(func=self._do_stream, iterable_of_args=splits, task_timeout=self.process_time_out)
@@ -127,8 +126,8 @@ class StreamController(BaseController):
             blocks.append((i, min(i + step - 1, end_block)))
         return blocks
 
-    def _do_stream(self, start_block, end_block, metrics):
-        self.job_scheduler.run_jobs(start_block, end_block, metrics)
+    def _do_stream(self, start_block, end_block):
+        self.job_scheduler.run_jobs(start_block, end_block)
 
     def _get_current_block_number(self):
         return int(self.web3.eth.block_number)

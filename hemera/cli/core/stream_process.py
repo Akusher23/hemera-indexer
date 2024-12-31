@@ -137,12 +137,13 @@ def stream_process(
         source_types = generate_dataclass_type_list_from_parameter(source_types, "source")
 
     metrics = MetricsCollector(port=9200)
-    sync_recorder = create_recorder(sync_recorder, config, metrics)
+    sync_recorder = create_recorder(sync_recorder, config)
     buffer_service = BufferService(
         item_exporters=create_item_exporters(output, config),
         required_output_types=[output.type() for output in output_types],
         success_callback=sync_recorder.handle_success,
         exception_callback=sync_recorder.set_failure_record,
+        metrics=metrics,
     )
 
     job_scheduler = JobScheduler(
@@ -188,7 +189,6 @@ def stream_process(
         block_batch_size=block_batch_size,
         period_seconds=period_seconds,
         pid_file=pid_file,
-        metrics=metrics,
     )
 
     buffer_service.shutdown()

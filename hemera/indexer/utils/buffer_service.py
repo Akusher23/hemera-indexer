@@ -17,6 +17,7 @@ from threading import Event
 from typing import Any, Callable, Dict, List
 
 from hemera.common.utils.exception_control import FastShutdownError, get_exception_details
+from hemera.indexer.utils.metrics_collector import MetricsCollector
 
 BUFFER_BLOCK_SIZE = int(os.environ.get("BUFFER_BLOCK_SIZE", "1"))
 MAX_BUFFER_SIZE = int(os.environ.get("MAX_BUFFER_SIZE", "1"))
@@ -131,6 +132,7 @@ class BufferService:
         export_workers: int = CONCURRENT_SUBMITTERS,
         success_callback: Callable = None,
         exception_callback: Callable = None,
+        metrics: MetricsCollector = None,
     ):
         self.block_size = block_size
         self.max_buffer_size = max_buffer_size
@@ -158,6 +160,7 @@ class BufferService:
 
         self.export_strategy = EXPORT_STRATEGY
 
+        self.metrics = metrics
         self.logger = logging.getLogger(__name__)
 
     def keys(self) -> List[Any]:
@@ -226,10 +229,24 @@ class BufferService:
             future.result()
 
             self.output_in_progress[(start_block, end_block)] -= complete_type
+
+            if self.metrics:
+                for output_type in complete_type:
+                    self.metrics.update_domains_counter(
+                        domain=output_type,
+                        indexed_range=f"{start_block}-{end_block}",
+                        amount=len(self.buffer[output_type]),
+                    )
+
             if self.success_callback and len(self.output_in_progress[(start_block, end_block)]) == 0:
                 try:
                     self.output_in_progress.pop((start_block, end_block))
-                    self.success_callback(start_block, end_block)
+                    self.success_callback(end_block)
+
+                    if self.metrics:
+                        self.metrics.update_indexed_range(f"{start_block}-{end_block}", "success")
+                        self.metrics.update_indexed_counter("success", end_block - start_block + 1)
+
                 except Exception as e:
                     self.logger.error(f"Writing last synced block number {end_block} error.")
 
@@ -238,6 +255,12 @@ class BufferService:
             if self.exception_callback:
                 self.exception_callback(self.required_output_types, start_block, end_block, "export", exception_details)
             self.logger.error(f"Exporting items error: {exception_details}")
+
+            if self.metrics:
+                self.metrics.update_indexed_range(f"{start_block}-{end_block}", "failure")
+                if len(self.output_in_progress[(start_block, end_block)]) == 0:
+                    self.metrics.update_indexed_counter("failure", end_block - start_block + 1)
+
             if CRASH_INSTANTLY:
                 self.shutdown()
                 raise FastShutdownError(f"Exporting items error: {exception_details}")
