@@ -10,7 +10,6 @@ from hemera.common.utils.web3_utils import build_web3
 from hemera.indexer.controller.base_controller import BaseController
 from hemera.indexer.controller.scheduler.job_scheduler import JobScheduler
 from hemera.indexer.utils.limit_reader import LimitReader
-from hemera.indexer.utils.metrics_collector import MetricsCollector
 from hemera.indexer.utils.sync_recorder import BaseRecorder
 
 logger = logging.getLogger(__name__)

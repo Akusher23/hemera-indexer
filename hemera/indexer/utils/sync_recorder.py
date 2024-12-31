@@ -28,9 +28,9 @@ class BaseRecorder(object):
     def set_failure_record(self, output_types, start_block, end_block, exception_stage, exception):
         pass
 
-    def handle_success(self, end_block):
-        self.set_last_synced_block(end_block)
-        logger.info("Writing last synced block {}".format(end_block))
+    def handle_success(self, last_block_number):
+        self.set_last_synced_block(last_block_number)
+        logger.info("Writing last synced block {}".format(last_block_number))
 
 
 class FileSyncRecorder(BaseRecorder):
