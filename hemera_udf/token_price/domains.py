@@ -9,6 +9,7 @@ class BlockTokenPrice(Domain):
     token_price: float
     block_number: int
 
+
 @dataclass
 class DexBlockTokenPrice(Domain):
     token_address: str

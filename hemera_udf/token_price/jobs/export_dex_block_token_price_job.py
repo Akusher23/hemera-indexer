@@ -28,22 +28,16 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
 
     @staticmethod
     def process_swap_df(df):
+        if df.empty:
+            columns = ["block_number", "block_timestamp", "token_address", "token_price", "amount", "amount_usd"]
+            return pd.DataFrame(columns=columns)
+
         token0_df = df[
-            ["block_number", "block_timestamp", "token0_address", "token0_price", "amount0", "amount_usd"]].rename(
-            columns={
-                "token0_address": "token_address",
-                "token0_price": "token_price",
-                "amount0": "amount"
-            }
-        )
+            ["block_number", "block_timestamp", "token0_address", "token0_price", "amount0", "amount_usd"]
+        ].rename(columns={"token0_address": "token_address", "token0_price": "token_price", "amount0": "amount"})
         token1_df = df[
-            ["block_number", "block_timestamp", "token1_address", "token1_price", "amount1", "amount_usd"]].rename(
-            columns={
-                "token1_address": "token_address",
-                "token1_price": "token_price",
-                "amount1": "amount"
-            }
-        )
+            ["block_number", "block_timestamp", "token1_address", "token1_price", "amount1", "amount_usd"]
+        ].rename(columns={"token1_address": "token_address", "token1_price": "token_price", "amount1": "amount"})
         return pd.concat([token0_df, token1_df], ignore_index=True)
 
     @staticmethod
@@ -64,11 +58,15 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
 
         combined_df = pd.concat([processed_v2, processed_v3], ignore_index=True)
 
-        results = combined_df.groupby(["token_address", "block_number", "block_timestamp"]).agg(
-            token_price=("token_price", "median"),
-            amount=("amount", lambda x: x.abs().sum()),
-            amount_usd=("amount_usd", "sum")
-        ).reset_index()
+        results = (
+            combined_df.groupby(["token_address", "block_number", "block_timestamp"])
+            .agg(
+                token_price=("token_price", "median"),
+                amount=("amount", lambda x: x.abs().sum()),
+                amount_usd=("amount_usd", "sum"),
+            )
+            .reset_index()
+        )
 
         records = results.to_dict("records")
 
@@ -78,21 +76,21 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
             token_symbol = token_dict.get("symbol")
             decimals = token_dict.get("decimals")
 
-            token_price = record.get('token_price')
+            token_price = record.get("token_price")
             if pd.isnull(token_price):
-                record['token_price'] = None
-                record['amount_usd'] = None
-                record['amount'] = None
+                record["token_price"] = None
+                record["amount_usd"] = None
+                record["amount"] = None
             else:
-                record['amount'] = record.get('amount') / 10 ** decimals
+                record["amount"] = record.get("amount") / 10**decimals
 
-            dex_block_token_price = DexBlockTokenPrice(**record, token_symbol=token_symbol,
-                                                       decimals=decimals)
+            dex_block_token_price = DexBlockTokenPrice(**record, token_symbol=token_symbol, decimals=decimals)
 
             dex_block_token_price_list.append(dex_block_token_price)
         self._collect_domains(dex_block_token_price_list)
 
-        current_records = self.extract_current_status(dex_block_token_price_list, DexBlockTokenPriceCurrent,
-                                                      ["token_address"])
+        current_records = self.extract_current_status(
+            dex_block_token_price_list, DexBlockTokenPriceCurrent, ["token_address"]
+        )
         self._collect_domains(current_records)
         pass
