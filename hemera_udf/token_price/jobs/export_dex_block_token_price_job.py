@@ -78,15 +78,21 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
             token_symbol = token_dict.get("symbol")
             decimals = token_dict.get("decimals")
 
-            amount = record.get('amount') / 10 ** decimals
-            record.pop('amount')
+            token_price = record.get('token_price')
+            if pd.isnull(token_price):
+                record['token_price'] = None
+                record['amount_usd'] = None
+                record['amount'] = None
+            else:
+                record['amount'] = record.get('amount') / 10 ** decimals
 
-            dex_block_token_price = DexBlockTokenPrice(**record, amount=amount, token_symbol=token_symbol,
+            dex_block_token_price = DexBlockTokenPrice(**record, token_symbol=token_symbol,
                                                        decimals=decimals)
 
             dex_block_token_price_list.append(dex_block_token_price)
         self._collect_domains(dex_block_token_price_list)
 
-        current_records = self.extract_current_status(dex_block_token_price_list, DexBlockTokenPriceCurrent, ["token_address"])
+        current_records = self.extract_current_status(dex_block_token_price_list, DexBlockTokenPriceCurrent,
+                                                      ["token_address"])
         self._collect_domains(current_records)
         pass
