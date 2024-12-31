@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import heapq
+import os
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import List
 
 from prometheus_client import Counter, Gauge, start_http_server
+
+METRICS_KEEP_RANGE = int(os.environ.get("METRICS_KEEP_RANGE", "10"))
 
 
 @dataclass(frozen=True)
@@ -61,15 +64,13 @@ class MetricsCollector:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, port: int = 9200, keep_ranges: int = 10):
+    def __init__(self, port: int = 9200):
         if hasattr(self, "_initialized"):
             return
         start_http_server(port)
 
-        self.keep_ranges = keep_ranges
-
         self.active_domains = defaultdict(set)
-        self.active_ranges = RangeHeap(keep_ranges)
+        self.active_ranges = RangeHeap(METRICS_KEEP_RANGE)
 
         self._metrics_definition()
         self._initialized = True
