@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 class ExportUniSwapV2SwapEventJob(FilterTransactionDataJob):
     dependency_types = [Transaction, BlockTokenPrice]
-    output_types = [UniswapV2SwapEvent]
+    output_types = [UniswapV2SwapEvent, UniswapV2PoolFromSwapEvent]
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
