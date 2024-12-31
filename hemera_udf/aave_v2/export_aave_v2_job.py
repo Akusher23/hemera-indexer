@@ -185,7 +185,7 @@ class ExportAaveV2Job(FilterTransactionDataJob):
 
             elif a_record.type() == AaveV2TransferD.type():
                 # a_token
-                reserve = self.a_token_reserve_dic[a_record.a_token]
+                reserve = self.a_token_reserve_dic.get(a_record.a_token)
                 if reserve:
                     aave_from = a_record.aave_from
                     after_transfer = address_token_block_balance_dic[aave_from][reserve.a_token_address][
@@ -207,7 +207,7 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                     res_d[aave_to][reserve.asset].block_timestamp = a_record.block_timestamp
                     res_d[aave_to][reserve.asset].supply_amount = after_receive
                 else:
-                    reserve = self.vary_debt_reserve_dic[a_record.reserve]
+                    reserve = self.vary_debt_reserve_dic.get(a_record.reserve)
                     if reserve:
                         aave_from = a_record.aave_from
                         after_transfer = address_token_block_balance_dic[aave_from][
