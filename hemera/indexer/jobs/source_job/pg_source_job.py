@@ -2,11 +2,12 @@ import copy
 import inspect
 import logging
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timezone
 from queue import Queue
 from typing import List, Type, Union, get_args, get_origin
 
 from sqlalchemy import and_, func, select
+from sqlalchemy.dialects.postgresql import BIGINT, INTEGER
 
 from hemera.common.models.blocks import Blocks
 from hemera.common.models.logs import Logs
@@ -65,8 +66,7 @@ class PGSourceJob(BaseSourceJob):
         self._calculate_build_queue()
 
     def _collect(self, **kwargs):
-        if not self._service:
-            self._service = PostgreSQLService(self._source_path) if self._source_path else None
+        self._service = PostgreSQLService(self._source_path)
 
         start_block = int(kwargs["start_block"])
         end_block = int(kwargs["end_block"])
@@ -230,6 +230,10 @@ class PGSourceJob(BaseSourceJob):
                     session.query(sub_table).join(unnest_query, sub_table.c.number == unnest_query.c.block_number).all()
                 )
             elif hasattr(table, "block_number") and hasattr(table, "block_timestamp"):
+                if type(table.block_timestamp.type) is BIGINT or type(table.block_timestamp.type) is INTEGER:
+                    start_timestamp = int(round(start_timestamp.replace(tzinfo=timezone.utc).timestamp()))
+                    end_timestamp = int(round(end_timestamp.replace(tzinfo=timezone.utc).timestamp()))
+
                 sub_table = (
                     select(table)
                     .filter(and_(table.block_timestamp >= start_timestamp, table.block_timestamp <= end_timestamp))
