@@ -124,6 +124,9 @@ class JobScheduler:
         return BaseJob._data_buff
 
     def discover_and_register_job_classes(self):
+        discovered_job_classes = BaseExportJob.discover_jobs()
+        discovered_job_classes.extend(ExtensionJob.discover_jobs())
+
         if self.load_from_source:
             source_job = get_source_job_type(source_path=self.load_from_source)
             if source_job is PGSourceJob:
@@ -131,23 +134,21 @@ class JobScheduler:
             all_subclasses = [source_job]
 
             source_output_types = set(source_job.output_types)
-            for export_job in BaseExportJob.discover_jobs():
-                generate_dependency_types(export_job)
+            for job in discovered_job_classes:
+                generate_dependency_types(job)
                 skip = False
-                for output_type in export_job.output_types:
+                for output_type in job.output_types:
                     if output_type in source_output_types:
-                        source_job.output_types = list(set(export_job.output_types + list(source_output_types)))
+                        source_job.output_types = list(set(job.output_types + list(source_output_types)))
                         skip = True
                         break
                 if not skip:
-                    all_subclasses.append(export_job)
+                    all_subclasses.append(job)
 
         else:
-            all_subclasses = BaseExportJob.discover_jobs()
+            all_subclasses = discovered_job_classes
 
-        all_subclasses.extend(ExtensionJob.discover_jobs())
         for cls in all_subclasses:
-            generate_dependency_types(cls)
             self.job_classes.append(cls)
             for output in cls.output_types:
                 if output.type() in self.job_map:
