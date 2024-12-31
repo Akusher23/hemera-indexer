@@ -84,6 +84,10 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
             else:
                 record["amount"] = record.get("amount") / 10**decimals
 
+            if token_symbol is None:
+                message = f"{str(record)} missing token symbol"
+                logger.info(message)
+
             dex_block_token_price = DexBlockTokenPrice(**record, token_symbol=token_symbol, decimals=decimals)
 
             dex_block_token_price_list.append(dex_block_token_price)
