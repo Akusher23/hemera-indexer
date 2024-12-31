@@ -266,7 +266,8 @@ class JobScheduler:
                 filters=filters,
             )
             self.jobs.insert(0, export_blocks_job)
-        else:
+
+        if PGSourceJob in self.resolved_job_classes:
             pg_source_job = PGSourceJob(
                 required_output_types=self.required_output_types,
                 batch_web3_provider=self.batch_web3_provider,
