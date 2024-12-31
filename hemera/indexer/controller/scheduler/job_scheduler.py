@@ -127,6 +127,9 @@ class JobScheduler:
         discovered_job_classes = BaseExportJob.discover_jobs()
         discovered_job_classes.extend(ExtensionJob.discover_jobs())
 
+        for job in discovered_job_classes:
+            generate_dependency_types(job)
+
         if self.load_from_source:
             source_job = get_source_job_type(source_path=self.load_from_source)
             if source_job is PGSourceJob:
@@ -135,7 +138,6 @@ class JobScheduler:
 
             source_output_types = set(source_job.output_types)
             for job in discovered_job_classes:
-                generate_dependency_types(job)
                 skip = False
                 for output_type in job.output_types:
                     if output_type in source_output_types:
