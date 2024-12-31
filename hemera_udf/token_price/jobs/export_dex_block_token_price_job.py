@@ -74,6 +74,9 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         for record in records:
             token_dict = self.tokens.get(record.get("token_address"), {})
             token_symbol = token_dict.get("symbol")
+            if token_symbol is None:
+                continue
+
             decimals = token_dict.get("decimals")
 
             token_price = record.get("token_price")
@@ -84,9 +87,9 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
             else:
                 record["amount"] = record.get("amount") / 10**decimals
 
-            if token_symbol is None:
-                message = f"{str(record)} missing token symbol"
-                logger.info(message)
+
+                # message = f"{str(record)} missing token symbol"
+                # logger.info(message)
 
             dex_block_token_price = DexBlockTokenPrice(**record, token_symbol=token_symbol, decimals=decimals)
 
