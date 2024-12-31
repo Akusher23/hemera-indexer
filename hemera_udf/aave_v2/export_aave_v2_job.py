@@ -92,9 +92,16 @@ class ExportAaveV2Job(FilterTransactionDataJob):
         # init relative tokens
         self.reserve_dic = {}
         self.a_token_reserve_dic = {}
+        self.vary_debt_reserve_dic = {}
+        self.stable_debt_reserve_dic = {}
         self._read_reserve()
 
-        self.address_set = set(list(self.a_token_reserve_dic.keys()) + list(self.contract_addresses.values()))
+        self.address_set = set(
+            list(self.a_token_reserve_dic.keys())
+            + list(self.contract_addresses.values())
+            + list(self.vary_debt_reserve_dic)
+            + list(self.stable_debt_reserve_dic)
+        )
 
     def _read_reserve(self):
 
@@ -127,6 +134,8 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                 log_index=rr.log_index,
             )
             self.reserve_dic[item.asset] = item
+            self.vary_debt_reserve_dic[item.variable_debt_token_address] = item
+            self.stable_debt_reserve_dic[item.stable_debt_token_address] = item
             self.a_token_reserve_dic[item.a_token_address] = item
 
     def _initialize_events_and_processors(self):
@@ -175,25 +184,61 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                 res_d[address][reserve.asset].supply_amount = after
 
             elif a_record.type() == AaveV2TransferD.type():
+                # a_token
                 reserve = self.a_token_reserve_dic[a_record.a_token]
+                if reserve:
+                    aave_from = a_record.aave_from
+                    after_transfer = address_token_block_balance_dic[aave_from][reserve.a_token_address][
+                        a_record.block_number
+                    ]
+                    res_d[aave_from][reserve.asset].address = aave_from
+                    res_d[aave_from][reserve.asset].asset = reserve.asset
+                    res_d[aave_from][reserve.asset].block_number = a_record.block_number
+                    res_d[aave_from][reserve.asset].block_timestamp = a_record.block_timestamp
+                    res_d[aave_from][reserve.asset].supply_amount = after_transfer
 
-                aave_from = a_record.aave_from
-                after_transfer = address_token_block_balance_dic[aave_from][reserve.a_token_address][
-                    a_record.block_number
-                ]
-                res_d[aave_from][reserve.asset].address = aave_from
-                res_d[aave_from][reserve.asset].asset = reserve.asset
-                res_d[aave_from][reserve.asset].block_number = a_record.block_number
-                res_d[aave_from][reserve.asset].block_timestamp = a_record.block_timestamp
-                res_d[aave_from][reserve.asset].supply_amount = after_transfer
+                    aave_to = a_record.aave_to
+                    after_receive = address_token_block_balance_dic[aave_to][reserve.a_token_address][
+                        a_record.block_number
+                    ]
+                    res_d[aave_to][reserve.asset].address = aave_to
+                    res_d[aave_to][reserve.asset].asset = reserve.asset
+                    res_d[aave_to][reserve.asset].block_number = a_record.block_number
+                    res_d[aave_to][reserve.asset].block_timestamp = a_record.block_timestamp
+                    res_d[aave_to][reserve.asset].supply_amount = after_receive
+                else:
+                    reserve = self.vary_debt_reserve_dic[a_record.reserve]
+                    if reserve:
+                        aave_from = a_record.aave_from
+                        after_transfer = address_token_block_balance_dic[aave_from][
+                            reserve.variable_debt_token_address
+                        ][a_record.block_number]
+                        aave_to = a_record.aave_to
+                        after_receive = address_token_block_balance_dic[aave_to][reserve.variable_debt_token_address][
+                            a_record.block_number
+                        ]
+                    else:
+                        reserve = self.stable_debt_reserve_dic[a_record.reserve]
+                        aave_from = a_record.aave_from
+                        after_transfer = address_token_block_balance_dic[aave_from][reserve.stable_debt_token_address][
+                            a_record.block_number
+                        ]
+                        aave_to = a_record.aave_to
+                        after_receive = address_token_block_balance_dic[aave_to][reserve.stable_debt_token_address][
+                            a_record.block_number
+                        ]
 
-                aave_to = a_record.aave_to
-                after_receive = address_token_block_balance_dic[aave_to][reserve.a_token_address][a_record.block_number]
-                res_d[aave_to][reserve.asset].address = aave_to
-                res_d[aave_to][reserve.asset].asset = reserve.asset
-                res_d[aave_to][reserve.asset].block_number = a_record.block_number
-                res_d[aave_to][reserve.asset].block_timestamp = a_record.block_timestamp
-                res_d[aave_to][reserve.asset].supply_amount = after_receive
+                    res_d[aave_from][reserve.asset].address = aave_from
+                    res_d[aave_from][reserve.asset].asset = reserve.asset
+                    res_d[aave_from][reserve.asset].block_number = a_record.block_number
+                    res_d[aave_from][reserve.asset].block_timestamp = a_record.block_timestamp
+                    res_d[aave_from][reserve.asset].borrow_amount = after_transfer
+
+                    res_d[aave_to][reserve.asset].address = aave_to
+                    res_d[aave_to][reserve.asset].asset = reserve.asset
+                    res_d[aave_to][reserve.asset].block_number = a_record.block_number
+                    res_d[aave_to][reserve.asset].block_timestamp = a_record.block_timestamp
+                    res_d[aave_to][reserve.asset].borrow_amount = after_receive
 
             elif a_record.type() == AaveV2RepayD.type() or a_record.type() == AaveV2BorrowD.type():
                 address = a_record.aave_user
@@ -339,23 +384,45 @@ class ExportAaveV2Job(FilterTransactionDataJob):
                     )
                 )
             elif a_record.type() == AaveV2TransferD.type():
-                a_token_address = a_record.a_token
-                eth_call_lis.append(
-                    Call(
-                        target=a_token_address,
-                        function_abi=SCALED_BALANCE_OF_FUNCTION,
-                        parameters=[a_record.aave_from],
-                        block_number=a_record.block_number,
+                if (
+                    a_record.a_token in self.a_token_reserve_dic
+                    or a_record.a_token_address in self.vary_debt_reserve_dic
+                ):
+                    a_token_address = a_record.a_token
+                    eth_call_lis.append(
+                        Call(
+                            target=a_token_address,
+                            function_abi=SCALED_BALANCE_OF_FUNCTION,
+                            parameters=[a_record.aave_from],
+                            block_number=a_record.block_number,
+                        )
                     )
-                )
-                eth_call_lis.append(
-                    Call(
-                        target=a_token_address,
-                        function_abi=SCALED_BALANCE_OF_FUNCTION,
-                        parameters=[a_record.aave_to],
-                        block_number=a_record.block_number,
+                    eth_call_lis.append(
+                        Call(
+                            target=a_token_address,
+                            function_abi=SCALED_BALANCE_OF_FUNCTION,
+                            parameters=[a_record.aave_to],
+                            block_number=a_record.block_number,
+                        )
                     )
-                )
+                elif a_record.a_token in self.stable_debt_reserve_dic:
+                    a_token_address = a_record.a_token
+                    eth_call_lis.append(
+                        Call(
+                            target=a_token_address,
+                            function_abi=PRINCIPAL_BALANCE_OF_FUNCTION,
+                            parameters=[a_record.aave_from],
+                            block_number=a_record.block_number,
+                        )
+                    )
+                    eth_call_lis.append(
+                        Call(
+                            target=a_token_address,
+                            function_abi=PRINCIPAL_BALANCE_OF_FUNCTION,
+                            parameters=[a_record.aave_to],
+                            block_number=a_record.block_number,
+                        )
+                    )
             elif a_record.type() == AaveV2RepayD.type() or a_record.type() == AaveV2BorrowD.type():
                 reserve = self.reserve_dic[a_record.reserve]
                 eth_call_lis.append(
