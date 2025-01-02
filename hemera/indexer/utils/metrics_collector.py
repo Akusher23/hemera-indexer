@@ -55,6 +55,9 @@ class RangeHeap:
     def __len__(self):
         return len(self.heap)
 
+    def __contains__(self, block_range: str):
+        return block_range in self.range_set
+
 
 class MetricsCollector:
     _instance = None
@@ -76,15 +79,29 @@ class MetricsCollector:
         self._initialized = True
 
     def _metrics_definition(self):
+        self.last_sync_record = Gauge(
+            "last_sync_record", "The last synced block number", []
+        )
+
         self.indexed_range = Gauge(
-            "indexed_range", "Current processed blocks between range", ["indexed_range", "status"]
+            "indexed_range", "Current indexed blocks between range", ["block_range"]
+        )
+
+        self.exported_range = Gauge(
+            "exported_range", "Current exported blocks between range", ["block_range", "status"]
         )
 
         self.indexed_domains = Gauge(
-            "indexed_domains", "Current processed domains between range", ["indexed_range", "domain"]
+            "indexed_domains", "Current indexed domains between range", ["block_range", "domain"]
         )
 
-        self.indexed_counter = Counter("indexed_counter", "Total number of indexed blocks", ["status"])
+        self.exported_domains = Gauge(
+            "exported_domains", "Current exported domains between range", ["block_range", "domain"]
+        )
+
+        self.indexed_counter = Counter("indexed_counter", "Total number of indexed blocks", [])
+
+        self.exported_counter = Counter("exported_counter", "Total number of exported blocks", ["status"])
 
     @staticmethod
     def _parse_range(block_range: str):
@@ -121,37 +138,29 @@ class MetricsCollector:
     def get_active_ranges(self) -> List[str]:
         return self.active_ranges.get_ranges()
 
-    def update_indexed_range(self, indexed_range: str, status: str):
-        self._update_active_range(indexed_range)
-        self.indexed_range.labels(indexed_range=indexed_range, status=status).set(1)
+    def update_last_sync_record(self, last_sync_record: int):
+        last_record = self.last_sync_record._value.get()
+        if last_record < last_sync_record:
+            self.last_sync_record.set(last_sync_record)
 
-    def update_domains_counter(self, domain: str, indexed_range: str, amount: int):
-        self._update_active_range(indexed_range)
+    def update_indexed_range(self, index_range: str, amount: int):
+        if index_range not in self.active_ranges:
+            self._update_active_range(index_range)
+            self.indexed_range.labels(block_range=index_range).set(1)
+            self.indexed_counter.inc(amount)
 
-        self.active_domains[indexed_range].add(domain)
-        self.indexed_domains.labels(indexed_range=indexed_range, domain=domain).set(amount)
+    def update_exported_range(self, index_range: str, status: str):
+        self.exported_range.labels(block_range=index_range, status=status).set(1)
 
-    def update_indexed_counter(self, status: str, amount: int):
-        self.indexed_counter.labels(
+    def update_indexed_domains(self, domain: str, index_range: str, amount: int):
+        self.active_domains[index_range].add(domain)
+        self.indexed_domains.labels(block_range=index_range, domain=domain).set(amount)
+
+    def update_exported_domains(self, domain: str, index_range: str, amount: int):
+        self.active_domains[index_range].add(domain)
+        self.exported_domains.labels(block_range=index_range, domain=domain).set(amount)
+
+    def update_exported_counter(self, status: str, amount: int):
+        self.exported_counter.labels(
             status=status,
         ).inc(amount)
-
-
-if __name__ == "__main__":
-    metrics = MetricsCollector(keep_ranges=3)
-
-    # 添加测试数据（顺序随机）
-    test_ranges = [
-        "2000-2999",
-        "1000-1999",
-        "4000-4999",
-        "3000-3999",
-        "5000-5999",
-    ]
-
-    for block_range in test_ranges:
-        metrics.update_indexed_range(block_range, "success")
-        metrics.update_domains_counter("example.com", block_range, 42)
-
-        # 打印当前活跃的区间（始终有序）
-        print(f"Active ranges: {metrics.get_active_ranges()}")
