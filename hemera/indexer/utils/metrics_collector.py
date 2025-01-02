@@ -79,13 +79,9 @@ class MetricsCollector:
         self._initialized = True
 
     def _metrics_definition(self):
-        self.last_sync_record = Gauge(
-            "last_sync_record", "The last synced block number", []
-        )
+        self.last_sync_record = Gauge("last_sync_record", "The last synced block number", [])
 
-        self.indexed_range = Gauge(
-            "indexed_range", "Current indexed blocks between range", ["block_range"]
-        )
+        self.indexed_range = Gauge("indexed_range", "Current indexed blocks between range", ["block_range"])
 
         self.exported_range = Gauge(
             "exported_range", "Current exported blocks between range", ["block_range", "status"]
@@ -128,10 +124,20 @@ class MetricsCollector:
             if labels[0] == indexed_range:
                 self.indexed_range.remove(*labels)
 
+        existing_metrics = self.exported_range._metrics.copy()
+        for labels in existing_metrics:
+            if labels[0] == indexed_range:
+                self.exported_range.remove(*labels)
+
         existing_domains = self.indexed_domains._metrics.copy()
         for labels in existing_domains:
             if labels[0] == indexed_range:
                 self.indexed_domains.remove(*labels)
+
+        existing_domains = self.exported_domains._metrics.copy()
+        for labels in existing_domains:
+            if labels[0] == indexed_range:
+                self.exported_domains.remove(*labels)
 
         self.active_domains.pop(indexed_range, None)
 
