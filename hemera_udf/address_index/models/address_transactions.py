@@ -1,27 +1,39 @@
-from sqlalchemy import Column, Index, desc, func
-from sqlalchemy.dialects.postgresql import BYTEA, INTEGER, NUMERIC, SMALLINT, TEXT, TIMESTAMP
+from datetime import datetime
+from decimal import Decimal
+from typing import Optional
+
+from sqlalchemy import Column, text
+from sqlalchemy.dialects.postgresql import SMALLINT
+from sqlmodel import Field, Index
 
 from hemera.common.models import HemeraModel, general_converter
-from hemera_udf.address_index.domains import AddressTransaction
+from hemera_udf.address_index import AddressTransaction
 
 
-class AddressTransactions(HemeraModel):
+class AddressTransactions(HemeraModel, table=True):
     __tablename__ = "address_transactions"
 
-    address = Column(BYTEA, primary_key=True)
-    block_number = Column(INTEGER, primary_key=True)
-    transaction_index = Column(INTEGER, primary_key=True)
-    transaction_hash = Column(BYTEA)
-    block_timestamp = Column(TIMESTAMP, primary_key=True)
-    block_hash = Column(BYTEA)
-    txn_type = Column(SMALLINT)
-    related_address = Column(BYTEA)
-    value = Column(NUMERIC(100))
-    transaction_fee = Column(NUMERIC(100))
-    receipt_status = Column(INTEGER)
-    method = Column(TEXT)
-    create_time = Column(TIMESTAMP, server_default=func.now())
-    update_time = Column(TIMESTAMP, server_default=func.now())
+    # Primary key fields
+    address: bytes = Field(primary_key=True)
+    block_number: int = Field(primary_key=True)
+    transaction_index: int = Field(primary_key=True)
+    block_timestamp: datetime = Field(primary_key=True)
+
+    # Transaction related fields
+    transaction_hash: Optional[bytes] = Field(default=None)
+    block_hash: Optional[bytes] = Field(default=None)
+    txn_type: Optional[int] = Field(default=None, sa_column=Column(SMALLINT))
+    related_address: Optional[bytes] = Field(default=None)
+    value: Optional[Decimal] = Field(default=None, max_digits=100)
+    transaction_fee: Optional[Decimal] = Field(default=None, max_digits=100)
+    receipt_status: Optional[int] = Field(default=None)
+    method: Optional[str] = Field(default=None)
+
+    # Metadata fields
+    create_time: datetime = Field(default_factory=datetime.utcnow)
+    update_time: datetime = Field(default_factory=datetime.utcnow)
+
+    __query_order__ = [block_number, transaction_index]
 
     @staticmethod
     def model_domain_mapping():
@@ -34,20 +46,13 @@ class AddressTransactions(HemeraModel):
             }
         ]
 
-
-Index(
-    "address_transactions_address_block_timestamp_block_number_t_idx",
-    AddressTransactions.address,
-    desc(AddressTransactions.block_timestamp),
-    desc(AddressTransactions.block_number),
-    desc(AddressTransactions.transaction_index),
-)
-
-Index(
-    "address_transactions_address_txn_type_block_timestamp_block_idx",
-    AddressTransactions.address,
-    AddressTransactions.txn_type,
-    desc(AddressTransactions.block_timestamp),
-    desc(AddressTransactions.block_number),
-    desc(AddressTransactions.transaction_index),
-)
+    __table_args__ = (
+        Index(
+            "address_transactions_address_block_timestamp_block_number_t_idx",
+            text("address, block_timestamp DESC, block_number DESC, transaction_index DESC"),
+        ),
+        Index(
+            "address_transactions_address_txn_type_block_timestamp_block_idx",
+            text("address, txn_type, block_timestamp DESC, block_number DESC, transaction_index DESC"),
+        ),
+    )
