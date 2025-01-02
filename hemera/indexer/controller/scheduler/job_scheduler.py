@@ -1,6 +1,7 @@
 import logging
 import os
 from collections import defaultdict, deque
+from distutils.util import strtobool
 from typing import List, Set, Type, Union
 
 from pottery import RedisDict
@@ -10,7 +11,6 @@ from hemera.common.models.tokens import Tokens
 from hemera.common.utils.exception_control import HemeraBaseException
 from hemera.common.utils.format_utils import bytes_to_hex_str
 from hemera.common.utils.module_loading import import_submodules
-from hemera.indexer.exporters.console_item_exporter import ConsoleItemExporter
 from hemera.indexer.jobs import CSVSourceJob
 from hemera.indexer.jobs.base_job import (
     BaseExportJob,
@@ -24,6 +24,7 @@ from hemera.indexer.jobs.source_job.pg_source_job import PGSourceJob
 from hemera.indexer.utils.buffer_service import BufferService
 
 JOB_RETRIES = int(os.environ.get("JOB_RETRIES", "5"))
+PGSOURCE_ACCURACY = bool(strtobool(os.environ.get("PGSOURCE_ACCURACY", "false")))
 
 
 def get_tokens_from_db(service):
@@ -141,7 +142,8 @@ class JobScheduler:
                 skip = False
                 for output_type in job.output_types:
                     if output_type in source_output_types:
-                        source_job.output_types = list(set(job.output_types + list(source_output_types)))
+                        if not PGSOURCE_ACCURACY:
+                            source_job.output_types = list(set(job.output_types + list(source_output_types)))
                         skip = True
                         break
                 if not skip:
