@@ -1258,7 +1258,6 @@ def get_best_match_data(distribution_name: str, target_date: date):
     """
     Find the nearest data for a given distribution and target_date.
     """
-    # Find the block_date closest to the target_date
     closest_block_date = (
         db.session.query(AFDistributionDailyStats.block_date)
         .filter(AFDistributionDailyStats.distribution_name == distribution_name)
@@ -1274,7 +1273,6 @@ def get_best_match_data(distribution_name: str, target_date: date):
     if not closest_block_date:
         return []
 
-    # Query data for the closest block_date
     result = (
         db.session.query(AFDistributionDailyStats)
         .filter(
@@ -1288,42 +1286,9 @@ def get_best_match_data(distribution_name: str, target_date: date):
         .all()
     )
 
-    # Format the result into a list of dictionaries
     data = [{"value": float(record.value), "label": float(record.x)} for record in result]
 
     return closest_block_date, data
-
-
-def get_distribution_exists_data(distribution_name: str):
-    """
-    Find the last existing data for a given distribution, no matter what date it is.
-    """
-    latest_block_date = (
-        db.session.query(func.max(AFDistributionDailyStats.block_date))
-        .filter(
-            and_(AFDistributionDailyStats.x != 0.0, AFDistributionDailyStats.distribution_name == distribution_name)
-        )
-        .scalar()
-    )
-
-    if not latest_block_date:
-        return []
-    result = (
-        db.session.query(AFDistributionDailyStats)
-        .filter(
-            and_(
-                AFDistributionDailyStats.block_date == latest_block_date,
-                AFDistributionDailyStats.distribution_name == distribution_name,
-                AFDistributionDailyStats.x != 0.0,
-            )
-        )
-        .order_by(AFDistributionDailyStats.x)
-        .all()
-    )
-
-    data = [{"value": float(record.value), "label": float(record.x)} for record in result]
-
-    return latest_block_date, data
 
 
 def get_distribution_date_metrics(distribution_name: str, block_date: date):
@@ -1359,9 +1324,8 @@ def check_logarithmic_pattern(distribution_name, data):
         "distribution_job_eigen_layer_udf",
         "distribution_job_aave2_supply_udf",
         "distribution_job_aave2_borrow_udf",
-        "",
     }
     if distribution_name in log_chart_type:
-        return "log"
+        return True
     labels = [item["label"] for item in data]
     return is_logarithmic(labels)
