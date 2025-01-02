@@ -292,8 +292,7 @@ class BufferService:
 
             if self.metrics:
                 self.metrics.update_indexed_range(
-                    index_range=f"{block_range[0]}-{block_range[1]}",
-                    amount=block_range[1] - block_range[0] + 1
+                    index_range=f"{block_range[0]}-{block_range[1]}", amount=block_range[1] - block_range[0] + 1
                 )
 
             for key in flush_keys:
