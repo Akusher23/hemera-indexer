@@ -34,8 +34,7 @@ def test_client():
             username="postgres",
             password="admin",
         ),
-        # rpc="https://story-network.rpc.caldera.xyz/http",
-        rpc="https://ethereum-rpc.publicnode.com",
+        rpc="https://story-network.rpc.caldera.xyz/http",
     )
     set_config(app_config)
     from hemera.api.app.main import app
