@@ -1111,28 +1111,8 @@ def get_all_udf_dashboards():
     return distinct_distribution_names
 
 
-def get_all_udf_dashboards_data():
-    today = date.today() - timedelta(days=1)
-    week_ago = today - timedelta(days=7)
-    month_ago = today - timedelta(days=30)
-    result = (
-        db.session.query(AFDistributionDailyStats)
-        .filter(
-            and_(
-                AFDistributionDailyStats.x != 0.0,
-                or_(
-                    AFDistributionDailyStats.block_date == today,
-                    AFDistributionDailyStats.block_date == week_ago,
-                    AFDistributionDailyStats.block_date == month_ago,
-                ),
-            )
-        )
-        .order_by(
-            AFDistributionDailyStats.distribution_name, AFDistributionDailyStats.block_date, AFDistributionDailyStats.x
-        )
-        .all()
-    )
-
+def fetch_and_group_metrics(today, week_ago, month_ago):
+    """Fetch metrics and group them by distribution name and date."""
     metrics = (
         db.session.query(AFMetricsDistributionDailyStats)
         .filter(
@@ -1145,18 +1125,53 @@ def get_all_udf_dashboards_data():
         .order_by(AFMetricsDistributionDailyStats.distribution_name, AFMetricsDistributionDailyStats.block_date)
         .all()
     )
-    metrics_dic = {}
-    for a_metrics in metrics:
-        distribution_name = a_metrics.distribution_name
-        if distribution_name not in metrics_dic:
-            metrics_dic[distribution_name] = {}
-        metrics_dic[distribution_name][a_metrics.block_date] = a_metrics
 
-    res = {}
+    metrics_dic = {}
+    for metric in metrics:
+        metrics_dic.setdefault(metric.distribution_name, {})[metric.block_date] = metric
+    return metrics_dic
+
+
+def populate_data_for_date(res, row, date_index, metrics_dic):
+    """Populate data for a specific date index."""
+    target_metrics = metrics_dic.get(row.distribution_name, {}).get(row.block_date)
+    if target_metrics:
+        res[row.distribution_name]["data"][date_index]["avg"] = float(target_metrics.avg)
+        res[row.distribution_name]["data"][date_index]["stdev"] = float(target_metrics.stdev)
+    res[row.distribution_name]["data"][date_index]["actual_date"] = row.block_date.isoformat()
+    res[row.distribution_name]["data"][date_index]["data"].append({"value": float(row.value), "label": float(row.x)})
+
+
+def get_all_udf_dashboards_data():
+    today = date.today() - timedelta(days=1)
+    week_ago = today - timedelta(days=7)
+    month_ago = today - timedelta(days=30)
+
+    # Fetch main data and metrics
+    result = (
+        db.session.query(AFDistributionDailyStats)
+        .filter(
+            AFDistributionDailyStats.x != 0.0,
+            or_(
+                AFDistributionDailyStats.block_date == today,
+                AFDistributionDailyStats.block_date == week_ago,
+                AFDistributionDailyStats.block_date == month_ago,
+            ),
+        )
+        .order_by(
+            AFDistributionDailyStats.distribution_name,
+            AFDistributionDailyStats.block_date,
+            AFDistributionDailyStats.x,
+        )
+        .all()
+    )
+    metrics_dic = fetch_and_group_metrics(today, week_ago, month_ago)
+
+    # Initialize result structure
     all_distribution_names = get_all_udf_dashboards()
-    for distribution_name in all_distribution_names:
-        res[distribution_name] = {
-            "name": distribution_name,
+    res = {
+        name: {
+            "name": name,
             "chart_type": "",
             "data": [
                 {"type": "as_of_today", "avg": "", "stdev": "", "actual_date": "", "data": []},
@@ -1164,92 +1179,44 @@ def get_all_udf_dashboards_data():
                 {"type": "as_of_a_month_ago", "avg": "", "stdev": "", "actual_date": "", "data": []},
             ],
         }
+        for name in all_distribution_names
+    }
 
+    date_mapping = {today: 0, week_ago: 1, month_ago: 2}
     for row in result:
         if (
             row.distribution_name in {"distribution_job_ens_holdings_udf", "distribution_job_ens_resolves_udf"}
             and float(row.x) == 100.0
         ):
             continue
-        if row.block_date == today:
-            target_metrics = metrics_dic.get(row.distribution_name)
-            if target_metrics:
-                target_metrics = target_metrics.get(row.block_date)
-                if target_metrics:
-                    res[row.distribution_name]["data"][0]["avg"] = float(target_metrics.avg)
-                    res[row.distribution_name]["data"][0]["stdev"] = float((target_metrics.stdev))
-            res[row.distribution_name]["data"][0]["actual_date"] = today.isoformat()
-            res[row.distribution_name]["data"][0]["data"].append(
-                {
-                    "value": float(row.value),
-                    "label": float(row.x),
-                }
-            )
-        elif row.block_date == week_ago:
-            target_metrics = metrics_dic.get(row.distribution_name)
-            if target_metrics:
-                target_metrics = target_metrics.get(row.block_date)
-                if target_metrics:
-                    res[row.distribution_name]["data"][1]["avg"] = float(target_metrics.avg)
-                    res[row.distribution_name]["data"][1]["stdev"] = float(target_metrics.stdev)
-            res[row.distribution_name]["data"][0]["actual_date"] = week_ago.isoformat()
-            res[row.distribution_name]["data"][1]["data"].append(
-                {
-                    "value": float(row.value),
-                    "label": float(row.x),
-                }
-            )
-        elif row.block_date == month_ago:
-            target_metrics = metrics_dic.get(row.distribution_name)
-            if target_metrics:
-                target_metrics = target_metrics.get(row.block_date)
-                if target_metrics:
-                    res[row.distribution_name]["data"][2]["avg"] = float(target_metrics.avg)
-                    res[row.distribution_name]["data"][2]["stdev"] = float(target_metrics.stdev)
-            res[row.distribution_name]["data"][0]["actual_date"] = month_ago.isoformat()
-            res[row.distribution_name]["data"][2]["data"].append(
-                {
-                    "value": float(row.value),
-                    "label": float(row.x),
-                }
-            )
+        date_index = date_mapping.get(row.block_date)
+        if date_index is not None:
+            populate_data_for_date(res, row, date_index, metrics_dic)
 
+    # Handle missing data
     for distribution_name, distribution_data in res.items():
+        for i, (date_ref, date_type) in enumerate(
+            [(today, "as_of_today"), (week_ago, "as_of_a_week_ago"), (month_ago, "as_of_a_month_ago")]
+        ):
+            if not distribution_data["data"][i]["data"]:
+                actual_date, data = get_best_match_data(distribution_name, date_ref)
+                avg, stdev = get_distribution_date_metrics(distribution_name, actual_date)
+                distribution_data["data"][i].update(
+                    {
+                        "avg": avg,
+                        "stdev": stdev,
+                        "actual_date": actual_date.isoformat(),
+                        "data": data,
+                    }
+                )
 
-        if not distribution_data["data"][0]["data"]:
-            actual_date, data = get_best_match_data(distribution_name, today)
-            distribution_data["data"][0]["data"] = data
-            res[distribution_name]["data"][0]["actual_date"] = actual_date.isoformat()
-            avg, stdev = get_distribution_date_metrics(distribution_name, actual_date)
-            distribution_data["data"][0]["avg"] = avg
-            distribution_data["data"][0]["stdev"] = stdev
-
-        if not distribution_data["data"][1]["data"]:
-            actual_date_1, data_1 = get_best_match_data(distribution_name, week_ago)
-            avg_1, stdev_1 = get_distribution_date_metrics(distribution_name, actual_date_1)
-
-            res[distribution_name]["data"][1]["avg"] = avg_1
-            res[distribution_name]["data"][1]["stdev"] = stdev_1
-            res[distribution_name]["data"][1]["data"] = data_1
-            res[distribution_name]["data"][1]["actual_date"] = actual_date_1.isoformat()
-        if not distribution_data["data"][2]["data"]:
-            actual_date_2, data_2 = get_best_match_data(distribution_name, month_ago)
-            avg_2, stdev_2 = get_distribution_date_metrics(distribution_name, actual_date_2)
-
-            res[distribution_name]["data"][2]["avg"] = avg_2
-            res[distribution_name]["data"][2]["stdev"] = stdev_2
-            res[distribution_name]["data"][2]["data"] = data_2
-            res[distribution_name]["data"][2]["actual_date"] = actual_date_2.isoformat()
+        # Determine chart type
         chart_type = (
             "log"
-            if (
-                check_logarithmic_pattern(distribution_name, distribution_data["data"][0]["data"])
-                or check_logarithmic_pattern(distribution_name, distribution_data["data"][1]["data"])
-                or check_logarithmic_pattern(distribution_name, distribution_data["data"][2]["data"])
-            )
+            if any(check_logarithmic_pattern(distribution_name, distribution_data["data"][i]["data"]) for i in range(3))
             else "value"
         )
-        res[distribution_name]["chart_type"] = chart_type
+        distribution_data["chart_type"] = chart_type
 
     return res
 
