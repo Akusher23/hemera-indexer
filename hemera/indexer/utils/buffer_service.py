@@ -238,7 +238,7 @@ class BufferService:
                 for output_type in complete_type:
                     self.metrics.update_exported_domains(
                         domain=output_type,
-                        index_range=f"{start_block}-{end_block}",
+                        status="success",
                         amount=len(self.buffer[output_type]),
                     )
 
@@ -250,7 +250,6 @@ class BufferService:
                     if self.metrics:
                         self.metrics.update_last_sync_record(last_sync_record=end_block)
                         self.metrics.update_exported_range(f"{start_block}-{end_block}", "success")
-                        self.metrics.update_exported_counter("success", end_block - start_block + 1)
 
                 except Exception as e:
                     self.logger.error(f"Writing last synced block number {end_block} error.")
@@ -263,8 +262,13 @@ class BufferService:
 
             if self.metrics:
                 self.metrics.update_exported_range(f"{start_block}-{end_block}", "failure")
-                if len(self.output_in_progress[(start_block, end_block)]) == 0:
-                    self.metrics.update_exported_counter("failure", end_block - start_block + 1)
+
+                for output_type in complete_type:
+                    self.metrics.update_exported_domains(
+                        domain=output_type,
+                        status="failure",
+                        amount=len(self.buffer[output_type]),
+                    )
 
             if CRASH_INSTANTLY:
                 self.shutdown()
@@ -301,9 +305,7 @@ class BufferService:
                     flush_items.extend(self.buffer[key])
 
                     if self.metrics:
-                        self.metrics.update_indexed_domains(
-                            domain=key, index_range=f"{block_range[0]}-{block_range[1]}", amount=len(self.buffer[key])
-                        )
+                        self.metrics.update_indexed_domains(domain=key, status="success", amount=len(self.buffer[key]))
 
             if len(flush_keys):
                 self.logger.info(f"Flush domains: {','.join(flush_keys)} between block range: {block_range}")

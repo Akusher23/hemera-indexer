@@ -72,7 +72,6 @@ class MetricsCollector:
             return
         start_http_server(port)
 
-        self.active_domains = defaultdict(set)
         self.active_ranges = RangeHeap(METRICS_KEEP_RANGE)
 
         self._metrics_definition()
@@ -87,17 +86,9 @@ class MetricsCollector:
             "exported_range", "Current exported blocks between range", ["block_range", "status"]
         )
 
-        self.indexed_domains = Gauge(
-            "indexed_domains", "Current indexed domains between range", ["block_range", "domain"]
-        )
+        self.indexed_domains = Counter("indexed_domains", "Total number of indexed domains", ["domain", "status"])
 
-        self.exported_domains = Gauge(
-            "exported_domains", "Current exported domains between range", ["block_range", "domain"]
-        )
-
-        self.indexed_counter = Counter("indexed_counter", "Total number of indexed blocks", [])
-
-        self.exported_counter = Counter("exported_counter", "Total number of exported blocks", ["status"])
+        self.exported_domains = Counter("exported_domains", "Total number of exported domains", ["domain", "status"])
 
     @staticmethod
     def _parse_range(block_range: str):
@@ -129,18 +120,6 @@ class MetricsCollector:
             if labels[0] == indexed_range:
                 self.exported_range.remove(*labels)
 
-        existing_domains = self.indexed_domains._metrics.copy()
-        for labels in existing_domains:
-            if labels[0] == indexed_range:
-                self.indexed_domains.remove(*labels)
-
-        existing_domains = self.exported_domains._metrics.copy()
-        for labels in existing_domains:
-            if labels[0] == indexed_range:
-                self.exported_domains.remove(*labels)
-
-        self.active_domains.pop(indexed_range, None)
-
     def get_active_ranges(self) -> List[str]:
         return self.active_ranges.get_ranges()
 
@@ -153,20 +132,12 @@ class MetricsCollector:
         if index_range not in self.active_ranges:
             self._update_active_range(index_range)
             self.indexed_range.labels(block_range=index_range).set(1)
-            self.indexed_counter.inc(amount)
 
     def update_exported_range(self, index_range: str, status: str):
         self.exported_range.labels(block_range=index_range, status=status).set(1)
 
-    def update_indexed_domains(self, domain: str, index_range: str, amount: int):
-        self.active_domains[index_range].add(domain)
-        self.indexed_domains.labels(block_range=index_range, domain=domain).set(amount)
+    def update_indexed_domains(self, domain: str, status: str, amount: int):
+        self.indexed_domains.labels(domain=domain, status=status).inc(amount)
 
-    def update_exported_domains(self, domain: str, index_range: str, amount: int):
-        self.active_domains[index_range].add(domain)
-        self.exported_domains.labels(block_range=index_range, domain=domain).set(amount)
-
-    def update_exported_counter(self, status: str, amount: int):
-        self.exported_counter.labels(
-            status=status,
-        ).inc(amount)
+    def update_exported_domains(self, domain: str, status: str, amount: int):
+        self.exported_domains.labels(domain=domain, status=status).inc(amount)
