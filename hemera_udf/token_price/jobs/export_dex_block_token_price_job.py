@@ -1,7 +1,9 @@
 import logging
 
 import pandas as pd
+from sqlalchemy import and_, func, or_
 
+from hemera.common.utils.format_utils import hex_str_to_bytes, bytes_to_hex_str
 from hemera.indexer.jobs.base_job import ExtensionJob
 from hemera.indexer.utils.collection_utils import distinct_collections_by_group
 from hemera_udf.token_price.domains import DexBlockTokenPrice, DexBlockTokenPriceCurrent
@@ -72,6 +74,13 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
 
         dex_block_token_price_list = []
         for record in records:
+            token_price = record.get("token_price")
+            if pd.isnull(token_price):
+                continue
+
+            if token_price > 200000:
+                continue
+
             token_dict = self.tokens.get(record.get("token_address"), {})
             token_symbol = token_dict.get("symbol")
             if token_symbol is None:
@@ -79,25 +88,75 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
 
             decimals = token_dict.get("decimals")
 
-            token_price = record.get("token_price")
-            if pd.isnull(token_price):
-                record["token_price"] = None
-                record["amount_usd"] = None
-                record["amount"] = None
-            else:
-                record["amount"] = record.get("amount") / 10**decimals
+            total_supply = token_dict.get("total_supply")
+            if token_price * total_supply / 10 ** decimals > 1880666183880:
+                continue
 
-
-                # message = f"{str(record)} missing token symbol"
-                # logger.info(message)
+            record["amount"] = record.get("amount") / 10 ** decimals
 
             dex_block_token_price = DexBlockTokenPrice(**record, token_symbol=token_symbol, decimals=decimals)
 
             dex_block_token_price_list.append(dex_block_token_price)
-        self._collect_domains(dex_block_token_price_list)
 
-        current_records = self.extract_current_status(
-            dex_block_token_price_list, DexBlockTokenPriceCurrent, ["token_address"]
+        previous_prices = self.get_previous_prices()
+
+        dex_block_token_price_list.sort(key=lambda x: x.block_number)
+
+        results = []
+
+        for dex_record in dex_block_token_price_list:
+            token_address = dex_record.token_address
+
+            previous_token_price = previous_prices.get(token_address)
+            if previous_token_price:
+                if dex_record.token_price / previous_token_price < 1000:
+                    previous_prices[token_address] = dex_record.token_price
+                    results.append(dex_record)
+            else:
+                previous_prices[token_address] = dex_record.token_price
+                results.append(dex_record)
+
+        self._collect_domains(results)
+
+        current_results = self.extract_current_status(
+            results, DexBlockTokenPriceCurrent, ["token_address"]
         )
-        self._collect_domains(current_records)
+        self._collect_domains(current_results)
         pass
+
+    def _get_current_holdings(self, tokens, block_number):
+        session = self._service.get_service_session()
+
+        conditions = [
+            and_(
+                DexBlockTokenPrice.token_address == hex_str_to_bytes(token),
+            ).self_group()  # need to group for one combination
+            for token in tokens
+        ]
+
+        windowed_block_number = func.row_number().over(
+            partition_by=(
+                DexBlockTokenPrice.token_address,
+            ),
+            order_by=DexBlockTokenPrice.block_number.desc(),
+        )
+
+        combined_conditions = or_(*conditions)
+
+        subquery = (
+            session.query(DexBlockTokenPrice, windowed_block_number.label("row_number"))
+            .filter(combined_conditions, DexBlockTokenPrice.block_number < block_number)
+            .subquery()
+        )
+
+        query = session.query(subquery).filter(subquery.c.row_number == 1)
+
+        results = query.all()
+
+        pre_prices_dict = {}
+        for record in results:
+            token_address = bytes_to_hex_str(record.token_address)
+            pre_prices_dict[token_address] = record.token_price
+        session.close()
+
+        return pre_prices_dict
