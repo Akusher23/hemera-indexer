@@ -29,6 +29,9 @@ class AfUniswapV2SwapEvent(HemeraModel):
     block_number = Column(BIGINT)
     block_timestamp = Column(TIMESTAMP)
 
+    token0_address = Column(BYTEA)
+    token1_address = Column(BYTEA)
+
     create_time = Column(TIMESTAMP, server_default=func.now())
     update_time = Column(TIMESTAMP, server_default=func.now())
 
