@@ -2,11 +2,10 @@
 # -*- coding: utf-8 -*-
 import heapq
 import os
-from collections import defaultdict
 from dataclasses import dataclass
 from typing import List
 
-from prometheus_client import Counter, Gauge, start_http_server
+from prometheus_client import Counter, Gauge, Histogram, start_http_server
 
 METRICS_KEEP_RANGE = int(os.environ.get("METRICS_KEEP_RANGE", "10"))
 
@@ -72,24 +71,52 @@ class MetricsCollector:
             return
         start_http_server(port)
 
-        self.job_name = job_name
+        self.job_name = job_name if job_name else "default"
         self.active_ranges = RangeHeap(METRICS_KEEP_RANGE)
 
         self._metrics_definition()
         self._initialized = True
 
     def _metrics_definition(self):
-        self.last_sync_record = Gauge("last_sync_record", "The last synced block number", [])
+        self.last_sync_record = Gauge("last_sync_record", "The last synced block number", ["job_name"])
 
-        self.indexed_range = Gauge("indexed_range", "Current indexed blocks between range", ["block_range"])
+        self.indexed_range = Gauge("indexed_range", "Current indexed blocks between range", ["job_name", "block_range"])
 
         self.exported_range = Gauge(
-            "exported_range", "Current exported blocks between range", ["block_range", "status"]
+            "exported_range", "Current exported blocks between range", ["job_name", "block_range", "status"]
         )
 
-        self.indexed_domains = Counter("indexed_domains", "Total number of indexed domains", ["domain", "status"])
+        self.indexed_domains = Counter(
+            "indexed_domains", "Total number of indexed domains", ["job_name", "domain", "status"]
+        )
 
-        self.exported_domains = Counter("exported_domains", "Total number of exported domains", ["domain", "status"])
+        self.exported_domains = Counter(
+            "exported_domains", "Total number of exported domains", ["job_name", "domain", "status"]
+        )
+
+        self.total_processing_duration = Gauge(
+            "total_processing_duration",
+            "Total time spent processing each block range in milliseconds",
+            ["job_name", "block_range"],
+        )
+
+        self.job_processing_duration = Gauge(
+            "job_processing_duration",
+            "Time spent in each sub-job processing block range in milliseconds",
+            ["job_name", "block_range", "sub_job_name"],
+        )
+
+        self.export_domains_processing_duration = Gauge(
+            "export_domains_processing_duration",
+            "Time spent in each sub-job processing block range in milliseconds",
+            ["job_name", "block_range", "domains"],
+        )
+
+        self.job_processing_retry = Gauge(
+            "job_processing_retry",
+            "Retry times in sub-job processing block range",
+            ["job_name", "block_range", "sub_job_name"],
+        )
 
     @staticmethod
     def _parse_range(block_range: str):
@@ -113,32 +140,70 @@ class MetricsCollector:
     def _cleanup_range_metrics(self, indexed_range: str):
         existing_metrics = self.indexed_range._metrics.copy()
         for labels in existing_metrics:
-            if labels[0] == indexed_range:
+            if labels[0] == self.job_name and labels[1] == indexed_range:
                 self.indexed_range.remove(*labels)
 
         existing_metrics = self.exported_range._metrics.copy()
         for labels in existing_metrics:
-            if labels[0] == indexed_range:
+            if labels[0] == self.job_name and labels[1] == indexed_range:
                 self.exported_range.remove(*labels)
+
+        existing_metrics = self.total_processing_duration._metrics.copy()
+        for labels in existing_metrics:
+            if labels[0] == self.job_name and labels[1] == indexed_range:
+                self.total_processing_duration.remove(*labels)
+
+        existing_metrics = self.job_processing_duration._metrics.copy()
+        for labels in existing_metrics:
+            if labels[0] == self.job_name and labels[1] == indexed_range:
+                self.job_processing_duration.remove(*labels)
+
+        existing_metrics = self.export_domains_processing_duration._metrics.copy()
+        for labels in existing_metrics:
+            if labels[0] == self.job_name and labels[1] == indexed_range:
+                self.export_domains_processing_duration.remove(*labels)
+
+        existing_metrics = self.job_processing_retry._metrics.copy()
+        for labels in existing_metrics:
+            if labels[0] == self.job_name and labels[1] == indexed_range:
+                self.job_processing_retry.remove(*labels)
 
     def get_active_ranges(self) -> List[str]:
         return self.active_ranges.get_ranges()
 
     def update_last_sync_record(self, last_sync_record: int):
-        last_record = self.last_sync_record._value.get()
+        last_record = self.last_sync_record.labels(job_name=self.job_name)._value.get()
         if last_record < last_sync_record:
-            self.last_sync_record.set(last_sync_record)
+            self.last_sync_record.labels(job_name=self.job_name).set(last_sync_record)
 
-    def update_indexed_range(self, index_range: str, amount: int):
+    def update_indexed_range(self, index_range: str):
         if index_range not in self.active_ranges:
             self._update_active_range(index_range)
-            self.indexed_range.labels(block_range=index_range).set(1)
+            self.indexed_range.labels(job_name=self.job_name, block_range=index_range).set(1)
 
     def update_exported_range(self, index_range: str, status: str):
-        self.exported_range.labels(block_range=index_range, status=status).set(1)
+        self.exported_range.labels(job_name=self.job_name, block_range=index_range, status=status).set(1)
 
     def update_indexed_domains(self, domain: str, status: str, amount: int):
-        self.indexed_domains.labels(domain=domain, status=status).inc(amount)
+        self.indexed_domains.labels(job_name=self.job_name, domain=domain, status=status).inc(amount)
 
     def update_exported_domains(self, domain: str, status: str, amount: int):
-        self.exported_domains.labels(domain=domain, status=status).inc(amount)
+        self.exported_domains.labels(job_name=self.job_name, domain=domain, status=status).inc(amount)
+
+    def update_total_processing_duration(self, block_range: str, duration: int):
+        self.total_processing_duration.labels(job_name=self.job_name, block_range=block_range).set(duration)
+
+    def update_job_processing_duration(self, block_range: str, job_name: str, duration: int):
+        self.job_processing_duration.labels(job_name=self.job_name, block_range=block_range, sub_job_name=job_name).set(
+            duration
+        )
+
+    def update_export_domains_processing_duration(self, block_range: str, domains: str, duration: int):
+        self.export_domains_processing_duration.labels(
+            job_name=self.job_name, block_range=block_range, domains=domains
+        ).set(duration)
+
+    def update_job_processing_retry(self, block_range: str, job_name: str, retry: int):
+        self.job_processing_duration.labels(job_name=self.job_name, block_range=block_range, sub_job_name=job_name).set(
+            retry
+        )

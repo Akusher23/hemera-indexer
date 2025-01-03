@@ -10,6 +10,7 @@ import logging
 import os
 import signal
 import threading
+import time
 from collections import defaultdict
 from concurrent.futures import Future, ThreadPoolExecutor
 from distutils.util import strtobool
@@ -147,6 +148,7 @@ class BufferService:
         self.output_in_progress: dict[(int, int), set] = dict()
         self.futures_output: dict[Future, set] = dict()
         self.pending_futures: dict[Future, (int, int)] = dict()
+        self.futures_start: dict[Future, float] = dict()
         self.futures_lock = threading.Lock()
 
         self._shutdown_event = Event()
@@ -225,6 +227,7 @@ class BufferService:
         with self.futures_lock:
             start_block, end_block = self.pending_futures[future]
             complete_type = self.futures_output[future]
+            start_time = self.futures_start[future]
 
             self.pending_futures.pop(future)
             self.futures_output.pop(future)
@@ -241,6 +244,11 @@ class BufferService:
                         status="success",
                         amount=len(self.buffer[output_type]),
                     )
+                self.metrics.update_export_domains_processing_duration(
+                    block_range=f"{start_block}-{end_block}",
+                    domains=",".join(complete_type),
+                    duration=int((time.time() - start_time) * 1000),
+                )
 
             if self.success_callback and len(self.output_in_progress[(start_block, end_block)]) == 0:
                 try:
@@ -295,9 +303,7 @@ class BufferService:
             block_range = (self.buffer["block"][0].number, self.buffer["block"][-1].number)
 
             if self.metrics:
-                self.metrics.update_indexed_range(
-                    index_range=f"{block_range[0]}-{block_range[1]}", amount=block_range[1] - block_range[0] + 1
-                )
+                self.metrics.update_indexed_range(index_range=f"{block_range[0]}-{block_range[1]}")
 
             for key in flush_keys:
                 if key in self.required_output_types:
@@ -314,6 +320,7 @@ class BufferService:
             future = self.submit_export_pool.submit(self.export_items, flush_items)
             self.futures_output[future] = flush_type
             self.pending_futures[future] = block_range
+            self.futures_start[future] = time.time()
             if block_range not in self.output_in_progress:
                 self.output_in_progress[block_range] = set(self.required_output_types)
 

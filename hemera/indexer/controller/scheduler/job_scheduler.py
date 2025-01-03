@@ -1,5 +1,6 @@
 import logging
 import os
+import time
 from collections import defaultdict, deque
 from typing import List, Set, Type, Union
 
@@ -69,6 +70,7 @@ class JobScheduler:
         multicall=None,
         auto_reorg=True,
         force_filter_mode=False,
+        metrics=None,
     ):
         import_submodules("hemera_udf")
         self.logger = logging.getLogger(__name__)
@@ -81,6 +83,7 @@ class JobScheduler:
         self.debug_batch_size = debug_batch_size
         self.max_workers = max_workers
         self.config = config
+        self.metrics = metrics
         required_output_types.sort(key=lambda x: x.type())
         self.required_output_types = required_output_types
         self.required_source_types = required_source_types
@@ -286,8 +289,23 @@ class JobScheduler:
     def run_jobs(self, start_block, end_block):
         self.clear_data_buff()
 
+        total_start = time.time()
         for job in self.jobs:
+            job_start = time.time()
             self.job_with_retires(job, start_block=start_block, end_block=end_block)
+
+            if self.metrics:
+                self.metrics.update_job_processing_duration(
+                    block_range=f"{start_block}-{end_block}",
+                    job_name=job.__class__.__name__,
+                    duration=int((time.time() - job_start) * 1000),
+                )
+
+        if self.metrics:
+            self.metrics.update_total_processing_duration(
+                block_range=f"{start_block}-{end_block}",
+                duration=int((time.time() - total_start) * 1000),
+            )
 
         for output_type in self.required_output_types:
             message = f"{output_type.type()} : {len(self.get_data_buff().get(output_type.type())) if self.get_data_buff().get(output_type.type()) else 0}"
@@ -298,6 +316,9 @@ class JobScheduler:
             try:
                 self.logger.info(f"Task run {job.__class__.__name__}")
                 job.run(start_block=start_block, end_block=end_block)
+
+                if self.metrics and retry > 0:
+                    self.metrics.update_job_processing_retry(block_range=f"{start_block}-{end_block}", retry=retry)
                 return
 
             except HemeraBaseException as e:

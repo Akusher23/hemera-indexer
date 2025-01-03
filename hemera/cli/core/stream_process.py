@@ -161,6 +161,7 @@ def stream_process(
         auto_reorg=auto_reorg,
         multicall=multicall,
         force_filter_mode=force_filter_mode,
+        metrics=metrics,
     )
 
     if process_numbers is None:
