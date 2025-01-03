@@ -139,6 +139,7 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
     def process_uniswap_data(self, df, token_balance_dict, stable_tokens, max_price, process_token_fn):
         df = df.dropna(subset=["token0_price"])
         df = df[df["token0_price"] < max_price]
+        df = df[df["token1_price"] < max_price]
 
         df = process_token_fn(df, "token0")
         df = process_token_fn(df, "token1")
