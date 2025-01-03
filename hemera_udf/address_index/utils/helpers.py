@@ -1209,8 +1209,6 @@ def get_all_udf_dashboards_data():
                         "data": data,
                     }
                 )
-        if distribution_name in ("distribution_age_daily", "distribution_tx_daily", "distribution_deployed_daily"):
-            res[distribution_name]["data"] = res[distribution_name]["data"][0:1]
 
         # Determine chart type
         chart_type = (
@@ -1219,6 +1217,8 @@ def get_all_udf_dashboards_data():
             else "value"
         )
         distribution_data["chart_type"] = chart_type
+        if distribution_name in ("distribution_age_daily", "distribution_tx_daily", "distribution_deployed_daily"):
+            res[distribution_name]["data"] = res[distribution_name]["data"][0:1]
 
     return res
 
