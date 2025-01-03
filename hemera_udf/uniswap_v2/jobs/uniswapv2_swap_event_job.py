@@ -29,6 +29,8 @@ class ExportUniSwapV2SwapEventJob(FilterTransactionDataJob):
         self.stable_tokens = stable_tokens_config
         self.pools_requested_by_rpc = set()
         self.multi_call_helper = MultiCallHelper(self._web3, kwargs, logger)
+        self._existing_pools = self.get_existing_pools()
+
 
     def get_filter(self):
         return TransactionFilterByLogs(
@@ -113,7 +115,6 @@ class ExportUniSwapV2SwapEventJob(FilterTransactionDataJob):
                 self._collect_domain(uniswap_v_pool_from_swap_event)
 
     def _process(self, **kwargs):
-        self._existing_pools = self.get_existing_pools()
         self.get_missing_pools_by_rpc()
 
         token_prices_dict = self.change_block_token_prices_to_dict()
@@ -188,6 +189,7 @@ class ExportUniSwapV2SwapEventJob(FilterTransactionDataJob):
                     )
 
                     self._collect_domain(swap_event)
+        pass
 
     def get_existing_pools(self):
         session = self._service.Session()
@@ -196,7 +198,7 @@ class ExportUniSwapV2SwapEventJob(FilterTransactionDataJob):
 
             pools_orm = session.query(UniswapV2Pools).all()
             for pool in pools_orm:
-                existing_pools[bytes_to_hex_str(pool.pool_address)] = pool.token0_address, pool.token1_address
+                existing_pools[bytes_to_hex_str(pool.pool_address)] = bytes_to_hex_str(pool.token0_address), bytes_to_hex_str(pool.token1_address)
 
         except Exception as e:
             print(e)
