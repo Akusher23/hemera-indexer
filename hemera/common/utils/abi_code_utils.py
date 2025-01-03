@@ -308,7 +308,6 @@ class Function:
             elif arg_type == "uint256":
                 encoded += uint256_to_bytes(arg)
             else:
-                print("else")
                 # cannot handle, call encode directly
                 return encode_data(self._function_abi, arguments, self.get_signature())
         return bytes_to_hex_str(encoded)
