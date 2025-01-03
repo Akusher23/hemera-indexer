@@ -67,11 +67,12 @@ class MetricsCollector:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, port: int = 9200):
+    def __init__(self, job_name: str = None, port: int = 9200):
         if hasattr(self, "_initialized"):
             return
         start_http_server(port)
 
+        self.job_name = job_name
         self.active_ranges = RangeHeap(METRICS_KEEP_RANGE)
 
         self._metrics_definition()
