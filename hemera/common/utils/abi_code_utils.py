@@ -307,10 +307,43 @@ class Function:
                 encoded += pad_address(arg)
             elif arg_type == "uint256":
                 encoded += uint256_to_bytes(arg)
+            elif arg_type == "(address,bytes)[]":  # 处理 address 和 bytes 的数组
+                if isinstance(arg, list):  # 确保输入是一个列表
+                    # 先编码数组的长度
+                    encoded += uint256_to_bytes(len(arg))
+                    # 为每个 (address, bytes) 元组编码
+                    for entry in arg:
+                        if isinstance(entry, list) and len(entry) == 2:
+                            address, byte_data = entry
+                            encoded += pad_address(address)
+                            encoded += pad_bytes(byte_data)
+                        else:
+                            raise ValueError(f"无效的 (address, bytes) 结构：{entry}")
+                else:
+                    raise ValueError(f"期望输入是一个 (address, bytes) 的列表，实际收到：{arg}")
             else:
                 # cannot handle, call encode directly
                 return encode_data(self._function_abi, arguments, self.get_signature())
         return bytes_to_hex_str(encoded)
+
+
+def pad_bytes(data: bytes) -> bytes:
+    """
+    Pads and encodes a `bytes` value according to Ethereum ABI encoding.
+
+    :param data: The `bytes` value to pad and encode.
+    :type data: bytes
+    :return: The padded and encoded `bytes` value.
+    :rtype: bytes
+    """
+    if not isinstance(data, bytes):
+        raise ValueError("Expected a bytes object")
+
+    length = len(data)
+    padded_length = (length + 31) // 32 * 32  # Round up to nearest multiple of 32
+    padding = b"\x00" * (padded_length - length)
+
+    return uint256_to_bytes(length) + data + padding
 
 
 class FunctionCollection:

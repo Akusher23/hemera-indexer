@@ -39,7 +39,7 @@ class Multicall:
         else:
             parameters = [self.require_success, [[call.target, hex_str_to_bytes(call.data)] for call in self.calls]]
 
-        call_data = self.a_encode(parameters)
+        call_data = self.multicall_func.encode_function_call_data(parameters)
         args = [{"to": self.multicall_address, "data": call_data}, format_block_id(self.block_number)]
         if self.gas_limit:
             args[0]["gas"] = format_block_id(self.gas_limit)
@@ -49,8 +49,3 @@ class Multicall:
             "params": args,
             "id": abs(hash(orjson.dumps(args))),
         }
-
-    @calculate_execution_time
-    def a_encode(self, parameters):
-        call_data = self.multicall_func.encode_function_call_data(parameters)
-        return call_data
