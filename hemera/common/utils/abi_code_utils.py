@@ -307,20 +307,20 @@ class Function:
                 encoded += pad_address(arg)
             elif arg_type == "uint256":
                 encoded += uint256_to_bytes(arg)
-            elif arg_type == "bool":
-                encoded += b"\x01" if arg is True else b"\x00"
-            elif arg_type == "(address,bytes)[]":
-                if isinstance(arg, list):
-                    encoded += uint256_to_bytes(len(arg))
-                    for entry in arg:
-                        if isinstance(entry, list) and len(entry) == 2:
-                            address, byte_data = entry
-                            encoded += pad_address(address)
-                            encoded += pad_bytes(byte_data)
-                        else:
-                            raise ValueError(f"invalid (address, bytes) structure: {entry}")
-                else:
-                    raise ValueError(f"expect list of (address, bytes)，actual {arg}")
+            # elif arg_type == "bool":
+            #     encoded += b"\x01" if arg is True else b"\x00"
+            # elif arg_type == "(address,bytes)[]":
+            #     if isinstance(arg, list):
+            #         encoded += uint256_to_bytes(len(arg))
+            #         for entry in arg:
+            #             if isinstance(entry, list) and len(entry) == 2:
+            #                 address, byte_data = entry
+            #                 encoded += pad_address(address)
+            #                 encoded += pad_bytes(byte_data)
+            #             else:
+            #                 raise ValueError(f"invalid (address, bytes) structure: {entry}")
+            #     else:
+            #         raise ValueError(f"expect list of (address, bytes)，actual {arg}")
             else:
                 # cannot handle, call encode directly
                 return encode_data(self._function_abi, arguments, self.get_signature())
