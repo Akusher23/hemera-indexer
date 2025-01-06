@@ -41,7 +41,7 @@ def load_environ():
     check_and_set_default_env("DEFAULT_MULTICALL_ADDRESS", "0xcA11bde05977b3631167028862bE2a173976CA11")
 
     # MetricsCollector control
-    check_and_set_default_env("METRICS_KEEP_RANGE", "10")
+    check_and_set_default_env("METRICS_CLIENT_PORT", "9200")
 
 
 @click.group()
