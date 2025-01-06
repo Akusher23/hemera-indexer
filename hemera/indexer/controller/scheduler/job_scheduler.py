@@ -6,6 +6,7 @@ from typing import List, Set, Type, Union
 
 from pottery import RedisDict
 from redis.client import Redis
+from tqdm import tqdm
 
 from hemera.common.models.tokens import Tokens
 from hemera.common.utils.exception_control import HemeraBaseException
@@ -27,22 +28,23 @@ JOB_RETRIES = int(os.environ.get("JOB_RETRIES", "5"))
 PGSOURCE_ACCURACY = bool(strtobool(os.environ.get("PGSOURCE_ACCURACY", "false")))
 
 
-def get_tokens_from_db(service):
+def get_tokens_from_db(service, batch_size=10000):
     with service.session_scope() as s:
-        dict = {}
-        result = s.query(Tokens).all()
-        if result is not None:
-            for token in result:
-                dict[bytes_to_hex_str(token.address)] = {
-                    "address": bytes_to_hex_str(token.address),
-                    "token_type": token.token_type,
-                    "name": token.name,
-                    "symbol": token.symbol,
-                    "decimals": int(token.decimals) if token.decimals is not None else None,
-                    "block_number": token.block_number,
-                    "total_supply": int(token.total_supply) if token.total_supply is not None else None,
-                }
-        return dict
+        tokens_dict = {}
+        total_count = s.query(Tokens).count()
+        query = s.query(Tokens).yield_per(batch_size)
+        for token in tqdm(query, total=total_count, desc="Loading tokens"):
+            tokens_dict[bytes_to_hex_str(token.address)] = {
+                "address": bytes_to_hex_str(token.address),
+                "token_type": token.token_type,
+                "name": token.name,
+                "symbol": token.symbol,
+                "decimals": int(token.decimals) if token.decimals is not None else None,
+                "block_number": token.block_number,
+                "total_supply": int(token.total_supply) if token.total_supply is not None else None,
+            }
+
+        return tokens_dict
 
 
 def get_source_job_type(source_path: str):
