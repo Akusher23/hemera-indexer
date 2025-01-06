@@ -6,6 +6,7 @@ Author  : xuzh
 Project : hemera_indexer
 """
 import logging
+from itertools import accumulate
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple, Union
 
 import eth_abi
@@ -307,43 +308,116 @@ class Function:
                 encoded += pad_address(arg)
             elif arg_type == "uint256":
                 encoded += uint256_to_bytes(arg)
-            # elif arg_type == "bool":
-            #     encoded += b"\x01" if arg is True else b"\x00"
-            # elif arg_type == "(address,bytes)[]":
-            #     if isinstance(arg, list):
-            #         encoded += uint256_to_bytes(len(arg))
-            #         for entry in arg:
-            #             if isinstance(entry, list) and len(entry) == 2:
-            #                 address, byte_data = entry
-            #                 encoded += pad_address(address)
-            #                 encoded += pad_bytes(byte_data)
-            #             else:
-            #                 raise ValueError(f"invalid (address, bytes) structure: {entry}")
-            #     else:
-            #         raise ValueError(f"expect list of (address, bytes)，actual {arg}")
+            elif arg_type == "bool":
+                encoded += encode_bool(arg)
             else:
                 # cannot handle, call encode directly
                 return encode_data(self._function_abi, arguments, self.get_signature())
         return bytes_to_hex_str(encoded)
 
+    def encode_multicall_data(self, arguments: Sequence[Any]) -> str:
+        """For use with multicall.
+        This implementation should be 5x faster than eth_abi.encode, which is slow in this scenario.
+        """
+        if arguments is None:
+            arguments = []
 
-def pad_bytes(data: bytes) -> bytes:
-    """
-    Pads and encodes a `bytes` value according to Ethereum ABI encoding.
+        if len(arguments) != len(self._inputs_type):
+            raise ValueError(f"Expected {len(self._inputs_type)} arguments, got {len(arguments)}")
 
-    :param data: The `bytes` value to pad and encode.
-    :type data: bytes
-    :return: The padded and encoded `bytes` value.
-    :rtype: bytes
-    """
-    if not isinstance(data, bytes):
-        raise ValueError("Expected a bytes object")
+        if len(arguments) > 2:
+            return encode_data(self._function_abi, arguments, self.get_signature())
 
-    length = len(data)
-    padded_length = (length + 31) // 32 * 32  # Round up to nearest multiple of 32
-    padding = b"\x00" * (padded_length - length)
+        encoded = hex_str_to_bytes(self._signature)
+        encoded += tuple_encode(arguments, ["bool", "(address,bytes)[]"])
+        return bytes_to_hex_str(encoded)
 
-    return uint256_to_bytes(length) + data + padding
+
+def zpad(value: bytes, length: int) -> bytes:
+    return value.rjust(length, b"\x00")
+
+
+def zpad_right(value: bytes, length: int) -> bytes:
+    return value.ljust(length, b"\x00")
+
+
+def ceil32(x: int) -> int:
+    return x if x % 32 == 0 else x + 32 - (x % 32)
+
+
+def encode_bool(arg: bool) -> bytes:
+    value = b"\x01" if arg is True else b"\x00"
+    return zpad(value, 32)
+
+
+def encode_uint256(value: int) -> bytes:
+    return value.to_bytes(32, byteorder="big")
+
+
+def encode_address(address: str) -> bytes:
+    address = address.lower().replace("0x", "")
+
+    if len(address) != 40:
+        raise ValueError("Invalid address length")
+
+    padded = "0" * 24 + address
+    return bytes.fromhex(padded)
+
+
+def encode_bytes(value: bytes) -> bytes:
+    value_length = len(value)
+
+    encoded_size = encode_uint256(value_length)
+    padded_value = zpad_right(value, ceil32(value_length))
+
+    return encoded_size + padded_value
+
+
+def tuple_encode(values, type_lis):
+    raw_head_chunks = []
+    tail_chunks = []
+    for value, tp in zip(values, type_lis):
+        if tp == "bytes":
+            raw_head_chunks.append(None)
+            tail_chunks.append(encode_bytes(value))
+        elif tp == "bool":
+            raw_head_chunks.append(encode_bool(value))
+            tail_chunks.append(b"")
+        elif tp == "address":
+            raw_head_chunks.append(encode_address(value))
+            tail_chunks.append(b"")
+        elif tp == "(address,bytes)[]":
+            items_are_dynamic = True
+            if not items_are_dynamic or len(value) == 0:
+                return b"".join(tail_chunks)
+            encoded_size = encode_uint256(len(value))
+
+            tmp_tail_chunks = tuple(tuple_encode(list(i), ["address", "bytes"]) for i in value)
+            head_length = 32 * len(value)
+            tail_offsets = (0,) + tuple(accumulate(map(len, tmp_tail_chunks[:-1])))
+            head_chunks = tuple(encode_uint256(head_length + offset) for offset in tail_offsets)
+            raw_head_chunks.append(None)
+            tail_chunks.append(encoded_size + b"".join(head_chunks + tmp_tail_chunks))
+        elif tp == "(address,bytes)":
+            encoded_size = encode_uint256(len(value))
+            encoded_elements = b""
+            for target, call_data in value:
+                encoded_elements += encode_address(target)
+                encoded_elements += tuple_encode([call_data], ["bytes"])
+            raw_head_chunks.append(None)
+            tail_chunks.append(encoded_size + encoded_elements)
+        else:
+            raise Exception(f"Unsupported type {tp}")
+
+    head_length = sum(32 if item is None else len(item) for item in raw_head_chunks)
+    tail_offsets = (0,) + tuple(accumulate(map(len, tail_chunks[:-1])))
+    head_chunks = tuple(
+        encode_uint256(head_length + offset) if chunk is None else chunk
+        for chunk, offset in zip(raw_head_chunks, tail_offsets)
+    )
+
+    encoded_value = b"".join(head_chunks + tuple(tail_chunks))
+    return encoded_value
 
 
 class FunctionCollection:
