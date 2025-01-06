@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+import threading
 from dataclasses import dataclass
 from typing import Dict
 
@@ -55,6 +56,7 @@ class MetricsCollector:
         self.job_name = job_name if job_name else "default"
 
         # Metrics that need to be cleaned after storage pull
+        self.store_lock = threading.Lock()
         self.store = MetricStore()
 
         # Metrics that require no additional memory management
@@ -64,63 +66,66 @@ class MetricsCollector:
         self._initialized = True
 
     def collect(self):
-        # 1. Indexed ranges
-        indexed_range = GaugeMetricFamily(
-            "indexed_range", "Current indexed blocks between range", labels=["job_name", "block_range"]
-        )
-        for block_range, value in self.store.indexed_ranges.items():
-            indexed_range.add_metric([self.job_name, block_range], value)
-        yield indexed_range
+        with self.store_lock:
+            metrics = self._get_metrics_snapshot()
+            self._clear_store_metrics()
 
-        # 2. Exported ranges
-        exported_range = GaugeMetricFamily(
-            "exported_range", "Current exported blocks between range", labels=["job_name", "block_range", "status"]
-        )
-        for (block_range, status), value in self.store.exported_ranges.items():
-            exported_range.add_metric([self.job_name, block_range, status], value)
-        yield exported_range
+        for name, help_text, label_names, value_list in metrics:
+            metric = GaugeMetricFamily(name, help_text, labels=label_names)
+            for labels, value in value_list:
+                metric.add_metric([self.job_name] + labels, value)
+            yield metric
 
-        # 3. Processing durations
-        total_duration = GaugeMetricFamily(
-            "total_processing_duration",
-            "Total time spent processing each block range in milliseconds",
-            labels=["job_name", "block_range"],
-        )
-        for block_range, value in self.store.total_processing_durations.items():
-            total_duration.add_metric([self.job_name, block_range], value)
-        yield total_duration
+    def _get_metrics_snapshot(self):
+        return [
+            (
+                "indexed_range",
+                "Current indexed blocks between range",
+                ["job_name", "block_range"],
+                [([block_range], value) for block_range, value in self.store.indexed_ranges.items()],
+            ),
+            (
+                "exported_range",
+                "Current exported blocks between range",
+                ["job_name", "block_range", "status"],
+                [([block_range, status], value) for (block_range, status), value in self.store.exported_ranges.items()],
+            ),
+            (
+                "total_processing_duration",
+                "Total time spent processing each block range in milliseconds",
+                ["job_name", "block_range"],
+                [([block_range], value) for block_range, value in self.store.total_processing_durations.items()],
+            ),
+            (
+                "job_processing_duration",
+                "Time spent in each sub-job processing block range in milliseconds",
+                ["job_name", "block_range", "sub_job_name"],
+                [
+                    ([block_range, job_name], value)
+                    for (block_range, job_name), value in self.store.job_processing_durations.items()
+                ],
+            ),
+            (
+                "export_domains_processing_duration",
+                "Time spent in each exporting domain between block range in milliseconds",
+                ["job_name", "block_range", "domains"],
+                [
+                    ([block_range, domains], value)
+                    for (block_range, domains), value in self.store.export_processing_durations.items()
+                ],
+            ),
+            (
+                "job_processing_retry",
+                "Retry times in sub-job processing block range",
+                ["job_name", "block_range", "sub_job_name"],
+                [
+                    ([block_range, job_name], value)
+                    for (block_range, job_name), value in self.store.retry_counts.items()
+                ],
+            ),
+        ]
 
-        # 4. Job processing durations
-        job_duration = GaugeMetricFamily(
-            "job_processing_duration",
-            "Time spent in each sub-job processing block range in milliseconds",
-            labels=["job_name", "block_range", "sub_job_name"],
-        )
-        for (block_range, sub_job), value in self.store.job_processing_durations.items():
-            job_duration.add_metric([self.job_name, block_range, sub_job], value)
-        yield job_duration
-
-        # 5. exported processing durations
-        exported_duration = GaugeMetricFamily(
-            "exported_processing_duration",
-            "Time spent in each sub-job processing block range in milliseconds",
-            labels=["job_name", "block_range", "domains"],
-        )
-        for (block_range, domains), value in self.store.export_processing_durations.items():
-            exported_duration.add_metric([self.job_name, block_range, domains], value)
-        yield exported_duration
-
-        # 6. Job retry counts
-        retry_count = GaugeMetricFamily(
-            "job_processing_retry",
-            "Retry times in sub-job processing block range",
-            labels=["job_name", "block_range", "sub_job_name"],
-        )
-        for (block_range, sub_job), value in self.store.retry_counts.items():
-            retry_count.add_metric([self.job_name, block_range, sub_job], value)
-        yield retry_count
-
-        # clear metrics after pull
+    def _clear_store_metrics(self):
         self.store.indexed_ranges.clear()
         self.store.exported_ranges.clear()
         self.store.total_processing_durations.clear()
@@ -145,10 +150,12 @@ class MetricsCollector:
             self.last_sync_record.labels(job_name=self.job_name).set(last_sync_record)
 
     def update_indexed_range(self, index_range: str):
-        self.store.indexed_ranges[index_range] = 1
+        with self.store_lock:
+            self.store.indexed_ranges[index_range] = 1
 
     def update_exported_range(self, index_range: str, status: str):
-        self.store.exported_ranges[(index_range, status)] = 1
+        with self.store_lock:
+            self.store.exported_ranges[(index_range, status)] = 1
 
     def update_indexed_domains(self, domain: str, status: str, amount: int):
         self.indexed_domains.labels(job_name=self.job_name, domain=domain, status=status).inc(amount)
@@ -157,13 +164,17 @@ class MetricsCollector:
         self.exported_domains.labels(job_name=self.job_name, domain=domain, status=status).inc(amount)
 
     def update_total_processing_duration(self, block_range: str, duration: int):
-        self.store.total_processing_durations[block_range] = duration
+        with self.store_lock:
+            self.store.total_processing_durations[block_range] = duration
 
     def update_job_processing_duration(self, block_range: str, job_name: str, duration: int):
-        self.store.job_processing_durations[(block_range, job_name)] = duration
+        with self.store_lock:
+            self.store.job_processing_durations[(block_range, job_name)] = duration
 
     def update_export_domains_processing_duration(self, block_range: str, domains: str, duration: int):
-        self.store.export_processing_durations[(block_range, domains)] = duration
+        with self.store_lock:
+            self.store.export_processing_durations[(block_range, domains)] = duration
 
     def update_job_processing_retry(self, block_range: str, job_name: str, retry: int):
-        self.store.retry_counts[(block_range, job_name)] = retry
+        with self.store_lock:
+            self.store.retry_counts[(block_range, job_name)] = retry
