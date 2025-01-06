@@ -48,7 +48,7 @@ def stream_process(
     force_filter_mode,
     auto_reorg,
     config_file,
-    job_name,
+    instance_name,
     source_path,
     source_types,
     output,
@@ -137,7 +137,7 @@ def stream_process(
     if source_path and source_path.startswith("postgresql://"):
         source_types = generate_dataclass_type_list_from_parameter(source_types, "source")
 
-    metrics = MetricsCollector(job_name=job_name)
+    metrics = MetricsCollector(instance_name=instance_name)
     sync_recorder = create_recorder(sync_recorder, config)
     buffer_service = BufferService(
         item_exporters=create_item_exporters(output, config),

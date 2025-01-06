@@ -32,11 +32,11 @@ def job_schedule(options):
 
 def job_config(options):
     options = click.option(
-        "--job-name",
+        "--instance-name",
         show_default=True,
         type=str,
-        envvar="JOB_NAME",
-        help="The job name displayed in the monitoring background.",
+        envvar="INSTANCE_NAME",
+        help="The instance name displayed in the monitoring background.",
     )(options)
 
     options = click.option(
