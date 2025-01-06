@@ -142,6 +142,7 @@ class MultiCallHelper:
                     call.returns = None
                     self.logger.warning(f"multicall helper failed call: {call}")
 
+    @calculate_execution_time
     def construct_multicall_rpc(self, to_execute_multi_calls):
         self.logger.info(f"Function total multicalls: {len(to_execute_multi_calls)}")
         multicall_rpc = []
