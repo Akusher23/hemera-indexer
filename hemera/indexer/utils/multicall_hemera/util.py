@@ -12,6 +12,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import orjson
+from retry import retry
+from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from hemera.indexer.utils.multicall_hemera.constants import RPC_PAYLOAD_SIZE
 
@@ -88,6 +90,11 @@ class ThreadPoolManager:
             cls._instance = None
 
     @classmethod
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_exponential(min=1, max=16, multiplier=2),
+        retry=retry_if_exception_type((TimeoutError, ConnectionError)),
+    )
     def submit_tasks(cls, func, chunks, max_workers=None):
         executor = cls.get_instance(max_workers)
         results = [None] * len(chunks)
@@ -96,7 +103,7 @@ class ThreadPoolManager:
             future_to_chunk = {executor.submit(func, chunk[0], i): i for i, chunk in enumerate(chunks)}
 
             for future in as_completed(future_to_chunk):
-                index, result = future.result(timeout=30)
+                index, result = future.result(timeout=60)
                 results[index] = result
         except Exception as e:
             logger.error(f"ThreadPoolManager.submit_tasks error: {e}")
