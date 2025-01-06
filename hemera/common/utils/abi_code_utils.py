@@ -322,14 +322,13 @@ class Function:
         if arguments is None:
             arguments = []
 
-        if len(arguments) != len(self._inputs_type):
-            raise ValueError(f"Expected {len(self._inputs_type)} arguments, got {len(arguments)}")
-
-        if len(arguments) > 2:
-            return encode_data(self._function_abi, arguments, self.get_signature())
-
         encoded = hex_str_to_bytes(self._signature)
-        encoded += tuple_encode(arguments, ["bool", "(address,bytes)[]"])
+        if len(arguments) == 1:
+            encoded += tuple_encode(arguments, ["(address,bytes)[]"])
+        elif len(arguments) == 2:
+            encoded += tuple_encode(arguments, ["bool", "(address,bytes)[]"])
+        else:
+            return encode_data(self._function_abi, arguments, self.get_signature())
         return bytes_to_hex_str(encoded)
 
 
