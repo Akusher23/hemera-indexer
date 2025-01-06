@@ -318,7 +318,9 @@ class JobScheduler:
                 job.run(start_block=start_block, end_block=end_block)
 
                 if self.metrics and retry > 0:
-                    self.metrics.update_job_processing_retry(block_range=f"{start_block}-{end_block}", retry=retry)
+                    self.metrics.update_job_processing_retry(
+                        block_range=f"{start_block}-{end_block}", job_name=job.__class__.__name__, retry=retry
+                    )
                 return
 
             except HemeraBaseException as e:
