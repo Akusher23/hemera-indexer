@@ -12,8 +12,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import orjson
-from retry import retry
-from tenacity import retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from hemera.indexer.utils.multicall_hemera.constants import RPC_PAYLOAD_SIZE
 
