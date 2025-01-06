@@ -245,7 +245,6 @@ class BufferService:
                         amount=len(self.buffer[output_type]),
                     )
                 self.metrics.update_export_domains_processing_duration(
-                    block_range=f"{start_block}-{end_block}",
                     domains=",".join(complete_type),
                     duration=int((time.time() - start_time) * 1000),
                 )
@@ -257,7 +256,6 @@ class BufferService:
 
                     if self.metrics:
                         self.metrics.update_last_sync_record(last_sync_record=end_block)
-                        self.metrics.update_exported_range(f"{start_block}-{end_block}", "success")
 
                 except Exception as e:
                     self.logger.error(f"Writing last synced block number {end_block} error.")
@@ -269,7 +267,7 @@ class BufferService:
             self.logger.error(f"Exporting items error: {exception_details}")
 
             if self.metrics:
-                self.metrics.update_exported_range(f"{start_block}-{end_block}", "failure")
+                self.metrics.update_failure_batch_counter()
 
                 for output_type in complete_type:
                     self.metrics.update_exported_domains(
@@ -301,9 +299,6 @@ class BufferService:
 
             self.buffer["block"].sort(key=lambda x: x.number)
             block_range = (self.buffer["block"][0].number, self.buffer["block"][-1].number)
-
-            if self.metrics:
-                self.metrics.update_indexed_range(index_range=f"{block_range[0]}-{block_range[1]}")
 
             for key in flush_keys:
                 if key in self.required_output_types:

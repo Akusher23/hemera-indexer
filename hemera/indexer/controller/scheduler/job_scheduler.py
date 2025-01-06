@@ -302,14 +302,12 @@ class JobScheduler:
 
             if self.metrics:
                 self.metrics.update_job_processing_duration(
-                    block_range=f"{start_block}-{end_block}",
                     job_name=job.__class__.__name__,
                     duration=int((time.time() - job_start) * 1000),
                 )
 
         if self.metrics:
             self.metrics.update_total_processing_duration(
-                block_range=f"{start_block}-{end_block}",
                 duration=int((time.time() - total_start) * 1000),
             )
 
@@ -323,10 +321,9 @@ class JobScheduler:
                 self.logger.info(f"Task run {job.__class__.__name__}")
                 job.run(start_block=start_block, end_block=end_block)
 
-                if self.metrics and retry > 0:
-                    self.metrics.update_job_processing_retry(
-                        block_range=f"{start_block}-{end_block}", job_name=job.__class__.__name__, retry=retry
-                    )
+                if self.metrics:
+                    self.metrics.update_job_processing_retry(job_name=job.__class__.__name__, retry=retry)
+
                 return
 
             except HemeraBaseException as e:
