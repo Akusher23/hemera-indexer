@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-import heapq
 import os
 from dataclasses import dataclass
-from typing import List
+from typing import Dict
 
-from prometheus_client import Counter, Gauge, Histogram, start_http_server
+from prometheus_client import REGISTRY, Counter, Gauge, start_http_server
+from prometheus_client.metrics_core import GaugeMetricFamily
 
-METRICS_KEEP_RANGE = int(os.environ.get("METRICS_KEEP_RANGE", "10"))
+METRICS_CLIENT_PORT = int(os.environ.get("METRICS_CLIENT_PORT", "9200"))
 
 
 @dataclass(frozen=True)
@@ -28,34 +28,15 @@ class BlockRange:
             raise ValueError(f"Invalid block range format: {range_str}")
 
 
-class RangeHeap:
-
-    def __init__(self, maxsize: int):
-        self.maxsize = maxsize
-        self.heap = []
-        self.range_set = set()
-
-    def add(self, block_range: BlockRange):
-        if block_range.range_str in self.range_set:
-            return None
-
-        self.range_set.add(block_range.range_str)
-        heapq.heappush(self.heap, block_range)
-
-        if len(self.heap) > self.maxsize:
-            oldest = heapq.heappop(self.heap)
-            self.range_set.remove(oldest.range_str)
-            return oldest
-        return None
-
-    def get_ranges(self) -> List[str]:
-        return [r.range_str for r in sorted(self.heap)]
-
-    def __len__(self):
-        return len(self.heap)
-
-    def __contains__(self, block_range: str):
-        return block_range in self.range_set
+class MetricStore:
+    def __init__(self):
+        # Gauge metrics
+        self.indexed_ranges: Dict[str, float] = {}  # block_range -> value
+        self.exported_ranges: Dict[tuple, float] = {}  # (block_range, status) -> value
+        self.total_processing_durations: Dict[str, float] = {}  # block_range -> duration
+        self.job_processing_durations: Dict[tuple, float] = {}  # (block_range, sub_job_name) -> duration
+        self.export_processing_durations: Dict[tuple, float] = {}  # (block_range, domains) -> duration
+        self.retry_counts: Dict[tuple, int] = {}  # (block_range, sub_job_name) -> retry_count
 
 
 class MetricsCollector:
@@ -66,25 +47,89 @@ class MetricsCollector:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, job_name: str = None, port: int = 9200):
+    def __init__(self, job_name: str = None):
         if hasattr(self, "_initialized"):
             return
-        start_http_server(port)
+        start_http_server(METRICS_CLIENT_PORT)
 
         self.job_name = job_name if job_name else "default"
-        self.active_ranges = RangeHeap(METRICS_KEEP_RANGE)
 
+        # Metrics that need to be cleaned after storage pull
+        self.store = MetricStore()
+
+        # Metrics that require no additional memory management
         self._metrics_definition()
+
+        REGISTRY.register(self)
         self._initialized = True
+
+    def collect(self):
+        # 1. Indexed ranges
+        indexed_range = GaugeMetricFamily(
+            "indexed_range", "Current indexed blocks between range", labels=["job_name", "block_range"]
+        )
+        for block_range, value in self.store.indexed_ranges.items():
+            indexed_range.add_metric([self.job_name, block_range], value)
+        yield indexed_range
+
+        # 2. Exported ranges
+        exported_range = GaugeMetricFamily(
+            "exported_range", "Current exported blocks between range", labels=["job_name", "block_range", "status"]
+        )
+        for (block_range, status), value in self.store.exported_ranges.items():
+            exported_range.add_metric([self.job_name, block_range, status], value)
+        yield exported_range
+
+        # 3. Processing durations
+        total_duration = GaugeMetricFamily(
+            "total_processing_duration",
+            "Total time spent processing each block range in milliseconds",
+            labels=["job_name", "block_range"],
+        )
+        for block_range, value in self.store.total_processing_durations.items():
+            total_duration.add_metric([self.job_name, block_range], value)
+        yield total_duration
+
+        # 4. Job processing durations
+        job_duration = GaugeMetricFamily(
+            "job_processing_duration",
+            "Time spent in each sub-job processing block range in milliseconds",
+            labels=["job_name", "block_range", "sub_job_name"],
+        )
+        for (block_range, sub_job), value in self.store.job_processing_durations.items():
+            job_duration.add_metric([self.job_name, block_range, sub_job], value)
+        yield job_duration
+
+        # 5. exported processing durations
+        exported_duration = GaugeMetricFamily(
+            "exported_processing_duration",
+            "Time spent in each sub-job processing block range in milliseconds",
+            labels=["job_name", "block_range", "domains"],
+        )
+        for (block_range, domains), value in self.store.export_processing_durations.items():
+            exported_duration.add_metric([self.job_name, block_range, domains], value)
+        yield exported_duration
+
+        # 6. Job retry counts
+        retry_count = GaugeMetricFamily(
+            "job_processing_retry",
+            "Retry times in sub-job processing block range",
+            labels=["job_name", "block_range", "sub_job_name"],
+        )
+        for (block_range, sub_job), value in self.store.retry_counts.items():
+            retry_count.add_metric([self.job_name, block_range, sub_job], value)
+        yield retry_count
+
+        # clear metrics after pull
+        self.store.indexed_ranges.clear()
+        self.store.exported_ranges.clear()
+        self.store.total_processing_durations.clear()
+        self.store.job_processing_durations.clear()
+        self.store.export_processing_durations.clear()
+        self.store.retry_counts.clear()
 
     def _metrics_definition(self):
         self.last_sync_record = Gauge("last_sync_record", "The last synced block number", ["job_name"])
-
-        self.indexed_range = Gauge("indexed_range", "Current indexed blocks between range", ["job_name", "block_range"])
-
-        self.exported_range = Gauge(
-            "exported_range", "Current exported blocks between range", ["job_name", "block_range", "status"]
-        )
 
         self.indexed_domains = Counter(
             "indexed_domains", "Total number of indexed domains", ["job_name", "domain", "status"]
@@ -94,95 +139,16 @@ class MetricsCollector:
             "exported_domains", "Total number of exported domains", ["job_name", "domain", "status"]
         )
 
-        self.total_processing_duration = Gauge(
-            "total_processing_duration",
-            "Total time spent processing each block range in milliseconds",
-            ["job_name", "block_range"],
-        )
-
-        self.job_processing_duration = Gauge(
-            "job_processing_duration",
-            "Time spent in each sub-job processing block range in milliseconds",
-            ["job_name", "block_range", "sub_job_name"],
-        )
-
-        self.export_domains_processing_duration = Gauge(
-            "export_domains_processing_duration",
-            "Time spent in each sub-job processing block range in milliseconds",
-            ["job_name", "block_range", "domains"],
-        )
-
-        self.job_processing_retry = Gauge(
-            "job_processing_retry",
-            "Retry times in sub-job processing block range",
-            ["job_name", "block_range", "sub_job_name"],
-        )
-
-    @staticmethod
-    def _parse_range(block_range: str):
-        try:
-            start, end = map(int, block_range.split("-"))
-            return start, end
-        except ValueError:
-            raise ValueError(f"Invalid block range format: {block_range}")
-
-    def _update_active_range(self, indexed_range: str):
-        try:
-            range_obj = BlockRange.from_str(indexed_range)
-        except ValueError as e:
-            print(f"Warning: {e}")
-            return
-
-        removed_range = self.active_ranges.add(range_obj)
-        if removed_range:
-            self._cleanup_range_metrics(removed_range.range_str)
-
-    def _cleanup_range_metrics(self, indexed_range: str):
-        existing_metrics = self.indexed_range._metrics.copy()
-        for labels in existing_metrics:
-            if labels[0] == self.job_name and labels[1] == indexed_range:
-                self.indexed_range.remove(*labels)
-
-        existing_metrics = self.exported_range._metrics.copy()
-        for labels in existing_metrics:
-            if labels[0] == self.job_name and labels[1] == indexed_range:
-                self.exported_range.remove(*labels)
-
-        existing_metrics = self.total_processing_duration._metrics.copy()
-        for labels in existing_metrics:
-            if labels[0] == self.job_name and labels[1] == indexed_range:
-                self.total_processing_duration.remove(*labels)
-
-        existing_metrics = self.job_processing_duration._metrics.copy()
-        for labels in existing_metrics:
-            if labels[0] == self.job_name and labels[1] == indexed_range:
-                self.job_processing_duration.remove(*labels)
-
-        existing_metrics = self.export_domains_processing_duration._metrics.copy()
-        for labels in existing_metrics:
-            if labels[0] == self.job_name and labels[1] == indexed_range:
-                self.export_domains_processing_duration.remove(*labels)
-
-        existing_metrics = self.job_processing_retry._metrics.copy()
-        for labels in existing_metrics:
-            if labels[0] == self.job_name and labels[1] == indexed_range:
-                self.job_processing_retry.remove(*labels)
-
-    def get_active_ranges(self) -> List[str]:
-        return self.active_ranges.get_ranges()
-
     def update_last_sync_record(self, last_sync_record: int):
         last_record = self.last_sync_record.labels(job_name=self.job_name)._value.get()
         if last_record < last_sync_record:
             self.last_sync_record.labels(job_name=self.job_name).set(last_sync_record)
 
     def update_indexed_range(self, index_range: str):
-        if index_range not in self.active_ranges:
-            self._update_active_range(index_range)
-            self.indexed_range.labels(job_name=self.job_name, block_range=index_range).set(1)
+        self.store.indexed_ranges[index_range] = 1
 
     def update_exported_range(self, index_range: str, status: str):
-        self.exported_range.labels(job_name=self.job_name, block_range=index_range, status=status).set(1)
+        self.store.exported_ranges[(index_range, status)] = 1
 
     def update_indexed_domains(self, domain: str, status: str, amount: int):
         self.indexed_domains.labels(job_name=self.job_name, domain=domain, status=status).inc(amount)
@@ -191,19 +157,13 @@ class MetricsCollector:
         self.exported_domains.labels(job_name=self.job_name, domain=domain, status=status).inc(amount)
 
     def update_total_processing_duration(self, block_range: str, duration: int):
-        self.total_processing_duration.labels(job_name=self.job_name, block_range=block_range).set(duration)
+        self.store.total_processing_durations[block_range] = duration
 
     def update_job_processing_duration(self, block_range: str, job_name: str, duration: int):
-        self.job_processing_duration.labels(job_name=self.job_name, block_range=block_range, sub_job_name=job_name).set(
-            duration
-        )
+        self.store.job_processing_durations[(block_range, job_name)] = duration
 
     def update_export_domains_processing_duration(self, block_range: str, domains: str, duration: int):
-        self.export_domains_processing_duration.labels(
-            job_name=self.job_name, block_range=block_range, domains=domains
-        ).set(duration)
+        self.store.export_processing_durations[(block_range, domains)] = duration
 
     def update_job_processing_retry(self, block_range: str, job_name: str, retry: int):
-        self.job_processing_duration.labels(job_name=self.job_name, block_range=block_range, sub_job_name=job_name).set(
-            retry
-        )
+        self.store.retry_counts[(block_range, job_name)] = retry
