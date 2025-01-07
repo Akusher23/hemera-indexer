@@ -23,6 +23,9 @@ class BasePersistence(object):
     def save(self, metrics: dict):
         pass
 
+    def init(self):
+        pass
+
 
 class PostgresPersistence(BasePersistence):
 
@@ -76,6 +79,19 @@ class PostgresPersistence(BasePersistence):
         finally:
             session.close()
 
+    def init(self):
+        session = self.service.get_service_session()
+        try:
+            metrics = (
+                session.query(MetricsPersistence).filter(MetricsPersistence.instance == self.instance_name).first()
+            )
+
+            if metrics:
+                session.delete(metrics)
+                session.commit()
+        finally:
+            session.close()
+
 
 class FilePersistence(BasePersistence):
 
@@ -91,8 +107,12 @@ class FilePersistence(BasePersistence):
     def save(self, metrics: dict):
         write_to_file(self.instance_name, json.dumps(metrics))
 
+    def init(self):
+        if os.path.isfile(self.instance_name):
+            os.remove(self.instance_name)
 
-def init_persistence(instance_name: str, persistence_type: str, config: dict) -> dict:
+
+def init_persistence(instance_name: str, persistence_type: str, config: dict) -> BasePersistence:
     if persistence_type == "postgres":
         try:
             service = config["db_service"]
