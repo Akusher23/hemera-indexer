@@ -11,7 +11,7 @@ FBTC:
     address_token_balance:
       - period_address_token_balances
     uniswapv3:
-      - period_feature_holding_balance_uniswap_v3_detail_new_schema
+      - n_period_feature_holding_balance_uniswap_v3_detail
 
   py_jobs:
     - address_token_balance
