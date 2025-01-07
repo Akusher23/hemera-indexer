@@ -29,22 +29,25 @@ PGSOURCE_ACCURACY = bool(strtobool(os.environ.get("PGSOURCE_ACCURACY", "false"))
 
 
 def get_tokens_from_db(service, batch_size=10000):
-    with service.session_scope() as s:
-        tokens_dict = {}
-        total_count = s.query(Tokens).count()
-        query = s.query(Tokens).yield_per(batch_size)
-        for token in tqdm(query, total=total_count, desc="Loading tokens"):
-            tokens_dict[bytes_to_hex_str(token.address)] = {
-                "address": bytes_to_hex_str(token.address),
-                "token_type": token.token_type,
-                "name": token.name,
-                "symbol": token.symbol,
-                "decimals": int(token.decimals) if token.decimals is not None else None,
-                "block_number": token.block_number,
-                "total_supply": int(token.total_supply) if token.total_supply is not None else None,
-            }
+    with service.cursor_scope() as cur:
+        csv_data = io.StringIO()
 
-        return tokens_dict
+        copy_query = "COPY tokens TO STDOUT WITH CSV HEADER"
+        cur.copy_expert(copy_query, csv_data)
+        csv_data.seek(0)
+        df = pd.read_csv(csv_data)
+        token_dict = {}
+        for _, row in tqdm(df.iterrows(), total=len(df), desc="Loading tokens"):
+            address = row["address"].replace("\\x", "0x")
+            token_dict[address] = {
+                "address": address,
+                "token_type": row["token_type"],
+                "name": row["name"],
+                "symbol": row["symbol"],
+                "decimals": int(row["decimals"]) if pd.notna(row["decimals"]) else None,
+                "total_supply": int(row["total_supply"]) if pd.notna(row["total_supply"]) else None,
+            }
+        return token_dict
 
 
 def get_source_job_type(source_path: str):
