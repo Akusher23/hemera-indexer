@@ -10,7 +10,6 @@ from sqlalchemy.dialects.postgresql import insert
 from hemera.common.models.failure_records import FailureRecords
 from hemera.common.models.sync_record import SyncRecord
 from hemera.common.utils.file_utils import smart_open, write_to_file
-from hemera.indexer.utils.metrics_collector import MetricsCollector
 
 logger = logging.getLogger(__name__)
 
