@@ -144,7 +144,7 @@ def stream_process(
         persistence=init_persistence(instance_name=instance_name, persistence_type=persistence_type, config=config),
     )
 
-    sync_recorder = create_recorder(sync_recorder, config)
+    sync_recorder = create_recorder(sync_recorder, config, multi_mode=process_numbers > 1)
     buffer_service = BufferService(
         item_exporters=create_item_exporters(output, config),
         required_output_types=[output.type() for output in output_types],
