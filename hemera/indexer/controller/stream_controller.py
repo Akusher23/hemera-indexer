@@ -108,7 +108,7 @@ class StreamController(BaseController):
                         self.pool.map(func=self._do_stream, iterable_of_args=splits, task_timeout=self.process_time_out)
 
                     last_synced_block = target_block
-                    self.sync_recorder.set_last_synced_block(last_synced_block)
+                    # self.sync_recorder.set_last_synced_block(last_synced_block)
                     if self.buffer_service.is_shutdown():
                         logger.info("By some reason, BufferService was shutdown, Indexer will exit immediately.")
                         break
