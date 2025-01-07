@@ -28,7 +28,7 @@ JOB_RETRIES = int(os.environ.get("JOB_RETRIES", "5"))
 PGSOURCE_ACCURACY = bool(strtobool(os.environ.get("PGSOURCE_ACCURACY", "false")))
 
 
-def get_tokens_from_db(service, batch_size=10000):
+def get_tokens_from_db(service):
     with service.cursor_scope() as cur:
         csv_data = io.StringIO()
 
