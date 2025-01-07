@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import os
+from collections import defaultdict
 
 from prometheus_client import Counter, Gauge, start_http_server
+
+from hemera.indexer.utils.metrics_persistence import BasePersistence
 
 METRICS_CLIENT_PORT = int(os.environ.get("METRICS_CLIENT_PORT", "9200"))
 
@@ -15,15 +18,16 @@ class MetricsCollector:
             cls._instance = super().__new__(cls)
         return cls._instance
 
-    def __init__(self, instance_name: str = None):
+    def __init__(self, instance_name: str, persistence: BasePersistence):
         if hasattr(self, "_initialized"):
             return
         start_http_server(METRICS_CLIENT_PORT)
 
-        self.instance_name = instance_name if instance_name else "default"
+        self.instance_name = instance_name
+        self.persistence = persistence
 
-        # Metrics that require no additional memory management
         self._metrics_definition()
+        self._load_from_persistence(self.persistence.load())
 
         self._initialized = True
 
@@ -70,6 +74,34 @@ class MetricsCollector:
             ["instance", "job_name"],
         )
 
+    def _load_from_persistence(self, metrics: dict):
+        for metric in metrics.keys():
+            if hasattr(self, metric):
+                collector = getattr(self, metric)
+                for indicator in metrics[metric]:
+                    label = indicator["label"]
+
+                    if type(collector) is Counter:
+                        collector.labels(*label).inc(indicator["value"])
+                    elif type(collector) is Gauge:
+                        collector.labels(*label).set(indicator["value"])
+                    else:
+                        raise TypeError(f"Unsupported collector type: {type(collector)}")
+
+    def _wrap_metrics(self) -> dict:
+        metrics = defaultdict(list)
+
+        for labels, value in self.failure_batch_counter._metrics.items():
+            metrics["failure_batch_counter"].append({"label": labels, "value": value._value.get()})
+
+        for labels, value in self.instance_shutdown._metrics.items():
+            metrics["instance_shutdown"].append({"label": labels, "value": value._value.get()})
+
+        for labels, value in self.job_processing_retry._metrics.items():
+            metrics["job_processing_retry"].append({"label": labels, "value": value._value.get()})
+
+        return metrics
+
     def update_last_sync_record(self, last_sync_record: int):
         last_record = self.last_sync_record.labels(instance=self.instance_name)._value.get()
         if last_record < last_sync_record:
@@ -95,6 +127,8 @@ class MetricsCollector:
 
     def update_instance_shutdown(self):
         self.instance_shutdown.labels(instance=self.instance_name).inc(1)
+        self.persistence.save(self._wrap_metrics())
 
     def update_job_processing_retry(self, job_name: str, retry: int):
         self.job_processing_retry.labels(instance=self.instance_name, job_name=job_name).inc(retry)
+        self.persistence.save(self._wrap_metrics())
