@@ -42,6 +42,7 @@ def calculate_execution_time(func):
 
 @calculate_execution_time
 def stream_process(
+    instance_name,
     provider_uri,
     debug_provider_uri,
     entity_types,
@@ -49,7 +50,6 @@ def stream_process(
     force_filter_mode,
     auto_reorg,
     config_file,
-    instance_name,
     source_path,
     source_types,
     output,
