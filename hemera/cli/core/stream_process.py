@@ -16,6 +16,7 @@ from hemera.indexer.utils.buffer_service import BufferService
 from hemera.indexer.utils.limit_reader import create_limit_reader
 from hemera.indexer.utils.logging_utils import configure_logging, configure_signals
 from hemera.indexer.utils.metrics_collector import MetricsCollector
+from hemera.indexer.utils.metrics_persistence import init_persistence
 from hemera.indexer.utils.parameter_utils import (
     check_file_exporter_parameter,
     check_source_load_parameter,
@@ -61,6 +62,7 @@ def stream_process(
     end_block,
     sync_recorder,
     retry_from_record,
+    persistence_type,
     block_batch_size,
     batch_size,
     debug_batch_size,
@@ -137,7 +139,11 @@ def stream_process(
     if source_path and source_path.startswith("postgresql://"):
         source_types = generate_dataclass_type_list_from_parameter(source_types, "source")
 
-    metrics = MetricsCollector(instance_name=instance_name)
+    metrics = MetricsCollector(
+        instance_name=instance_name,
+        persistence=init_persistence(instance_name=instance_name, persistence_type=persistence_type, config=config),
+    )
+
     sync_recorder = create_recorder(sync_recorder, config)
     buffer_service = BufferService(
         item_exporters=create_item_exporters(output, config),

@@ -43,4 +43,15 @@ def index_record(options):
         "and when set to True, it will run from the record point between -s and -e",
     )(options)
 
+    options = click.option(
+        "--persistence-type",
+        default="file",
+        show_default=True,
+        type=str,
+        envvar="PERSISTENCE_TYPE",
+        help="How to persist metrics data."
+        "e.g postgres means persist metrics data by postgres and use instance name be key"
+        "or file means persist metrics data by file and use instance name be file name",
+    )(options)
+
     return options

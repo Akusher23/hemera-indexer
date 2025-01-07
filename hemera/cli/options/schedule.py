@@ -33,6 +33,7 @@ def job_schedule(options):
 def job_config(options):
     options = click.option(
         "--instance-name",
+        default="default",
         show_default=True,
         type=str,
         envvar="INSTANCE_NAME",
