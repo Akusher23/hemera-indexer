@@ -31,21 +31,24 @@ PGSOURCE_ACCURACY = bool(strtobool(os.environ.get("PGSOURCE_ACCURACY", "false"))
 def get_tokens_from_db(service):
     with service.cursor_scope() as cur:
         csv_data = io.StringIO()
-
         copy_query = "COPY tokens TO STDOUT WITH CSV HEADER"
         cur.copy_expert(copy_query, csv_data)
         csv_data.seek(0)
-        df = pd.read_csv(csv_data)
+
+        dtype = {"address": str, "token_type": str, "name": str, "symbol": str, "decimals": str, "total_supply": str}
+        df = pd.read_csv(csv_data, dtype=dtype)
+        df["address"] = df["address"].str.replace(r"\\x", "0x", regex=True)
+
         token_dict = {}
-        for _, row in tqdm(df.iterrows(), total=len(df), desc="Loading tokens"):
-            address = row["address"].replace("\\x", "0x")
+        for row in tqdm(df.itertuples(), total=len(df), desc="Loading tokens"):
+            address = row.address
             token_dict[address] = {
                 "address": address,
-                "token_type": row["token_type"],
-                "name": row["name"],
-                "symbol": row["symbol"],
-                "decimals": int(row["decimals"]) if pd.notna(row["decimals"]) else None,
-                "total_supply": int(row["total_supply"]) if pd.notna(row["total_supply"]) else None,
+                "token_type": row.token_type,
+                "name": row.name,
+                "symbol": row.symbol,
+                "decimals": int(row.decimals) if pd.notna(row.decimals) else None,
+                "total_supply": int(row.total_supply) if pd.notna(row.total_supply) else None,
             }
         return token_dict
 
