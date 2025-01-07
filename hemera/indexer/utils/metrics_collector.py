@@ -58,6 +58,12 @@ class MetricsCollector:
             ["instance", "domains"],
         )
 
+        self.instance_shutdown = Counter(
+            "instance_shutdown",
+            "Instance shutdown times including mannual and encounter error",
+            ["instance"],
+        )
+
         self.job_processing_retry = Counter(
             "job_processing_retry",
             "Retry times in sub-job processing block range",
@@ -86,6 +92,9 @@ class MetricsCollector:
 
     def update_export_domains_processing_duration(self, domains: str, duration: int):
         self.export_domains_processing_duration.labels(instance=self.instance_name, domains=domains).set(duration)
+
+    def update_instance_shutdown(self):
+        self.instance_shutdown.labels(instance=self.instance_name).inc(1)
 
     def update_job_processing_retry(self, job_name: str, retry: int):
         self.job_processing_retry.labels(instance=self.instance_name, job_name=job_name).inc(retry)

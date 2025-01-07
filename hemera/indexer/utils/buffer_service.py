@@ -351,6 +351,9 @@ class BufferService:
         if self._shutdown_event.is_set():
             return
 
+        if self.metrics:
+            self.metrics.update_instance_shutdown()
+
         self.logger.info("Shutting down buffer service...")
         self._handle_shutdown(None, None)
         self.submit_export_pool.shutdown(wait=True)
