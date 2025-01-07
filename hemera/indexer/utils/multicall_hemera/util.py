@@ -107,7 +107,7 @@ class ThreadPoolManager:
             future_to_chunk = {executor.submit(func, chunk[0], i): i for i, chunk in enumerate(chunks)}
 
             for future in as_completed(future_to_chunk):
-                index, result = future.result(timeout=60)
+                index, result = future.result(timeout=30)
                 results[index] = result
         except Exception as e:
             logger.error(f"ThreadPoolManager.submit_tasks error: {e}")
