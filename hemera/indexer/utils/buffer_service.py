@@ -297,11 +297,12 @@ class BufferService:
 
         self.concurrent_submitters.acquire()
 
+        # print('----------check flush start')
         if not ASYNC_SUBMIT:
             return self.flush_buffer(output_types)
         else:
             self.flush_buffer(output_types)
-
+        # print('----------check flush end')
         return True
 
     def clear(self):

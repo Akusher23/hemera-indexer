@@ -1,5 +1,6 @@
 import logging
 import threading
+import time
 from collections import defaultdict
 from datetime import datetime
 from typing import Generic, List, Type, TypeVar, Union, get_args, get_origin, get_type_hints
@@ -136,6 +137,7 @@ class BaseJob(metaclass=BaseJobMeta):
         self._batch_web3_provider = kwargs["batch_web3_provider"]
         self._web3 = Web3(Web3.HTTPProvider(self._batch_web3_provider.endpoint_uri))
         self.logger = logging.getLogger(self.__class__.__name__)
+
         self._is_batch = kwargs["batch_size"] > 1 if kwargs.get("batch_size") else False
         self._reorg = kwargs["reorg"] if kwargs.get("reorg") else False
 
@@ -165,9 +167,24 @@ class BaseJob(metaclass=BaseJobMeta):
                     self._udf(**parameters)
                 else:
                     self._collect(**kwargs)
-                    self._process(**kwargs)
+
+                    start_time = time.time()  # 开始计时
+                    start_fmt = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))  # 格式化开始时间
+
+                    self._process(**kwargs)  # 调用函数
+
+                    end_time = time.time()  # 结束计时
+                    end_fmt = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time))  # 格式化结束时间
+                    elapsed_time = end_time - start_time  # 计算耗时
+
+                    # 输出结果
+                    self.logger.info(f'process Start: {start_fmt} | End: {end_fmt} | Duration: {elapsed_time:.4f}s')
 
             if not self._reorg or not issubclass(self.__class__, BaseSourceJob):
+
+                start_time = time.time()  # 开始计时
+                start_fmt = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))  # 格式化开始时间
+
                 if (
                     type(self._data_buff) is BufferService
                     and not self._data_buff.is_shutdown()
@@ -176,6 +193,13 @@ class BaseJob(metaclass=BaseJobMeta):
                     )
                 ):
                     raise RetriableError(f"Job {self.job_name} export error.")
+
+                end_time = time.time()  # 结束计时
+                end_fmt = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(end_time))  # 格式化结束时间
+                elapsed_time = end_time - start_time  # 计算耗时
+
+                # 输出结果
+                self.logger.info(f'insert db Start: {start_fmt} | End: {end_fmt} | Duration: {elapsed_time:.4f}s')
 
         finally:
             self._end()
