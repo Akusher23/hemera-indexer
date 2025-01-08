@@ -130,7 +130,7 @@ class ExportTokenBalancesJob(BaseExportJob):
         origin_parameters = set()
         token_parameters = []
         for transfer in token_transfers:
-            if transfer.token_address in self.tokens and self.tokens[transfer.token_address].fake_balance_of:
+            if transfer.token_address in self.tokens and self.tokens[transfer.token_address]["fake_balance_of"]:
                 continue
             common_params = {
                 "token_address": transfer.token_address,

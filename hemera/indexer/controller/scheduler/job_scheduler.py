@@ -42,9 +42,7 @@ def get_tokens_from_db(service):
             "symbol": str,
             "decimals": str,
             "total_supply": str,
-            "fake_balance_of": 'boolean',
             "fail_balance_of_count": int,
-            "fake_total_supply": 'boolean',
             "fail_total_supply_count": int,
         }
         converters = {
