@@ -34,7 +34,7 @@ class TokenBalanceParam:
     block_timestamp: int
 
 
-FAILURE_THRESHOLD = 1
+FAILURE_THRESHOLD = 100
 
 
 # Exports token balance
