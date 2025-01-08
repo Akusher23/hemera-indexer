@@ -35,7 +35,18 @@ def get_tokens_from_db(service):
         cur.copy_expert(copy_query, csv_data)
         csv_data.seek(0)
 
-        dtype = {"address": str, "token_type": str, "name": str, "symbol": str, "decimals": str, "total_supply": str}
+        dtype = {
+            "address": str,
+            "token_type": str,
+            "name": str,
+            "symbol": str,
+            "decimals": str,
+            "total_supply": str,
+            "fake_total_supply": bool,
+            "fail_total_supply_count": int,
+            "fake_balance_of": bool,
+            "fail_balance_of_count": int,
+        }
         df = pd.read_csv(csv_data, dtype=dtype)
         df["address"] = df["address"].str.replace(r"\\x", "0x", regex=True)
 
@@ -49,6 +60,10 @@ def get_tokens_from_db(service):
                 "symbol": row.symbol,
                 "decimals": int(row.decimals) if pd.notna(row.decimals) else None,
                 "total_supply": int(row.total_supply) if pd.notna(row.total_supply) else None,
+                "fake_total_supply": row.fake_total_supply,
+                "fail_total_supply_count": row.fail_total_supply_count,
+                "fake_balance_of": row.fake_balance_of,
+                "fail_balance_of_count": row.fail_balance_of_count,
             }
         return token_dict
 
