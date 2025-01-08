@@ -60,13 +60,16 @@ class Tokens(HemeraModel):
             {
                 "domain": FakeMarkTotalSupplyToken,
                 "conflict_do_update": True,
-                "update_strategy": "EXCLUDED.block_number >= tokens.block_number",
+                "update_strategy": None,
+
+                # "update_strategy": "EXCLUDED.block_number >= tokens.block_number",
                 "converter": general_converter,
             },
             {
                 "domain": FakeMarkBalanceToken,
                 "conflict_do_update": True,
-                "update_strategy": "EXCLUDED.block_number >= tokens.block_number",
+                "update_strategy": None,
+                # "update_strategy": "EXCLUDED.block_number >= tokens.block_number",
                 "converter": general_converter,
             },
         ]

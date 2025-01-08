@@ -44,6 +44,7 @@ def get_tokens_from_db(service):
             "total_supply": str,
             "fail_balance_of_count": int,
             "fail_total_supply_count": int,
+            "block_number": int
         }
         converters = {
             "fake_balance_of": lambda x: str(x).lower() in ['true', '1'],
@@ -66,6 +67,7 @@ def get_tokens_from_db(service):
                 "fail_total_supply_count": row.fail_total_supply_count,
                 "fake_balance_of": row.fake_balance_of,
                 "fail_balance_of_count": row.fail_balance_of_count,
+                "block_number": row.block_number
             }
         return token_dict
 

@@ -34,7 +34,7 @@ class TokenBalanceParam:
     block_timestamp: int
 
 
-FAILURE_THRESHOLD = 100
+FAILURE_THRESHOLD = 1
 
 
 # Exports token balance
@@ -67,9 +67,9 @@ class ExportTokenBalancesJob(BaseExportJob):
         results = []
         tokens_set = set()
         for tb in token_balances:
-            if tb.balance is None and tb.token_address in self.tokens:
-                self.tokens[tb.token_address]["fail_balance_of_count"] += 1
-            tokens_set.add(tb.token_address)
+            if tb["balance"] is None and tb["token_address"] in self.tokens:
+                self.tokens[tb["token_address"]]["fail_balance_of_count"] += 1
+            tokens_set.add(tb["token_address"])
             results.append(dict_to_dataclass(tb, TokenBalance))
         self._collect_items(TokenBalance.type(), results)
         for tk in tokens_set:
