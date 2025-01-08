@@ -171,3 +171,42 @@ def encode_balance_abi_parameter(address, token_type, token_id):
     else:
         encoded_arguments = HexBytes(pad_address(address))
         return to_hex(HexBytes(ERC20_BALANCE_OF_FUNCTION.get_signature()) + encoded_arguments)
+
+
+def extract_token_parameters(
+    token_transfers: List[Union[ERC20TokenTransfer, ERC721TokenTransfer, ERC1155TokenTransfer]],
+    block_number: Union[Optional[int], str] = None,
+):
+    origin_parameters = set()
+    token_parameters = []
+    for transfer in token_transfers:
+        common_params = {
+            "token_address": transfer.token_address,
+            "token_id": (transfer.token_id if isinstance(transfer, ERC1155TokenTransfer) else None),
+            "token_type": transfer.token_type,
+            "block_number": transfer.block_number if block_number is None else block_number,
+            "block_timestamp": transfer.block_timestamp,
+        }
+        if transfer.from_address != ZERO_ADDRESS:
+            origin_parameters.add(TokenBalanceParam(address=transfer.from_address, **common_params))
+        if transfer.to_address != ZERO_ADDRESS:
+            origin_parameters.add(TokenBalanceParam(address=transfer.to_address, **common_params))
+
+    for parameter in origin_parameters:
+        token_parameters.append(
+            {
+                "address": parameter.address,
+                "token_address": parameter.token_address,
+                "token_id": parameter.token_id,
+                "token_type": parameter.token_type,
+                "param_to": parameter.token_address,
+                "param_data": encode_balance_abi_parameter(
+                    parameter.address, parameter.token_type, parameter.token_id
+                ),
+                "param_number": parameter.block_number if block_number is None else block_number,
+                "block_number": parameter.block_number if block_number is None else block_number,
+                "block_timestamp": parameter.block_timestamp,
+            }
+        )
+
+    return token_parameters
