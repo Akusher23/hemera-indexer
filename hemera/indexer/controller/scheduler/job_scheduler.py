@@ -42,10 +42,10 @@ def get_tokens_from_db(service):
             "symbol": str,
             "decimals": str,
             "total_supply": str,
-            "fake_total_supply": bool,
-            "fail_total_supply_count": int,
             "fake_balance_of": bool,
             "fail_balance_of_count": int,
+            "fake_total_supply": bool,
+            "fail_total_supply_count": int,
         }
         df = pd.read_csv(csv_data, dtype=dtype)
         df["address"] = df["address"].str.replace(r"\\x", "0x", regex=True)
