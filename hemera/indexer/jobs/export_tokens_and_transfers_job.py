@@ -153,7 +153,12 @@ class ExportTokensAndTransfersJob(FilterTransactionDataJob):
         self._batch_work_executor.wait()
 
         for token in self.get_buff()[Token.type()]:
-            self.tokens[token.address] = asdict(token)
+            dic = asdict(token)
+            dic["fail_balance_of_count"] = 0
+            dic["fake_balance_of"] = False
+            dic["fail_total_supply_count"] = 0
+            dic["fake_total_supply"] = False
+            self.tokens[token.address] = dic
 
         # filtered_old_tokens = [token for token in token_dict.values() if token.token_type != TokenType.ERC1155.value]
         # self._batch_work_executor.execute(
