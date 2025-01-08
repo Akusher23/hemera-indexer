@@ -47,7 +47,11 @@ def get_tokens_from_db(service):
             "fake_total_supply": 'boolean',
             "fail_total_supply_count": int,
         }
-        df = pd.read_csv(csv_data, dtype=dtype)
+        converters = {
+            "fake_balance_of": lambda x: str(x).lower() in ['true', '1'],
+            "fake_total_supply": lambda x: str(x).lower() in ['true', '1'],
+        }
+        df = pd.read_csv(csv_data, dtype=dtype, converters=converters)
         df["address"] = df["address"].str.replace(r"\\x", "0x", regex=True)
 
         token_dict = {}
