@@ -69,21 +69,21 @@ class ExportTokenBalancesJob(BaseExportJob):
         for tb in token_balances:
             if tb["balance"] is None and tb["token_address"] in self.tokens:
                 self.tokens[tb["token_address"]]["fail_balance_of_count"] += 1
-            tokens_set.add(tb["token_address"])
+                tokens_set.add(tb["token_address"])
             results.append(dict_to_dataclass(tb, TokenBalance))
         self._collect_items(TokenBalance.type(), results)
         for tk in tokens_set:
             if self.tokens[tk]["fail_balance_of_count"] > FAILURE_THRESHOLD:
                 self.tokens[tk]["fake_balance_of"] = True
-                self._collect_item(
-                    FakeMarkBalanceToken,
-                    FakeMarkBalanceToken(
-                        address=tk,
-                        block_number=self.tokens[tk]["block_number"],
-                        fake_balance_of=self.tokens[tk]["fake_balance_of"],
-                        fail_balance_of_count=self.tokens[tk]["fail_balance_of_count"],
-                    ),
-                )
+            self._collect_item(
+                FakeMarkBalanceToken,
+                FakeMarkBalanceToken(
+                    address=tk,
+                    block_number=self.tokens[tk]["block_number"],
+                    fake_balance_of=self.tokens[tk]["fake_balance_of"],
+                    fail_balance_of_count=self.tokens[tk]["fail_balance_of_count"],
+                ),
+            )
 
     def _process(self, **kwargs):
         if TokenBalance.type() in self._data_buff:
