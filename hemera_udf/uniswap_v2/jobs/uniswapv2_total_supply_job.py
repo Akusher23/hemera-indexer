@@ -23,11 +23,15 @@ class ExportUniswapV2TotalSupplyJob(ExtensionJob):
         self.multi_call_helper = MultiCallHelper(self._web3, kwargs, logger)
         self._existing_pools = self.get_existing_pools()
 
-
     def _process(self, **kwargs):
+        uniswap_v2_pools = self._data_buff[UniswapV2Pool.type()]
+        for pool in uniswap_v2_pools:
+            self._existing_pools.add(pool.pool_address)
 
         erc_20_token_transfers = self._data_buff[ERC20TokenTransfer.type()]
-        uniswapv2_pool_token_transfers = [tt for tt in erc_20_token_transfers if tt.token_address in self._existing_pools]
+        uniswapv2_pool_token_transfers = [
+            tt for tt in erc_20_token_transfers if tt.token_address in self._existing_pools
+        ]
 
         call_dict = {}
         for token_transfer in uniswapv2_pool_token_transfers:
