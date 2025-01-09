@@ -23,16 +23,14 @@ class UpdateToken(Domain):
 
 
 @dataclass
-class FakeMarkBalanceToken(Domain):
+class MarkBalanceToken(Domain):
     address: str
-    block_number: int
     fail_balance_of_count: int
-    fake_balance_of: Optional[bool] = True
+    no_balance_of: Optional[bool] = True
 
 
 @dataclass
-class FakeMarkTotalSupplyToken(Domain):
+class MarkTotalSupplyToken(Domain):
     address: str
-    block_number: int
     fail_total_supply_count: int
-    fake_total_supply: Optional[bool] = True
+    no_total_supply: Optional[bool] = True

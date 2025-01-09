@@ -8,7 +8,7 @@ from hexbytes import HexBytes
 from hemera.common.utils.web3_utils import ZERO_ADDRESS
 from hemera.indexer.domains import dict_to_dataclass
 from hemera.indexer.domains.current_token_balance import CurrentTokenBalance
-from hemera.indexer.domains.token import FakeMarkBalanceToken
+from hemera.indexer.domains.token import MarkBalanceToken
 from hemera.indexer.domains.token_balance import TokenBalance
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer, ERC721TokenTransfer, ERC1155TokenTransfer
 from hemera.indexer.executors.batch_work_executor import BatchWorkExecutor
@@ -40,7 +40,7 @@ FAILURE_THRESHOLD = 10
 # Exports token balance
 class ExportTokenBalancesJob(BaseExportJob):
     dependency_types = [ERC20TokenTransfer, ERC721TokenTransfer, ERC1155TokenTransfer]
-    output_types = [TokenBalance, CurrentTokenBalance, FakeMarkBalanceToken]
+    output_types = [TokenBalance, CurrentTokenBalance, MarkBalanceToken]
     able_to_reorg = True
 
     def __init__(self, **kwargs):
@@ -74,13 +74,12 @@ class ExportTokenBalancesJob(BaseExportJob):
         self._collect_items(TokenBalance.type(), results)
         for tk in tokens_set:
             if self.tokens[tk]["fail_balance_of_count"] > FAILURE_THRESHOLD:
-                self.tokens[tk]["fake_balance_of"] = True
+                self.tokens[tk]["no_balance_of"] = True
             self._collect_item(
-                FakeMarkBalanceToken.type(),
-                FakeMarkBalanceToken(
+                MarkBalanceToken.type(),
+                MarkBalanceToken(
                     address=tk,
-                    block_number=self.tokens[tk]["block_number"],
-                    fake_balance_of=self.tokens[tk]["fake_balance_of"],
+                    no_balance_of=self.tokens[tk]["no_balance_of"],
                     fail_balance_of_count=self.tokens[tk]["fail_balance_of_count"],
                 ),
             )
@@ -130,7 +129,7 @@ class ExportTokenBalancesJob(BaseExportJob):
         origin_parameters = set()
         token_parameters = []
         for transfer in token_transfers:
-            if transfer.token_address in self.tokens and self.tokens[transfer.token_address]["fake_balance_of"]:
+            if transfer.token_address in self.tokens and self.tokens[transfer.token_address]["no_balance_of"]:
                 continue
             common_params = {
                 "token_address": transfer.token_address,

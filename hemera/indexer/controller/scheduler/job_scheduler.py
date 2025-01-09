@@ -47,8 +47,8 @@ def get_tokens_from_db(service):
             "block_number": int,
         }
         converters = {
-            "fake_balance_of": lambda x: str(x).lower() in ["t", "true", "1"],
-            "fake_total_supply": lambda x: str(x).lower() in ["t", "true", "1"],
+            "no_balance_of": lambda x: str(x).lower() in ["t", "true", "1"],
+            "no_total_supply": lambda x: str(x).lower() in ["t", "true", "1"],
         }
         df = pd.read_csv(csv_data, dtype=dtype, converters=converters)
         df["address"] = df["address"].str.replace(r"\\x", "0x", regex=True)
@@ -63,9 +63,9 @@ def get_tokens_from_db(service):
                 "symbol": row.symbol,
                 "decimals": int(row.decimals) if pd.notna(row.decimals) else None,
                 "total_supply": int(row.total_supply) if pd.notna(row.total_supply) else None,
-                "fake_total_supply": row.fake_total_supply,
+                "no_total_supply": row.fake_total_supply,
                 "fail_total_supply_count": row.fail_total_supply_count,
-                "fake_balance_of": row.fake_balance_of,
+                "no_balance_of": row.fake_balance_of,
                 "fail_balance_of_count": row.fail_balance_of_count,
                 "block_number": row.block_number,
             }
