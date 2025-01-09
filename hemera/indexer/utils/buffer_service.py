@@ -301,11 +301,12 @@ class BufferService:
                     flush_items.extend(self.buffer[key])
 
                     if self.metrics:
-                        self.metrics.update_indexed_domains(domain=key, status="success", amount=len(self.buffer[key]))
+                        self.metrics.update_indexed_domains(domain=key, amount=len(self.buffer[key]))
 
             if len(flush_type):
                 self.logger.info(f"Flush domains: {','.join(flush_type)} between block range: {block_range}")
             else:
+                self.concurrent_submitters.release()
                 return True
 
         with self.futures_lock:
@@ -333,14 +334,11 @@ class BufferService:
 
         self.concurrent_submitters.acquire()
 
-        try:
-            if not ASYNC_SUBMIT:
-                return self.flush_buffer(start_block, end_block, output_types)
-            else:
-                self.flush_buffer(start_block, end_block, output_types)
-            return True
-        finally:
-            self.concurrent_submitters.release()
+        if not ASYNC_SUBMIT:
+            return self.flush_buffer(start_block, end_block, output_types)
+        else:
+            self.flush_buffer(start_block, end_block, output_types)
+        return True
 
     def clear(self):
         with self.buffer_lock:

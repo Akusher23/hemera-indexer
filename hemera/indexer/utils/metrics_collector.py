@@ -36,9 +36,7 @@ class MetricsCollector:
 
         self.failure_batch_counter = Counter("failure_batch_counter", "Total number of failed index", ["instance"])
 
-        self.indexed_domains = Counter(
-            "indexed_domains", "Total number of indexed domains", ["instance", "domain", "status"]
-        )
+        self.indexed_domains = Counter("indexed_domains", "Total number of indexed domains", ["instance", "domain"])
 
         self.exported_domains = Counter(
             "exported_domains", "Total number of exported domains", ["instance", "domain", "status"]
@@ -110,8 +108,8 @@ class MetricsCollector:
     def update_failure_batch_counter(self):
         self.failure_batch_counter.labels(instance=self.instance_name).inc(1)
 
-    def update_indexed_domains(self, domain: str, status: str, amount: int):
-        self.indexed_domains.labels(instance=self.instance_name, domain=domain, status=status).inc(amount)
+    def update_indexed_domains(self, domain: str, amount: int):
+        self.indexed_domains.labels(instance=self.instance_name, domain=domain).inc(amount)
 
     def update_exported_domains(self, domain: str, status: str, amount: int):
         self.exported_domains.labels(instance=self.instance_name, domain=domain, status=status).inc(amount)

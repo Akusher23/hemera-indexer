@@ -343,6 +343,8 @@ class JobScheduler:
 
             except Exception as e:
                 self.logger.error(f"An unknown exception occurred while running {job.__class__.__name__}. error: {e}")
+                if self.metrics:
+                    self.metrics.update_instance_shutdown()
                 raise e
 
         self.logger.error(

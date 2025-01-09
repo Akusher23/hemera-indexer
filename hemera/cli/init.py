@@ -36,7 +36,7 @@ logger = logging.getLogger("Init Client")
     "--metrics",
     is_flag=True,
     required=False,
-    help="The --db flag triggers the database initialization process. ",
+    help="The --metrics flag triggers the metrics' persistence data initialization process. ",
 )
 @postgres
 @postgres_initial
