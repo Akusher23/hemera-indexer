@@ -4,6 +4,7 @@
 from flask_restx import Api
 
 from hemera.api.app.address.routes import address_features_namespace
+from hemera.api.app.alarm.routes import alarm_namespace
 from hemera.api.app.contract.routes import contract_namespace
 from hemera.api.app.explorer.routes import explorer_namespace
 from hemera.api.app.l2_explorer.routes import l2_explorer_namespace
@@ -22,6 +23,7 @@ from hemera_udf.uniswap_v3.endpoints.routes import *
 
 api = Api()
 
+api.add_namespace(alarm_namespace)
 api.add_namespace(explorer_namespace)
 api.add_namespace(opensea_namespace)
 api.add_namespace(contract_namespace)

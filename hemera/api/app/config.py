@@ -149,6 +149,8 @@ class AppConfig(YAMLWizard):
     debug_rpc: str = field(default="https://ethereum.publicnode.com")
     token_configuration: TokenConfiguration = field(default_factory=TokenConfiguration)
     api_urls: APIUrls = field(default_factory=APIUrls)
+    alarm_app_id: str = field(default="cli_slkdjalasdkjasd")
+    alarm_app_secret: str = field(default="dskLLdkasdjlasdKK")
 
     def update_from_env(self):
         self.env = os.getenv("", self.env)
@@ -206,6 +208,9 @@ class AppConfig(YAMLWizard):
 
         if os.getenv("ROLLUP_TYPE"):
             self.l2_config.rollup_type = os.getenv("ROLLUP_TYPE", self.l2_config.rollup_type)
+
+        self.alarm_app_id = os.getenv("ALARM_APP_ID", self.alarm_app_id)
+        self.alarm_app_secret = os.getenv("ALARM_APP_SECRET", self.alarm_app_secret)
 
     def get_onchain_badge_config(self):
         if "on_chain_badge" in self.extra_config:
@@ -274,5 +279,7 @@ class AppConfig(YAMLWizard):
         }
         if "ONCHAIN_BADGE" in config:
             config_data["extra_config"].update(config["ONCHAIN_BADGE"])
+        config_data["alarm_app_id"] = config["ALARM_APP_ID"]
+        config_data["alarm_app_secret"] = config["ALARM_APP_SECRET"]
 
         return AppConfig(**config_data)
