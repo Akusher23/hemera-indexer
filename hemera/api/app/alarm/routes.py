@@ -18,7 +18,10 @@ TOKEN_ENDPOINT = "/auth/v3/tenant_access_token/internal"
 @alarm_namespace.route("/v1/alarm/test")
 class CheckGrafanaData(Resource):
     def post(self):
-        body = flask.request.form.to_dict()
+        if not flask.request.is_json:
+            logging.error("Not JSON request")
+            return {"error": "Content type must be application/json"}, 400
+        body = flask.request.json
         logging.info(body)
 
         return "ok", 200
