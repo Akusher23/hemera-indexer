@@ -76,11 +76,14 @@ class KafkaItemExporter(BaseExporter):
             if data.token_id is None or data.token_id < 0:
                 data.token_id = 0
             return data
+        if isinstance(data, DexBlockTokenPriceCurrent):
+            if data.token_symbol is None:
+                data.token_symbol = ""
+            return data
 
         if isinstance(
             data,
             (
-                DexBlockTokenPriceCurrent,
                 UniswapV2SwapEvent,
                 UniswapV3SwapEvent,
                 ERC20TokenTransfer,
