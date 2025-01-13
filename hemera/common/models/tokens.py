@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Index, PrimaryKeyConstraint, desc, func
-from sqlalchemy.dialects.postgresql import BIGINT, BOOLEAN, BYTEA, INTEGER, JSONB, NUMERIC, TIMESTAMP, VARCHAR
+from sqlalchemy.dialects.postgresql import ARRAY, BIGINT, BOOLEAN, BYTEA, INTEGER, JSONB, NUMERIC, TIMESTAMP, VARCHAR
 
 from hemera.common.models import HemeraModel, general_converter
 from hemera.indexer.domains.token import MarkBalanceToken, MarkTotalSupplyToken, Token, UpdateToken
@@ -36,6 +36,7 @@ class Tokens(HemeraModel):
     fail_balance_of_count = Column(INTEGER, default=0)
     no_total_supply = Column(BOOLEAN, default=False)
     fail_total_supply_count = Column(BOOLEAN, default=0)
+    tags = Column(ARRAY(VARCHAR))
 
     create_time = Column(TIMESTAMP, server_default=func.now())
     update_time = Column(TIMESTAMP, server_default=func.now())
