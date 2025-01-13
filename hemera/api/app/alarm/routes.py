@@ -20,7 +20,7 @@ class CheckGrafanaData(Resource):
         body = flask.request.form.to_dict()
         print(body)
 
-        return {"ok"}, 200
+        return "ok", 200
 
 
 @alarm_namespace.route("/v1/alarm/receive")
