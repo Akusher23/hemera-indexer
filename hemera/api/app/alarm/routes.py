@@ -12,6 +12,7 @@ from hemera.common.utils.config import get_config
 app_config = get_config()
 LARK_BASE_URL = "https://open.larksuite.com/open-apis"
 MESSAGE_ENDPOINT = "/im/v1/messages"
+CHAT_ENDPOINT = "/im/v1/chats"
 TOKEN_ENDPOINT = "/auth/v3/tenant_access_token/internal"
 
 
@@ -54,8 +55,9 @@ def get_access_token():
 
 
 def send_message(access_token, content):
-    url = f"{LARK_BASE_URL}{MESSAGE_ENDPOINT}?receive_id_type=open_id"
+    url = f"{LARK_BASE_URL}{MESSAGE_ENDPOINT}?receive_id_type=chat_id"
 
+    content = f'<at user_id="all"></at> \n{content}'
     req = {
         "receive_id": os.environ.get("RECEIVE_ID", ""),
         "msg_type": "text",
