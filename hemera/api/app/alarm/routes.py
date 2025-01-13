@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 
 import flask
@@ -18,7 +19,7 @@ TOKEN_ENDPOINT = "/auth/v3/tenant_access_token/internal"
 class CheckGrafanaData(Resource):
     def post(self):
         body = flask.request.form.to_dict()
-        print(body)
+        logging.info(body)
 
         return "ok", 200
 
