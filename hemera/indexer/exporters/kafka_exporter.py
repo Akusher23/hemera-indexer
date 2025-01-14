@@ -78,7 +78,7 @@ class KafkaItemExporter(BaseExporter):
             return data
         if isinstance(data, DexBlockTokenPriceCurrent):
             if data.token_symbol is None:
-                return ""
+                data.token_symbol = ""
             return data
 
         if isinstance(
