@@ -162,8 +162,8 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
     def _process(self, **kwargs):
         token_prices_dict = self.change_block_token_prices_to_dict()
 
-        if not self._pool_address:
-            self.get_missing_pools_by_rpc()
+        # if not self._pool_address:
+        #     self.get_missing_pools_by_rpc()
 
         transactions = self._data_buff["transaction"]
         current_price_dict = {}

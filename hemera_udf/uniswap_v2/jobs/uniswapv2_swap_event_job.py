@@ -114,7 +114,7 @@ class ExportUniSwapV2SwapEventJob(FilterTransactionDataJob):
                 self._collect_domain(uniswap_v_pool_from_swap_event)
 
     def _process(self, **kwargs):
-        self.get_missing_pools_by_rpc()
+        # self.get_missing_pools_by_rpc()
 
         token_prices_dict = self.change_block_token_prices_to_dict()
 
