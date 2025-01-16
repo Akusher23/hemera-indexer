@@ -1,7 +1,9 @@
 from typing import List, Union
 
+from hemera.indexer.domains.transaction import Transaction
+from hemera.indexer.domains.log import Log
 from hemera.indexer.jobs.base_job import ExtensionJob, Collector
-from hemera.indexer.utils.collection_utils import distinct_collections_by_group
+from hemera.indexer.specification.specification import TopicSpecification, TransactionFilterByLogs
 from hemera_udf.${job}.domains import *
 
 # Also could inherit from FilterTransactionDataJob, like: class Export${job_name}Job(FilterTransactionDataJob):
@@ -19,11 +21,6 @@ class Export${job_name}Job(ExtensionJob):
     def get_filter(self):
 
         filter = [
-            TransactionFilterByTransactionInfo(
-                ToAddressSpecification(address=contract),
-                FromAddressSpecification(address=contract),
-                FuncSignSpecification(func_sign=ERC20_BALANCE_OF_FUNCTION.get_signature()),
-            ),
             TransactionFilterByLogs([TopicSpecification(addresses=addresses, topics=topics)]),
         ]
 

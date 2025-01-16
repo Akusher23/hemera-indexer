@@ -1,16 +1,17 @@
-from typing import Type, Union
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
-from sqlalchemy import Column, Index, desc, func, text, PrimaryKeyConstraint
-from sqlalchemy.dialects.postgresql import BIGINT, BOOLEAN, BYTEA, NUMERIC, TIMESTAMP
+from sqlalchemy import Column, Index, func, text, PrimaryKeyConstraint
+from sqlalchemy.dialects.postgresql import BIGINT, BOOLEAN, BYTEA, NUMERIC, TIMESTAMP, INTEGER, VARCHAR
 
 from hemera.common.models import HemeraModel, general_converter
-from hemera_udf.${job}.domains import AddressFeatureValueCurrent, AddressFeatureValueHistory, AddressFeatureEvent
+from hemera_udf.omega.domains import OmegaAccountEvent, OmegaAccount, OmegaEvent
 
+class OmegaAccounts(HemeraModel):
+    __tablename__ = "af_omega_accounts"
 
-class AddressFeatureValuesCurrent(HemeraModel):
-    __tablename__ = "address_feature_values_current"
-    address = Column(BYTEA, primary_key=True)
-    feature_value = Column(NUMERIC)
+    owner = Column(BYTEA, primary_key=True)
+    account = Column(BYTEA, primary_key=True)
 
     block_number = Column(BIGINT)
     block_timestamp = Column(TIMESTAMP)
@@ -22,7 +23,7 @@ class AddressFeatureValuesCurrent(HemeraModel):
     def model_domain_mapping():
         return [
             {
-                "domain": AddressFeatureValueCurrent,
+                "domain": OmegaAccount,
                 "conflict_do_update": True,
                 "update_strategy": "EXCLUDED.block_number > address_feature_values_current.block_number",
                 "converter": general_converter,
@@ -30,40 +31,18 @@ class AddressFeatureValuesCurrent(HemeraModel):
         ]
 
 
-class AddressFeatureValuesHistory(HemeraModel):
-    __tablename__ = "address_feature_values_history"
-    address = Column(BYTEA, primary_key=True)
-    feature_value = Column(NUMERIC)
+class OmegaAccountEvents(HemeraModel):
+    __tablename__ = "af_omega_account_events"
 
-    block_number = Column(BIGINT, primary_key=True)
-    block_timestamp = Column(TIMESTAMP)
-
-    create_time = Column(TIMESTAMP, server_default=func.now())
-    update_time = Column(TIMESTAMP, server_default=func.now())
-
-    # If the custom job supports reorg,
-    # the data table that stores the data must contain a reorg field.
-    reorg = Column(BOOLEAN, server_default=text("false"))
-
-    __table_args__ = (PrimaryKeyConstraint("address", "block_number"),)
-
-    @staticmethod
-    def model_domain_mapping():
-        return [
-            {
-                "domain": AddressFeatureValueHistory,
-                "conflict_do_update": False,
-                "update_strategy": None,
-                "converter": general_converter,
-            }
-        ]
-
-
-class AddressFeatureEvents(HemeraModel):
-    __tablename__ = "address_feature_events"
     transaction_hash = Column(BYTEA, primary_key=True)
-    address = Column(BYTEA)
-    event_value = Column(NUMERIC)
+    log_index = Column(INTEGER, primary_key=True)
+
+    owner = Column(BYTEA)
+    account = Column(BYTEA)
+    event_type = Column(VARCHAR)
+    asset_address = Column(BYTEA)
+    amount = Column(NUMERIC(100))
+    receiver_address = Column(BYTEA)
 
     block_number = Column(BIGINT, primary_key=True)
     block_timestamp = Column(TIMESTAMP)
@@ -75,27 +54,54 @@ class AddressFeatureEvents(HemeraModel):
     # the data table that stores the data must contain a reorg field.
     reorg = Column(BOOLEAN, server_default=text("false"))
 
-    __table_args__ = (PrimaryKeyConstraint("transaction_hash", "block_number"),)
+    __table_args__ = (PrimaryKeyConstraint("block_number", "log_index", "transaction_hash"),)
 
     @staticmethod
     def model_domain_mapping():
         return [
             {
-                "domain": AddressFeatureEvent,
+                "domain": OmegaAccountEvent,
                 "conflict_do_update": False,
                 "update_strategy": None,
                 "converter": general_converter,
             }
         ]
 
-Index("address_feature_events_address_index", AddressFeatureEvents.address)
 
-# This is a custom data conversion function. Usually you can use 'general_converter' directly.
-def converter(
-    table: Type[HemeraModel],
-    data: Union[CustomDomainA],
-    is_update=False,
-):
-    # Special data conversion logic here
-    converted_data = do_some_work(table, data, is_update)
-    return converted_data
+class OmegaEvents(HemeraModel):
+    __tablename__ = "af_omega_events"
+
+    transaction_hash = Column(BYTEA, primary_key=True)
+    log_index = Column(INTEGER, primary_key=True)
+
+    address = Column(BYTEA)
+    event_type = Column(VARCHAR)
+    asset_address = Column(BYTEA)
+    amount = Column(NUMERIC(100))
+    receiver_address = Column(BYTEA)
+
+    block_number = Column(BIGINT, primary_key=True)
+    block_timestamp = Column(TIMESTAMP)
+
+    create_time = Column(TIMESTAMP, server_default=func.now())
+    update_time = Column(TIMESTAMP, server_default=func.now())
+
+    # If the custom job supports reorg,
+    # the data table that stores the data must contain a reorg field.
+    reorg = Column(BOOLEAN, server_default=text("false"))
+
+    __table_args__ = (PrimaryKeyConstraint("block_number", "log_index", "transaction_hash"),)
+
+    @staticmethod
+    def model_domain_mapping():
+        return [
+            {
+                "domain": OmegaEvent,
+                "conflict_do_update": False,
+                "update_strategy": None,
+                "converter": general_converter,
+            }
+        ]
+
+Index("af_omega_account_events_address_index", OmegaAccountEvents.owner)
+Index("af_omega_events_address_index", OmegaEvents.address)

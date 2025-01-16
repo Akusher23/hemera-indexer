@@ -121,7 +121,7 @@ export_tokens_and_transfers_job:
     - "0x326b1129a3ec2ad5c4016d2bb4b912687890ae6c"
       # Mitosis
     - "0x6ff000453a9c14f7d3bf381925c8cde565dbce55"
-      #circuit
+      # circuit
     - "0x59e641de941cc794cdf6152eda0ef51210373d95"
       # lendle/aurelius
     - "0x067ddc903148968d49abc3144fd7619820f16949"
@@ -162,3 +162,17 @@ export_tokens_and_transfers_job:
     - "0x18d3e4f9951fedcddd806538857ebed2f5f423b7"
     - "0xf36afb467d1f05541d998bbbcd5f7167d67bd8fc"
     - "0xd2ea6612f6c7c11626f7d5d801d08b53bce52511"
+
+    # OMEGA
+    - "0xedcd5f2211e0f8d66037b8d065c972626382a345"
+    - "0x50cea696048fad9467ce8dbb482b185ff3c7572f"
+    - "0xf414b99575a88183c7e462ed1134689866376cb6"
+    - "0x07172aca125d66aa38026940ca6bfa125d03cbfe"
+    - "0xd2698b234b23966258578e0539a5d5aab8d49893"
+    - "0xa0b447a5e3ead645b377f473cdaa807699f9a650"
+    - "0x1c61904a86e816812580fcb7588546a621ce1f28"
+    - "0x0e27103cd0002ed9694e8865befd6e2167132ba9"
+    - "0xa145457e387bf2eef3fe2b69784d7d1cd17bc2f3"
+    - "0xb04a9bc80ae7ff2321bd06cd535bb46a9f453887"
+
+    
