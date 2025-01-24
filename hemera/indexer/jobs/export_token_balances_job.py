@@ -109,11 +109,14 @@ class ExportTokenBalancesJob(BaseExportJob):
     @calculate_execution_time
     def _collect_all_token_transfers(self):
         token_transfers = []
+        erc20_tokens = set()
         if ERC20TokenTransfer.type() in self._data_buff:
             token_transfers += self._data_buff[ERC20TokenTransfer.type()]
-
+            erc20_tokens.update([transfer.token_address for transfer in self._data_buff[ERC20TokenTransfer.type()]])
         if ERC721TokenTransfer.type() in self._data_buff:
-            token_transfers += self._data_buff[ERC721TokenTransfer.type()]
+            for erc721_token_transfer in self._data_buff[ERC721TokenTransfer.type()]:
+                if erc721_token_transfer.token_address not in erc20_tokens:
+                    token_transfers.append(erc721_token_transfer)
 
         if ERC1155TokenTransfer.type() in self._data_buff:
             token_transfers += self._data_buff[ERC1155TokenTransfer.type()]
