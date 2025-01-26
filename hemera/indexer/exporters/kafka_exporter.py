@@ -75,6 +75,9 @@ class KafkaItemExporter(BaseExporter):
             if data.token_id is None or data.token_id < 0:
                 data.token_id = 0
             return data
+        if isinstance(data, DexBlockTokenPrice):
+            data.token_symbol = ""
+            return data
         if isinstance(data, (TokenHolderMetricsHistoryD, TokenHolderMetricsCurrentD)):
             if data.current_balance:
                 data.current_balance = int(data.current_balance)
@@ -95,7 +98,6 @@ class KafkaItemExporter(BaseExporter):
                 UniswapV2SwapEvent,
                 UniswapV3SwapEvent,
                 ERC20TokenTransfer,
-                DexBlockTokenPrice,
                 Log,
                 TokenHolderMetricsCurrentD,
                 TokenHolderMetricsHistoryD,
