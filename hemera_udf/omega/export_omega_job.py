@@ -95,7 +95,7 @@ class ExportOmegaJob(FilterTransactionDataJob):
         repay_event_map = {}
 
         for log in logs:
-            if log.topic0 == OMEGA_ACCOUNT_CREATE_EVENT.get_signature():
+            if log.topic0 == OMEGA_ACCOUNT_CREATE_EVENT.get_signature() and log.address in self.pools.keys():
                 decoded_data = OMEGA_ACCOUNT_CREATE_EVENT.decode_log(log)
                 owner = decoded_data["owner"]
                 account = decoded_data["account"]
@@ -107,7 +107,7 @@ class ExportOmegaJob(FilterTransactionDataJob):
                 )
                 output.collect_item(OmegaAccount.type(), new_account)
 
-            elif log.topic0 == OMEGA_DEPOSIT_EVENT.get_signature():
+            elif log.topic0 == OMEGA_DEPOSIT_EVENT.get_signature() and log.address in self.pools.keys():
                 decoded_data = OMEGA_DEPOSIT_EVENT.decode_log(log)
                 address = decoded_data["lender"]
                 amount = decoded_data["amount"]
@@ -124,7 +124,7 @@ class ExportOmegaJob(FilterTransactionDataJob):
                 )
                 output.collect_item(OmegaEvent.type(), omega_event)
 
-            elif log.topic0 == OMEGA_BORROW_EVENT.get_signature():
+            elif log.topic0 == OMEGA_BORROW_EVENT.get_signature() and log.address in self.pools.keys():
                 decoded_data = OMEGA_BORROW_EVENT.decode_log(log)
                 address = decoded_data["borrower"]
                 amount = decoded_data["amount"]
@@ -142,7 +142,7 @@ class ExportOmegaJob(FilterTransactionDataJob):
                 output.collect_item(OmegaEvent.type(), omega_event)
                 borrow_event_map[log.transaction_hash] = omega_event
 
-            elif log.topic0 == OMEGA_WITHDRAW_EVENT.get_signature():
+            elif log.topic0 == OMEGA_WITHDRAW_EVENT.get_signature() and log.address in self.pools.keys():
                 decoded_data = OMEGA_WITHDRAW_EVENT.decode_log(log)
                 address = decoded_data["lender"]
                 recipient = decoded_data["recipient"]
@@ -160,7 +160,7 @@ class ExportOmegaJob(FilterTransactionDataJob):
                 )
                 output.collect_item(OmegaEvent.type(), omega_event)
 
-            elif log.topic0 == OMEGA_REPAY_EVENT.get_signature():
+            elif log.topic0 == OMEGA_REPAY_EVENT.get_signature() and log.address in self.pools.keys():
                 decoded_data = OMEGA_REPAY_EVENT.decode_log(log)
                 address = decoded_data["borrower"]
                 amount = decoded_data["amount"]
@@ -178,7 +178,7 @@ class ExportOmegaJob(FilterTransactionDataJob):
                 output.collect_item(OmegaEvent.type(), omega_event)
                 repay_event_map[log.transaction_hash] = omega_event
 
-            elif log.topic0 == OMEGA_ACCOUNT_COLLATERAL_DEPOSIT_EVENT.get_signature():
+            elif log.topic0 == OMEGA_ACCOUNT_COLLATERAL_DEPOSIT_EVENT.get_signature() and log.address in self.pools.keys():
                 decoded_data = OMEGA_ACCOUNT_COLLATERAL_DEPOSIT_EVENT.decode_log(log)
                 owner = decoded_data["owner"]
                 account = decoded_data["account"]
@@ -198,7 +198,7 @@ class ExportOmegaJob(FilterTransactionDataJob):
                 )
                 output.collect_item(OmegaAccountEvent.type(), omega_event)
 
-            elif log.topic0 == OMEGA_ACCOUNT_COLLATERAL_WITHDRAW_EVENT.get_signature():
+            elif log.topic0 == OMEGA_ACCOUNT_COLLATERAL_WITHDRAW_EVENT.get_signature() and log.address in self.pools.keys():
                 decoded_data = OMEGA_ACCOUNT_COLLATERAL_WITHDRAW_EVENT.decode_log(log)
                 owner = decoded_data["owner"]
                 account = decoded_data["account"]
@@ -218,7 +218,7 @@ class ExportOmegaJob(FilterTransactionDataJob):
                 )
                 output.collect_item(OmegaAccountEvent.type(), omega_event)
 
-            elif log.topic0 == OMEGA_ACCOUNT_BORROW_EVENT.get_signature():
+            elif log.topic0 == OMEGA_ACCOUNT_BORROW_EVENT.get_signature() and log.address in self.pools.keys():
                 decoded_data = OMEGA_ACCOUNT_BORROW_EVENT.decode_log(log)
                 owner = decoded_data["owner"]
                 account = decoded_data["account"]
