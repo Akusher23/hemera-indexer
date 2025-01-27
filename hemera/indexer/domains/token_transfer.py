@@ -57,7 +57,8 @@ class TokenTransfer(Domain):
         elif self.token_type == TokenType.ERC1155.value and self.token_id is None:
             return ERC20TokenTransfer(**common_fields, token_type=TokenType.ERC20.value, value=self.value)
         else:
-            raise ValueError(f"Unsupported token type: {self.token_type}")
+            return ERC20TokenTransfer(**common_fields, token_type='None', value=self.value)
+            # raise ValueError(f"Unsupported token type: {self.token_type}")
 
 
 @dataclass
