@@ -18,7 +18,7 @@ class AddressFeatureValueHistory(Domain):
     block_number: int
     block_timestamp: int
 
-@dataclass 
+@dataclass
 class AddressFeatureEvent(Domain):
     transaction_hash: str
     address: str

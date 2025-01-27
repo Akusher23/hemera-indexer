@@ -1,0 +1,21 @@
+chain_id: 5000
+
+init_capital_job:
+  core_address: '0x972bcb0284cca0152527c4f70f8f689852bcafc5'
+
+export_tokens_and_transfers_job:
+  filter_token_address:
+    # OMEGA
+    - "0xedcd5f2211e0f8d66037b8d065c972626382a345"
+    - "0x50cea696048fad9467ce8dbb482b185ff3c7572f"
+    - "0xf414b99575a88183c7e462ed1134689866376cb6"
+    - "0x07172aca125d66aa38026940ca6bfa125d03cbfe"
+    - "0xd2698b234b23966258578e0539a5d5aab8d49893"
+    - "0xa0b447a5e3ead645b377f473cdaa807699f9a650"
+    - "0x1c61904a86e816812580fcb7588546a621ce1f28"
+    - "0x0e27103cd0002ed9694e8865befd6e2167132ba9"
+    - "0xa145457e387bf2eef3fe2b69784d7d1cd17bc2f3"
+    - "0xb04a9bc80ae7ff2321bd06cd535bb46a9f453887"
+    - "0x4ebfab8c6dcb6ccaa21bdd2b70e3614064844c47"
+
+    

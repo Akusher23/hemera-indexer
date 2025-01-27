@@ -8,10 +8,11 @@ from hemera.indexer.domains import Domain
 
 @dataclass
 class OmegaAccount(Domain):
-    onwer: str
+    owner: str
     account: str
     block_number: int
     block_timestamp: int
+
 
 @dataclass
 class OmegaEvent(Domain):
@@ -22,10 +23,13 @@ class OmegaEvent(Domain):
     receiver_address: str
     block_number: int
     block_timestamp: int
+    transaction_hash: str
+    log_index: int
+
 
 @dataclass
 class OmegaAccountEvent(Domain):
-    onwer: str
+    owner: str
     account: str
     event_type: str
     asset_address: str
@@ -33,3 +37,51 @@ class OmegaAccountEvent(Domain):
     receiver_address: str
     block_number: int
     block_timestamp: int
+    transaction_hash: str
+    log_index: int
+
+
+@dataclass
+class OmegaAccountStrategyActivate(Domain):
+    owner: str
+    account: str
+    strategy: str
+    is_active: bool
+    borrow_amount: int
+    block_number: int
+    block_timestamp: int
+
+
+@dataclass
+class OmegaAccountStrategyDeactivate(Domain):
+    owner: str
+    account: str
+    strategy: str
+    is_active: bool
+    repay_amount: int
+    block_number: int
+    block_timestamp: int
+
+
+@dataclass
+class OmegaStrategyDeposit(Domain):
+    strategy: str
+    amount: int
+    borrow_amount: int
+    shares: int
+    block_number: int
+    block_timestamp: int
+    transaction_hash: str
+    log_index: int
+
+
+@dataclass
+class OmegaStrategyWithdraw(Domain):
+    strategy: str
+    amount: int
+    repay_amount: int
+    shares: int
+    block_number: int
+    block_timestamp: int
+    transaction_hash: str
+    log_index: int
