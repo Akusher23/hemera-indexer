@@ -65,6 +65,7 @@ class OmegaAccountStrategyDeactivate(Domain):
 
 @dataclass
 class OmegaStrategyDeposit(Domain):
+    account: str
     strategy: str
     amount: int
     borrow_amount: int
@@ -77,6 +78,7 @@ class OmegaStrategyDeposit(Domain):
 
 @dataclass
 class OmegaStrategyWithdraw(Domain):
+    account: str
     strategy: str
     amount: int
     repay_amount: int

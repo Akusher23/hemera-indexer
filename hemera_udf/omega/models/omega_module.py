@@ -78,6 +78,7 @@ class OmegaAccountStrategies(HemeraModel):
 class OmegaStrategyEvents(HemeraModel):
     __tablename__ = "af_omega_strategy_events"
 
+    account = Column(BYTEA, primary_key=True)
     strategy = Column(BYTEA, primary_key=True)
     amount = Column(NUMERIC(100))
     borrow_amount = Column(NUMERIC(100))

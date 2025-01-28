@@ -244,6 +244,7 @@ class ExportOmegaJob(FilterTransactionDataJob):
                 borrow_amount = decoded_data["borrowedAmount"]
                 shares = decoded_data["shares"]
                 omega_event = OmegaStrategyDeposit(
+                    account=log.address,
                     strategy=strategy,
                     amount=amount,
                     borrow_amount=borrow_amount,
@@ -262,6 +263,7 @@ class ExportOmegaJob(FilterTransactionDataJob):
                 shares = decoded_data["shares"]
                 repay_amount = sum(decoded_data["repaidAmounts"])
                 omega_event = OmegaStrategyWithdraw(
+                    account=log.address,
                     strategy=strategy,
                     amount=amount,
                     repay_amount=repay_amount,
