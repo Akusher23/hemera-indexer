@@ -1,4 +1,5 @@
 import logging
+import time
 
 import hemera_udf.uniswap_v3.abi.swapsicle_abi as swapsicle_abi
 import hemera_udf.uniswap_v3.abi.uniswapv3_abi as uniswapv3_abi
@@ -41,11 +42,15 @@ class ExportUniSwapV3PoolJob(FilterTransactionDataJob):
         )
 
     def _process(self, **kwargs):
+        time.sleep(1)
         self.get_pools()
 
     def get_pools(self):
         transactions = self._data_buff["transaction"]
         for transaction in transactions:
+            if not transaction:
+                continue
+
             logs = transaction.receipt.logs
             for log in logs:
                 if log.topic0 == swapsicle_abi.POOL_CREATED_EVENT.get_signature():
