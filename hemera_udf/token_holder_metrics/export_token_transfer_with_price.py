@@ -1,0 +1,123 @@
+import logging
+import time
+from dataclasses import asdict
+
+from sortedcontainers import SortedDict
+from sqlalchemy import or_, text
+
+from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
+from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
+from hemera.indexer.jobs.base_job import ExtensionJob
+from hemera_udf.token_holder_metrics.domains.metrics import (
+    ERC20TokenTransferWithPriceD,
+)
+from hemera_udf.token_price.domains import DexBlockTokenPrice
+
+logger = logging.getLogger(__name__)
+
+
+class ExportTokenTransferWithPriceJob(ExtensionJob):
+    dependency_types = [ERC20TokenTransfer, DexBlockTokenPrice]
+    output_types = [ERC20TokenTransferWithPriceD]
+    able_to_reorg = True
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._service = kwargs["config"].get("db_service")
+        self.history_token_prices = None
+    
+    def _collect(self, **kwargs):
+        pass
+    
+    def _process(self, **kwargs):
+        self._init_history_token_prices(kwargs["start_block"])
+        self._init_token_dex_prices_batch(kwargs["start_block"], kwargs["end_block"])
+        transfers = self._data_buff[ERC20TokenTransfer.type()]
+        to_export = []
+        for transfer in transfers:
+            price = self._get_token_dex_price(transfer.token_address, transfer.block_number)
+            to_export.append(ERC20TokenTransferWithPriceD(**asdict(transfer), price=price))
+        self._collect_items(ERC20TokenTransferWithPriceD.type(), to_export)
+        self._update_history_token_prices()
+        
+    
+        
+    def _init_history_token_prices(self, start_block: int):
+        if self.history_token_prices is not None:
+            return
+        session = self._service.get_service_session()
+        token_blocks = session.execute(
+            text(
+                """
+                SELECT token_address, block_number, token_price
+                FROM (
+                    SELECT token_address, block_number, token_price,
+                           ROW_NUMBER() OVER (PARTITION BY token_address ORDER BY block_number DESC) as rn
+                    FROM af_dex_block_token_price
+                    WHERE block_number < :start_block
+                ) t
+                WHERE rn = 1
+            """
+            ),
+            {"start_block": start_block},
+        ).fetchall()
+        session.close()
+        self.history_token_prices = {bytes_to_hex_str(row[0]): float(row[2]) for row in token_blocks}
+
+    def _init_token_dex_prices_batch(self, start_block: int, end_block: int):
+
+        price_sql = text(
+            """
+            SELECT token_address, block_number, token_price
+            FROM af_dex_block_token_price
+            WHERE block_number BETWEEN :min_block AND :max_block
+            ORDER BY block_number
+            """
+        )
+
+        session = self._service.get_service_session()
+        prices = session.execute(price_sql, {"min_block": start_block, "max_block": end_block}).fetchall()
+        session.close()
+
+        token_price_maps = {token: SortedDict() for token in self.history_token_prices}
+
+        for token in self.history_token_prices:
+            token_price_maps[token][0] = self.history_token_prices[token]
+
+        for price_row in prices:
+            token_addr = bytes_to_hex_str(price_row[0])
+            if token_addr not in token_price_maps:
+                token_price_maps[token_addr] = SortedDict()
+            block_num = price_row[1]
+            price = float(price_row[2])
+            token_price_maps[token_addr][block_num] = price
+
+        self.token_price_maps = token_price_maps
+
+    def _get_token_dex_price(self, token_addr: str, block_num: int):
+        price_map = self.token_price_maps.get(token_addr)
+        if not price_map:
+            return self.history_token_prices.get(token_addr, 0.0)
+
+        keys = list(price_map.keys())
+        idx = price_map.bisect_left(block_num)
+
+        if idx == 0:
+            return 0.0
+        elif idx == len(keys):
+            return price_map[keys[-1]]
+        elif keys[idx] == block_num:
+            return price_map[block_num]
+        else:
+            return price_map[keys[idx - 1]]
+
+    def _update_history_token_prices(self):
+        for token_addr, price_map in self.token_price_maps.items():
+            if not price_map:
+                continue
+            latest_block = price_map.keys()[-1]
+            latest_price = price_map[latest_block]
+            self.history_token_prices[token_addr] = latest_price
+
+
+
