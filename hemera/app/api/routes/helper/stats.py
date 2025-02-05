@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
-from hemera_udf.stats.models.daily_transactions_stats import DailyTransactionsStats
+from hemera.common.models.stats.daily_transactions_stats import DailyTransactionsStats
 
 
 def get_daily_transactions_cnt(

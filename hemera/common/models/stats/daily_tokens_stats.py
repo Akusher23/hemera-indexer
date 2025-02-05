@@ -4,8 +4,7 @@ from sqlalchemy.dialects.postgresql import BIGINT, DATE, INTEGER
 from hemera.common.models import HemeraModel
 
 
-class DailyTokensStats(HemeraModel):
-
+class DailyTokensStats(HemeraModel, table=True):
     __tablename__ = "af_stats_na_daily_tokens"
 
     block_date = Column(DATE, primary_key=True)

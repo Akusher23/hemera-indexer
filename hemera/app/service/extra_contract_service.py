@@ -8,6 +8,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 
 import requests
+from sqlmodel import Session, select
 
 from hemera.app.utils.web3_utils import get_code, get_storage_at, w3
 from hemera.common.models.contracts import Contracts
@@ -58,9 +59,11 @@ class ExtraContractService:
         if not address or not compiler_type or not compiler_version:
             raise APIError("Missing base required data", code=400)
 
-    def get_contract(self, address: str) -> Contracts:
+    def get_contract(self, session: Session, address: str) -> Contracts:
         """Get contract by address"""
-        contract = db.session().query(Contracts).filter_by(address=hex_str_to_bytes(address)).first()
+        if isinstance(address, str):
+            address = hex_str_to_bytes(address)
+        contract = session.exec(select(Contracts).where(Contracts.address == address)).first()
         if not contract:
             raise APIError("The address is not a contract", code=400)
         return contract

@@ -22,7 +22,7 @@ class Transactions(HemeraModel, table=True):
     to_address: Optional[bytes] = Field(default=None)
     value: Optional[Decimal] = Field(default=None, max_digits=100)
     transaction_type: Optional[int] = Field(default=None)
-    input: Optional[bytes] = Field(default=None)
+    input: Optional[bytes] = Field(default=None, sa_column=Column(BYTEA))
     method_id: Optional[str] = Field(
         default=None, sa_column=Column(VARCHAR, Computed("substring((input)::varchar for 8)::bigint::varchar"))
     )

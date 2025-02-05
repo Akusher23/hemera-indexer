@@ -12,16 +12,9 @@ import eth_abi
 from eth_abi import abi
 from eth_abi.codec import ABICodec
 from eth_typing import ABIEvent, ABIFunction, TypeStr
-from eth_utils import encode_hex, to_hex
-from eth_utils.abi import get_abi_input_types, get_abi_output_types
+from eth_utils import encode_hex, get_abi_input_types, get_abi_output_types, to_hex
 from hexbytes import HexBytes
-from web3._utils.abi import (
-    exclude_indexed_event_inputs,
-    get_indexed_event_inputs,
-    map_abi_data,
-    named_tree,
-    normalize_event_input_types,
-)
+from web3._utils.abi import exclude_indexed_event_inputs, get_indexed_event_inputs, map_abi_data, named_tree
 from web3._utils.normalizers import BASE_RETURN_NORMALIZERS
 
 from hemera.common.utils.exception_control import FastShutdownError

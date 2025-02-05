@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from sqlmodel import Field
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlmodel import Column, Field
 
 from hemera.common.models import HemeraModel
 
@@ -14,7 +15,7 @@ class SyncRecord(HemeraModel, table=True):
 
     # Fields
     last_block_number: Optional[int] = Field(default=None)
-    update_time: Optional[datetime] = Field(default=None)
+    update_time: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
     __query_order__ = [update_time]
 
@@ -27,7 +28,7 @@ class FixRecord(HemeraModel, table=True):
 
     # Fields
     last_fixed_block_number: Optional[int] = Field(default=None)
-    update_time: Optional[datetime] = Field(default=None)
+    update_time: Optional[datetime] = Field(default_factory=datetime.utcnow)
 
     __query_order__ = [update_time]
 
@@ -44,7 +45,7 @@ class ExceptionRecords(HemeraModel, table=True):
     level: str = Field(default=None)
     message_type: str = Field(default=None)
     message: str = Field(default=None)
-    exception_env: Dict[str, Any] = Field(default=None)
+    exception_env: Optional[Dict[str, Any]] = Field(default=None, sa_column=Column(JSONB))
     record_time: datetime = Field(default=None)
 
     __query_order__ = [record_time]

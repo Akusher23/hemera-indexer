@@ -68,7 +68,7 @@ class Tokens(HemeraModel, table=True):
             {
                 "domain": UpdateToken,
                 "conflict_do_update": True,
-                "update_strategy": "EXCLUDED.block_number > tokens.block_number",
+                "update_strategy": "EXCLUDED.block_number >= tokens.block_number",
                 "converter": general_converter,
             },
             {
@@ -88,11 +88,9 @@ class Tokens(HemeraModel, table=True):
         ]
 
     __table_args__ = (
-        # 基本索引
         Index("tokens_name_index", "name"),
         Index("tokens_symbol_index", "symbol"),
         Index("tokens_type_index", "token_type"),
-        # 复合索引
         Index("tokens_type_holders_index", "token_type", desc("holder_count")),
         Index("tokens_type_on_chain_market_cap_index", "token_type", desc("on_chain_market_cap")),
         # Note: tsvector index needs to be created manually
