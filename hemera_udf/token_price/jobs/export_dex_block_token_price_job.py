@@ -101,13 +101,14 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
             "token1_market_cap",
         ]
 
-        v2_records = v2_df[columns].to_dict("records")
-        for record in v2_records:
-            self._collect_domain(UniswapFilteredSwapEvent(**record))
-
-        v3_records = v3_df[columns].to_dict("records")
-        for record in v3_records:
-            self._collect_domain(UniswapFilteredSwapEvent(**record))
+        if not v2_df.empty:
+            v2_records = v2_df[columns].to_dict("records")
+            for record in v2_records:
+                self._collect_domain(UniswapFilteredSwapEvent(**record))
+        if not v3_df.empty:
+            v3_records = v3_df[columns].to_dict("records")
+            for record in v3_records:
+                self._collect_domain(UniswapFilteredSwapEvent(**record))
 
     def _process(self, **kwargs):
         token_balance_dict = {
