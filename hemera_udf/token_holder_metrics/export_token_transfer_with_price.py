@@ -8,9 +8,7 @@ from sqlalchemy import or_, text
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
 from hemera.indexer.jobs.base_job import ExtensionJob
-from hemera_udf.token_holder_metrics.domains.metrics import (
-    ERC20TokenTransferWithPriceD,
-)
+from hemera_udf.token_holder_metrics.domains.metrics import ERC20TokenTransferWithPriceD
 from hemera_udf.token_price.domains import DexBlockTokenPrice
 
 logger = logging.getLogger(__name__)
@@ -25,10 +23,10 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
         super().__init__(**kwargs)
         self._service = kwargs["config"].get("db_service")
         self.history_token_prices = None
-    
+
     def _collect(self, **kwargs):
         pass
-    
+
     def _process(self, **kwargs):
         self._init_history_token_prices(kwargs["start_block"])
         self._init_token_dex_prices_batch(kwargs["start_block"], kwargs["end_block"])
@@ -39,9 +37,7 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
             to_export.append(ERC20TokenTransferWithPriceD(**asdict(transfer), price=price))
         self._collect_items(ERC20TokenTransferWithPriceD.type(), to_export)
         self._update_history_token_prices()
-        
-    
-        
+
     def _init_history_token_prices(self, start_block: int):
         if self.history_token_prices is not None:
             return
@@ -118,6 +114,3 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
             latest_block = price_map.keys()[-1]
             latest_price = price_map[latest_block]
             self.history_token_prices[token_addr] = latest_price
-
-
-

@@ -10,9 +10,9 @@ from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
 from hemera.indexer.jobs.base_job import ExtensionJob
 from hemera_udf.token_holder_metrics.domains.metrics import (
+    ERC20TokenTransferWithPriceD,
     TokenHolderMetricsCurrentD,
     TokenHolderMetricsHistoryD,
-    ERC20TokenTransferWithPriceD,
     TokenHolderTransferWithPriceD,
 )
 from hemera_udf.token_holder_metrics.models.metrics import TokenHolderMetricsCurrent
@@ -91,7 +91,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         for transfer in transfers:
             if transfer.value > MAX_SAFE_VALUE or transfer.token_address not in self.tokens:
                 continue
-            
+
             token = self.tokens[transfer.token_address]
             amount_usd = transfer.value * transfer.price / 10 ** token["decimals"]
             swap = swap_txs.get(transfer.transaction_hash)
@@ -258,7 +258,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 last_swap_timestamp=transfer.block_timestamp,
                 last_transfer_timestamp=transfer.block_timestamp,
             )
-        
+
         metrics = current_metrics[key]
         if metrics.block_number > transfer.block_number:
             return
@@ -266,7 +266,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         # 这里继续使用原来的metrics更新逻辑
         metrics.block_number = transfer.block_number
         metrics.block_timestamp = transfer.block_timestamp
-        
+
         # buy
         # update balance
         # update total buy count, amount, usd
@@ -284,8 +284,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             new_balance = metrics.current_balance + transfer.value
             if new_balance / 10 ** token["decimals"] > 0.00001:
                 new_average_buy_price = (
-                    amount_usd
-                    + metrics.current_balance * metrics.current_average_buy_price / 10 ** token["decimals"]
+                    amount_usd + metrics.current_balance * metrics.current_average_buy_price / 10 ** token["decimals"]
                 ) / ((transfer.value + metrics.current_balance) / 10 ** token["decimals"])
             else:
                 new_average_buy_price = 0
@@ -300,9 +299,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             sell_price = amount_usd
 
             if metrics.current_balance > 0:
-                sell_pnl = (
-                    (sell_price - metrics.current_average_buy_price) * sell_amount / 10 ** token["decimals"]
-                )
+                sell_pnl = (sell_price - metrics.current_average_buy_price) * sell_amount / 10 ** token["decimals"]
                 metrics.sell_pnl += sell_pnl
 
                 metrics.realized_pnl = (
@@ -351,5 +348,3 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 metrics.swap_sell_count += 1
                 metrics.swap_sell_amount += transfer.value
                 metrics.swap_sell_usd += amount_usd
-
-    
