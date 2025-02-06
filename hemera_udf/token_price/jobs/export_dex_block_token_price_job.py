@@ -7,7 +7,7 @@ from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.indexer.domains.token_balance import TokenBalance
 from hemera.indexer.jobs.base_job import ExtensionJob
 from hemera.indexer.utils.collection_utils import distinct_collections_by_group
-from hemera_udf.token_price.domains import DexBlockTokenPrice, DexBlockTokenPriceCurrent
+from hemera_udf.token_price.domains import DexBlockTokenPrice, DexBlockTokenPriceCurrent, UniswapFilteredSwapEvent
 from hemera_udf.uniswap_v2 import UniswapV2SwapEvent
 from hemera_udf.uniswap_v3 import UniswapV3SwapEvent
 
@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class ExportDexBlockTokenPriceJob(ExtensionJob):
     dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent, TokenBalance]
 
-    output_types = [DexBlockTokenPrice, DexBlockTokenPriceCurrent]
+    output_types = [DexBlockTokenPrice, DexBlockTokenPriceCurrent, UniswapFilteredSwapEvent]
     able_to_reorg = True
 
     def __init__(self, **kwargs):
@@ -67,7 +67,7 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         supply_col = f"{token_prefix}_total_supply"
         # symbol_col = f'{token_prefix}_symbol'
 
-        market_cap_col = "market_cap"
+        market_cap_col = f"{token_prefix}_market_cap"
 
         # 提取 token 信息
         df[dict_col] = df[address_col].map(self.tokens)
@@ -77,7 +77,37 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
 
         # 计算市值
         df[market_cap_col] = df[price_col] * df[supply_col] / 10 ** df[decimals_col]
-        return df[df[market_cap_col] < self.max_market_cap]
+        # return df[df[market_cap_col] < self.max_market_cap]
+        return df
+
+    def process_filtered_dfs(self, v2_df, v3_df):
+        columns = [
+            "pool_address",
+            "transaction_from_address",
+            "amount0",
+            "amount1",
+            "token0_price",
+            "token1_price",
+            "amount_usd",
+            "token0_address",
+            "token1_address",
+            "transaction_hash",
+            "log_index",
+            "block_number",
+            "block_timestamp",
+            "stable_balance",
+            "stable_token_symbol",
+            "token0_market_cap",
+            "token1_market_cap",
+        ]
+
+        v2_records = v2_df[columns].to_dict("records")
+        for record in v2_records:
+            self._collect_domain(UniswapFilteredSwapEvent(**record))
+
+        v3_records = v3_df[columns].to_dict("records")
+        for record in v3_records:
+            self._collect_domain(UniswapFilteredSwapEvent(**record))
 
     def _process(self, **kwargs):
         token_balance_dict = {
@@ -87,19 +117,17 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         }
 
         uniswapv2_df_ = self.dataclass_to_df(self._data_buff[UniswapV2SwapEvent.type()])
-        if uniswapv2_df_.empty:
-            uniswapv2_df = uniswapv2_df_
-        else:
-            uniswapv2_df = self.process_uniswap_data(
-                uniswapv2_df_, token_balance_dict, self.stable_tokens, self.max_price, self.process_token
-            )
+
+        uniswapv2_df, filtered_v2_df = self.process_uniswap_data(
+            uniswapv2_df_, token_balance_dict, self.stable_tokens, self.max_price, self.process_token
+        )
         uniswapv3_df_ = self.dataclass_to_df(self._data_buff[UniswapV3SwapEvent.type()])
-        if uniswapv3_df_.empty:
-            uniswapv3_df = uniswapv3_df_
-        else:
-            uniswapv3_df = self.process_uniswap_data(
-                uniswapv3_df_, token_balance_dict, self.stable_tokens, self.max_price, self.process_token
-            )
+
+        uniswapv3_df, filtered_v3_df = self.process_uniswap_data(
+            uniswapv3_df_, token_balance_dict, self.stable_tokens, self.max_price, self.process_token
+        )
+
+        self.process_filtered_dfs(filtered_v2_df, filtered_v3_df)
 
         processed_v2 = self.process_swap_df(uniswapv2_df)
         processed_v3 = self.process_swap_df(uniswapv3_df)
@@ -143,9 +171,13 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         pass
 
     def process_uniswap_data(self, df, token_balance_dict, stable_tokens, max_price, process_token_fn):
+        if df.empty:
+            return df, df
+
         df = df.dropna(subset=["token0_price"])
-        df = df[df["token0_price"] < max_price]
-        df = df[df["token1_price"] < max_price]
+        df = df.dropna(subset=["token1_price"])
+        # df = df[df["token0_price"] < max_price]
+        # df = df[df["token1_price"] < max_price]
 
         df = process_token_fn(df, "token0")
         df = process_token_fn(df, "token1")
@@ -173,9 +205,17 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
             axis=1,
         )
 
-        df = df[df["stable_balance"] > df["stable_token_balance_limit"]]
+        # df = df[df["stable_balance"] > df["stable_token_balance_limit"]]
+        # df = df["stable_balance"] > df["stable_token_balance_limit"]
+        conditions = (
+            (df["token0_price"] < self.max_price)
+            & (df["token1_price"] < self.max_price)
+            & (df["stable_balance"] > df["stable_token_balance_limit"])
+            & (df["token0_market_cap"] < self.max_market_cap)
+            & (df["token1_market_cap"] < self.max_market_cap)
+        )
 
-        return df
+        return df[conditions], df[~conditions]
 
     def _get_current_holdings(self, tokens, block_number):
         session = self._service.get_service_session()
