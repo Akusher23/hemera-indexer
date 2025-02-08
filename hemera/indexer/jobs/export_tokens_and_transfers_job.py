@@ -155,6 +155,7 @@ class ExportTokensAndTransfersJob(FilterTransactionDataJob):
         for token in self.get_buff()[Token.type()]:
             dic = asdict(token)
             dic["fail_balance_of_count"] = 0
+            dic["succeed_balance_of_count"] = 0
             dic["no_balance_of"] = False
             dic["fail_total_supply_count"] = 0
             dic["no_total_supply"] = False

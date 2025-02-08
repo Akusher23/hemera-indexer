@@ -8,7 +8,7 @@ from hemera.indexer.domains.contract import Contract
 from hemera.indexer.domains.contract_internal_transaction import ContractInternalTransaction
 from hemera.indexer.domains.current_token_balance import CurrentTokenBalance
 from hemera.indexer.domains.log import Log
-from hemera.indexer.domains.token import Token, UpdateToken
+from hemera.indexer.domains.token import MarkBalanceToken, Token, UpdateToken
 from hemera.indexer.domains.token_balance import TokenBalance
 from hemera.indexer.domains.token_id_infos import (
     ERC721TokenIdChange,
@@ -143,6 +143,7 @@ def register_all_output_types():
             ERC1155TokenTransfer,
             TokenBalance,
             CurrentTokenBalance,
+            MarkBalanceToken,
             UpdateERC1155TokenIdDetail,
             ERC1155TokenIdDetail,
             UpdateERC721TokenIdDetail,

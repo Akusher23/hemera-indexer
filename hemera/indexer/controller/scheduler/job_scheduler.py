@@ -44,6 +44,7 @@ def get_tokens_from_db(service):
             "decimals": str,
             "total_supply": str,
             "fail_balance_of_count": int,
+            "succeed_balance_of_count": int,
             "fail_total_supply_count": int,
             "block_number": int,
         }
@@ -68,6 +69,7 @@ def get_tokens_from_db(service):
                 "fail_total_supply_count": row.fail_total_supply_count,
                 "no_balance_of": row.no_balance_of,
                 "fail_balance_of_count": row.fail_balance_of_count,
+                "succeed_balance_of_count": row.succeed_balance_of_count,
                 "block_number": row.block_number,
             }
         return token_dict
