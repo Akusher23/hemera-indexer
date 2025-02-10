@@ -138,6 +138,8 @@ class MultiCallHelper:
                 result = data.get("result")
                 try:
                     call.returns = call.decode_output(result)
+                    if call.returns is None:
+                        self.logger.error(f"multicall helper failed decode call: {call}, data {result}")
                 except Exception:
                     call.returns = None
                     self.logger.error(f"multicall helper failed call: {call}, data {data}")
