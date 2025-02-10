@@ -34,7 +34,7 @@ class TokenBalanceParam:
     block_timestamp: int
 
 
-FAILURE_THRESHOLD = 10
+FAILURE_THRESHOLD = 100
 
 
 # Exports token balance
@@ -67,13 +67,17 @@ class ExportTokenBalancesJob(BaseExportJob):
         results = []
         tokens_set = set()
         for tb in token_balances:
-            if tb["balance"] is None and tb["token_address"] in self.tokens:
-                self.tokens[tb["token_address"]]["fail_balance_of_count"] += 1
+            if tb["token_address"] in self.tokens:
+                key = "fail_balance_of_count" if tb["balance"] is None else "succeed_balance_of_count"
+                self.tokens[tb["token_address"]][key] += 1
                 tokens_set.add(tb["token_address"])
             results.append(dict_to_dataclass(tb, TokenBalance))
         self._collect_items(TokenBalance.type(), results)
         for tk in tokens_set:
-            if self.tokens[tk]["fail_balance_of_count"] > FAILURE_THRESHOLD:
+            if (
+                self.tokens[tk]["fail_balance_of_count"] > FAILURE_THRESHOLD
+                and self.tokens[tk]["succeed_balance_of_count"] <= 0
+            ):
                 self.tokens[tk]["no_balance_of"] = True
             self._collect_item(
                 MarkBalanceToken.type(),
@@ -81,6 +85,7 @@ class ExportTokenBalancesJob(BaseExportJob):
                     address=tk,
                     no_balance_of=self.tokens[tk]["no_balance_of"],
                     fail_balance_of_count=self.tokens[tk]["fail_balance_of_count"],
+                    succeed_balance_of_count=self.tokens[tk]["succeed_balance_of_count"],
                 ),
             )
 

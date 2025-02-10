@@ -43,15 +43,18 @@ def get_tokens_from_db(service):
             "symbol": str,
             "decimals": str,
             "total_supply": str,
-            "fail_balance_of_count": int,
-            "fail_total_supply_count": int,
-            "block_number": int,
         }
-        converters = {
-            "no_balance_of": lambda x: str(x).lower() in ["t", "true", "1"],
-            "no_total_supply": lambda x: str(x).lower() in ["t", "true", "1"],
-        }
-        df = pd.read_csv(csv_data, dtype=dtype, converters=converters)
+
+        df = pd.read_csv(csv_data, dtype=dtype)
+
+        for col in ["no_balance_of", "no_total_supply"]:
+            if col in df.columns:
+                df[col] = df[col].astype(str).str.lower().isin(["t", "true", "1"])
+
+        int_columns = ["fail_balance_of_count", "succeed_balance_of_count", "fail_total_supply_count", "block_number"]
+        for col in int_columns:
+            if col in df.columns:
+                df[col] = df[col].fillna(0).astype(float).astype(int)
         df["address"] = df["address"].str.replace(r"\\x", "0x", regex=True)
 
         token_dict = {}
@@ -68,6 +71,7 @@ def get_tokens_from_db(service):
                 "fail_total_supply_count": row.fail_total_supply_count,
                 "no_balance_of": row.no_balance_of,
                 "fail_balance_of_count": row.fail_balance_of_count,
+                "succeed_balance_of_count": row.succeed_balance_of_count,
                 "block_number": row.block_number,
             }
         return token_dict
