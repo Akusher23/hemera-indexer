@@ -93,6 +93,19 @@ class ThreadPoolManager:
             cls._instance = None
 
     @classmethod
+    def check_results(cls, results):
+        try:
+            if results:
+                for result in results:
+                    if isinstance(result, dict) and "error" in result:
+                        error = result["error"]
+                        if error.get("code") == 429:
+                            raise Exception(f"Rate limit error: {error.get('message')}")
+            return results
+        except Exception as e:
+            raise e
+
+    @classmethod
     @retry(
         stop=stop_after_attempt(JOB_RETRIES),
         wait=wait_exponential(min=1, max=(2 ** (JOB_RETRIES - 1)), multiplier=2),
@@ -109,6 +122,7 @@ class ThreadPoolManager:
             for future in as_completed(future_to_chunk):
                 index, result = future.result(timeout=30)
                 results[index] = result
+            cls.check_results(results)
         except Exception as e:
             logger.error(f"ThreadPoolManager.submit_tasks error: {e}")
             raise e
