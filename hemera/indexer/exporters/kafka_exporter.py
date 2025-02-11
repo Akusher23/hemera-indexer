@@ -98,7 +98,6 @@ class KafkaItemExporter(BaseExporter):
                 UniswapV2SwapEvent,
                 UniswapV3SwapEvent,
                 ERC20TokenTransfer,
-                Log,
                 TokenHolderMetricsCurrentD,
                 TokenHolderMetricsHistoryD,
             ),
