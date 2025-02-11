@@ -34,6 +34,9 @@ class ExportUniSwapV2PoolJob(FilterTransactionDataJob):
 
             if log.topic0 == PAIR_CREATED_EVENT.get_signature():
                 decoded_dict = PAIR_CREATED_EVENT.decode_log(log)
+                if not decoded_dict:
+                    continue
+
                 pool = UniswapV2Pool(
                     factory_address=log.address,
                     pool_address=decoded_dict["pair"],
