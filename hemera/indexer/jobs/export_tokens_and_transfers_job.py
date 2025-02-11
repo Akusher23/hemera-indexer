@@ -1,3 +1,4 @@
+import json
 import logging
 from dataclasses import asdict
 from typing import Dict, List
@@ -253,7 +254,10 @@ def tokens_total_supply_rpc_requests(make_requests, tokens, is_batch):
             token["total_supply"] = decode_data(["uint256"], bytes.fromhex(value))[0]
         except Exception as e:
             logger.warning(
-                f"Decoding token {fn_name} failed. " f"token: {token}. " f"rpc response: {result}. " f"exception: {e}"
+                f"Decoding token {fn_name} failed. "
+                f"token: {json.dumps(token)}. "
+                f"rpc response: {result[:500]}...(truncated). "
+                f"exception: {e}"
             )
             token["total_supply"] = None
     return tokens
@@ -290,6 +294,10 @@ def tokens_info_rpc_requests(make_requests, tokens, is_batch):
             token = data[0]
             value = result[2:] if result is not None else None
             key = to_snake_case(fn_name)
+            if value is None:
+                # skip decode progress
+                token[key] = None
+                continue
             try:
                 token[key] = decode_data([token["data_type"]], bytes.fromhex(value))[0]
                 if token["data_type"] == "string":
@@ -297,8 +305,8 @@ def tokens_info_rpc_requests(make_requests, tokens, is_batch):
             except Exception as e:
                 logger.warning(
                     f"Decoding token {fn_name} failed. "
-                    f"token: {token}. "
-                    f"rpc response: {result}. "
+                    f"token: {json.dumps(token)}. "
+                    f"rpc response: {result[:500]}... (truncated) "
                     f"exception: {e}"
                 )
                 exception_recorder.log(

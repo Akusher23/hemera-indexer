@@ -4,6 +4,7 @@
 # @Author  will
 # @File  multi_call_helper.py
 # @Brief
+import json
 import logging
 import os
 from collections import defaultdict
@@ -139,9 +140,7 @@ class MultiCallHelper:
                 try:
                     call.returns = call.decode_output(result)
                     if call.returns is None:
-                        self.logger.error(
-                            f"multicall helper failed decode call: {call}, data {result}, batch_result {batch_result}"
-                        )
+                        self.logger.error(f"multicall helper failed decode call: {call}, data {data}")
                 except Exception:
                     call.returns = None
                     self.logger.error(f"multicall helper failed call: {call}, data {data}")
@@ -152,6 +151,7 @@ class MultiCallHelper:
         multicall_rpc = []
         if to_execute_multi_calls:
             for calls in to_execute_multi_calls:
+                self.logger.debug(f"{len(calls)} calls, at block_number {calls[0].block_number}")
                 multicall_rpc.append(
                     Multicall(
                         calls,
