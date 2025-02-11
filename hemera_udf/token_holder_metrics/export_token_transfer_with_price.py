@@ -32,10 +32,10 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
         self._init_history_token_prices(kwargs["start_block"])
         self._init_token_dex_prices_batch(kwargs["start_block"], kwargs["end_block"])
         transfers = self._data_buff[ERC20TokenTransfer.type()]
-        
+
         swaps = self._data_buff[UniswapV2SwapEvent.type()] + self._data_buff[UniswapV3SwapEvent.type()]
         swap_txs = {swap.transaction_hash: swap for swap in swaps}
-        
+
         to_export = []
         for transfer in transfers:
             swap = swap_txs.get(transfer.transaction_hash)
@@ -47,7 +47,7 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
                     hasattr(swap, "recipient") and swap.recipient == transfer.from_address
                 ):
                     is_swap = True
-        
+
             price = self._get_token_dex_price(transfer.token_address, transfer.block_number)
             to_export.append(ERC20TokenTransferWithPriceD(**asdict(transfer), price=price, is_swap=is_swap))
         self._collect_items(ERC20TokenTransferWithPriceD.type(), to_export)

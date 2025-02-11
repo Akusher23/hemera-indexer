@@ -85,7 +85,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 continue
 
             token = self.tokens[transfer.token_address]
-            amount_usd = transfer.value * transfer.price / 10 ** token["decimals"]  
+            amount_usd = transfer.value * transfer.price / 10 ** token["decimals"]
 
             # Process "from" address
             self._update_holder_metrics(
@@ -227,7 +227,6 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         token: dict,
     ):
         key = (holder_address, token_address)
-       
 
         if not current_metrics.get(key):
             current_metrics[key] = TokenHolderMetricsCurrentD(
