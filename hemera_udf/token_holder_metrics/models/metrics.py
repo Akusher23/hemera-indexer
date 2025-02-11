@@ -141,6 +141,8 @@ class ERC20TokenTransfersWithPrice(HemeraModel):
     token_address = Column(BYTEA)
     value = Column(NUMERIC(100))
     price = Column(NUMERIC)
+    is_swap = Column(BOOLEAN)
+    
 
     block_number = Column(BIGINT)
     block_hash = Column(BYTEA, primary_key=True)

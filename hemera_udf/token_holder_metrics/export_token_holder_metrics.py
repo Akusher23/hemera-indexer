@@ -13,8 +13,6 @@ from hemera_udf.token_holder_metrics.domains.metrics import (
     TokenHolderMetricsHistoryD,
 )
 from hemera_udf.token_holder_metrics.models.metrics import TokenHolderMetricsCurrent
-from hemera_udf.uniswap_v2.domains import UniswapV2SwapEvent
-from hemera_udf.uniswap_v3.domains.feature_uniswap_v3 import UniswapV3SwapEvent
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +20,7 @@ MAX_SAFE_VALUE = 2**255
 
 
 class ExportTokenHolderMetricsJob(ExtensionJob):
-    dependency_types = [ERC20TokenTransferWithPriceD, UniswapV2SwapEvent, UniswapV3SwapEvent]
+    dependency_types = [ERC20TokenTransferWithPriceD]
     output_types = [TokenHolderMetricsCurrentD, TokenHolderMetricsHistoryD]
     able_to_reorg = True
 
@@ -47,10 +45,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         start_time = time.time()
 
         transfers = self._data_buff[ERC20TokenTransferWithPriceD.type()]
-        swaps = self._data_buff[UniswapV2SwapEvent.type()] + self._data_buff[UniswapV3SwapEvent.type()]
-        swap_txs = {swap.transaction_hash: swap for swap in swaps}
 
-        logger.info(f"Processing {len(transfers)} transfers and {len(swaps)} swaps...")
         t2 = time.time()
         transfers = sorted(
             [t for t in transfers if t.token_address not in self._non_meme_tokens],
@@ -90,8 +85,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 continue
 
             token = self.tokens[transfer.token_address]
-            amount_usd = transfer.value * transfer.price / 10 ** token["decimals"]
-            swap = swap_txs.get(transfer.transaction_hash)
+            amount_usd = transfer.value * transfer.price / 10 ** token["decimals"]  
 
             # Process "from" address
             self._update_holder_metrics(
@@ -101,7 +95,6 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 transfer,
                 "out",
                 amount_usd,
-                swap,
                 token,
             )
 
@@ -113,7 +106,6 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 transfer,
                 "in",
                 amount_usd,
-                swap,
                 token,
             )
 
@@ -232,18 +224,10 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         transfer,
         transfer_action: str,
         amount_usd: float,
-        swap: Optional[Union[UniswapV2SwapEvent, UniswapV3SwapEvent]],
         token: dict,
     ):
         key = (holder_address, token_address)
-        is_swap = False
-        if swap:
-            if swap.sender == holder_address:
-                is_swap = True
-            elif (hasattr(swap, "to_address") and swap.to_address == holder_address) or (
-                hasattr(swap, "recipient") and swap.recipient == holder_address
-            ):
-                is_swap = True
+       
 
         if not current_metrics.get(key):
             current_metrics[key] = TokenHolderMetricsCurrentD(
@@ -333,7 +317,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             metrics.sell_50_timestamp = metrics.block_timestamp
 
         metrics.last_transfer_timestamp = metrics.block_timestamp
-        if is_swap:
+        if transfer.is_swap:
             metrics.last_swap_timestamp = metrics.block_timestamp
 
             if transfer_action == "in":

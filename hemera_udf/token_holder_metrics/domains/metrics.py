@@ -11,6 +11,7 @@ class ERC20TokenTransferWithPriceD(Domain):
     to_address: str
     value: int
     price: float
+    is_swap: bool
     token_type: str
     token_address: str
     block_number: int

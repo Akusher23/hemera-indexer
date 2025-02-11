@@ -9,12 +9,14 @@ from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
 from hemera.indexer.jobs.base_job import ExtensionJob
 from hemera_udf.token_holder_metrics.domains.metrics import ERC20TokenTransferWithPriceD
 from hemera_udf.token_price.domains import DexBlockTokenPrice
+from hemera_udf.uniswap_v2.domains import UniswapV2SwapEvent
+from hemera_udf.uniswap_v3.domains.feature_uniswap_v3 import UniswapV3SwapEvent
 
 logger = logging.getLogger(__name__)
 
 
 class ExportTokenTransferWithPriceJob(ExtensionJob):
-    dependency_types = [ERC20TokenTransfer, DexBlockTokenPrice]
+    dependency_types = [ERC20TokenTransfer, DexBlockTokenPrice, UniswapV2SwapEvent, UniswapV3SwapEvent]
     output_types = [ERC20TokenTransferWithPriceD]
     able_to_reorg = True
 
@@ -30,10 +32,24 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
         self._init_history_token_prices(kwargs["start_block"])
         self._init_token_dex_prices_batch(kwargs["start_block"], kwargs["end_block"])
         transfers = self._data_buff[ERC20TokenTransfer.type()]
+        
+        swaps = self._data_buff[UniswapV2SwapEvent.type()] + self._data_buff[UniswapV3SwapEvent.type()]
+        swap_txs = {swap.transaction_hash: swap for swap in swaps}
+        
         to_export = []
         for transfer in transfers:
+            swap = swap_txs.get(transfer.transaction_hash)
+            is_swap = False
+            if swap:
+                if swap.sender == transfer.from_address:
+                    is_swap = True
+                elif (hasattr(swap, "to_address") and swap.to_address == transfer.from_address) or (
+                    hasattr(swap, "recipient") and swap.recipient == transfer.from_address
+                ):
+                    is_swap = True
+        
             price = self._get_token_dex_price(transfer.token_address, transfer.block_number)
-            to_export.append(ERC20TokenTransferWithPriceD(**asdict(transfer), price=price))
+            to_export.append(ERC20TokenTransferWithPriceD(**asdict(transfer), price=price, is_swap=is_swap))
         self._collect_items(ERC20TokenTransferWithPriceD.type(), to_export)
         self._update_history_token_prices()
 
