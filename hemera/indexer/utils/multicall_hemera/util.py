@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 # @Time  2024/8/20 14:13
 # @Author  will
-# @File  util.py.py
+# @File  util.py
 # @Brief
 import atexit
+import json
 import logging
 import os
 import threading
@@ -30,7 +31,7 @@ def calculate_execution_time(func):
         end_time = time.time()
         execution_time = end_time - start_time
         logger.debug(f"function {func.__name__} time: {execution_time:.6f} s")
-        print(f"function {func.__name__} time: {execution_time:.6f} s")
+        # print(f"function {func.__name__} time: {execution_time:.6f} s")
         return result
 
     return wrapper
@@ -93,24 +94,63 @@ class ThreadPoolManager:
             cls._instance = None
 
     @classmethod
-    @retry(
-        stop=stop_after_attempt(JOB_RETRIES),
-        wait=wait_exponential(min=1, max=(2 ** (JOB_RETRIES - 1)), multiplier=2),
-        retry=retry_if_exception_type((TimeoutError, ConnectionError, RequestException, Exception)),
-        reraise=True,
-    )
+    def check_results(cls, results):
+        try:
+            if results:
+                for result in results:
+                    if isinstance(result, dict) and "error" in result:
+                        error = result["error"]
+                        if error.get("code") == 429:
+                            # raise it to retry
+                            raise Exception(f"Rate limit error: {error.get('message')}")
+                        else:
+                            # {'error': {'code': -32000, 'message': 'out of gas'}}
+                            # {'error': {'code': -32000, 'message': 'execution reverted'}
+                            if "out of gas" in error.get("message"):
+                                # if out of gas, log the error
+                                logger.error(f"rpc error: {json.dumps(result)}")
+            return results
+        except Exception as e:
+            raise e
+
+    @classmethod
     def submit_tasks(cls, func, chunks, max_workers=None):
         executor = cls.get_instance(max_workers)
         results = [None] * len(chunks)
 
-        try:
-            future_to_chunk = {executor.submit(func, chunk[0], i): i for i, chunk in enumerate(chunks)}
+        pending_tasks = {i: chunk for i, chunk in enumerate(chunks)}
+        last_time_tasks = len(pending_tasks)
+        attempt = 0
+        max_attempts = JOB_RETRIES
+        min_wait = 1
+        max_wait = 2 ** (JOB_RETRIES - 1)
 
-            for future in as_completed(future_to_chunk):
-                index, result = future.result(timeout=30)
-                results[index] = result
-        except Exception as e:
-            logger.error(f"ThreadPoolManager.submit_tasks error: {e}")
-            raise e
+        while pending_tasks and attempt < max_attempts:
+            futures = {executor.submit(func, chunk[0], i): i for i, chunk in pending_tasks.items()}
+            pending_tasks.clear()
+
+            for future in as_completed(futures):
+                try:
+                    index, result = future.result(timeout=30)
+                    cls.check_results(result)
+                    results[index] = result
+                except Exception as e:
+                    # logger.error(f"Task {index} failed with error: {e}")
+                    pending_tasks[index] = chunks[index]
+
+            if pending_tasks:
+                if len(pending_tasks) < last_time_tasks:
+                    # some task succeed
+                    delay = 0
+                else:
+                    delay = min(min_wait * (2**attempt), max_wait)
+                    attempt += 1
+                last_time_tasks = len(pending_tasks)
+                logger.info(f"Retrying {len(pending_tasks)} failed tasks in {delay} seconds...")
+                time.sleep(delay)
+
+        if pending_tasks:
+            logger.error(f"Some tasks failed after {max_attempts} retries: {list(pending_tasks.keys())}")
+            raise Exception(f"Some tasks failed after {max_attempts} retries: {list(pending_tasks.keys())}")
 
         return results

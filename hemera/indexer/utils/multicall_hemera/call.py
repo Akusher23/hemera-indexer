@@ -38,7 +38,7 @@ class Call:
         self._rpc_params = None
 
     def __repr__(self) -> str:
-        return f"<Call {self.function_abi.get_name()} on {self.target[:8]}>"
+        return f"<Call {self.function_abi.get_name()} on {self.target} block_number {self.block_number}>"
 
     @property
     def data(self) -> str:

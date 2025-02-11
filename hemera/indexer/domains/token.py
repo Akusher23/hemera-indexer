@@ -26,6 +26,7 @@ class UpdateToken(Domain):
 class MarkBalanceToken(Domain):
     address: str
     fail_balance_of_count: int
+    succeed_balance_of_count: int
     no_balance_of: Optional[bool] = True
 
 

@@ -34,6 +34,7 @@ class Tokens(HemeraModel):
 
     no_balance_of = Column(BOOLEAN, default=False)
     fail_balance_of_count = Column(INTEGER, default=0)
+    succeed_balance_of_count = Column(INTEGER, default=0)
     no_total_supply = Column(BOOLEAN, default=False)
     fail_total_supply_count = Column(BOOLEAN, default=0)
 
