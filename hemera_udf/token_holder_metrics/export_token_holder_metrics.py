@@ -1,9 +1,8 @@
 import logging
 import time
 from dataclasses import asdict
-from typing import Optional, Union
 
-from sqlalchemy import or_, text
+from sqlalchemy import text
 
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.indexer.jobs.base_job import ExtensionJob

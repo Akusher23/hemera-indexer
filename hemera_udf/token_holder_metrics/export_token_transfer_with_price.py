@@ -2,7 +2,7 @@ import logging
 from dataclasses import asdict
 
 from sortedcontainers import SortedDict
-from sqlalchemy import or_, text
+from sqlalchemy import text
 
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
