@@ -6,7 +6,6 @@ from hemera_udf.token_holder_metrics.domains.metrics import (
     ERC20TokenTransferWithPriceD,
     TokenHolderMetricsCurrentD,
     TokenHolderMetricsHistoryD,
-    TokenHolderTransferWithPriceD,
 )
 
 
@@ -133,7 +132,7 @@ class TokenHolderMetricsHistory(HemeraModel):
 
 
 class ERC20TokenTransfersWithPrice(HemeraModel):
-    __tablename__ = "erc20_token_transfers"
+    __tablename__ = "af_erc20_token_transfers_with_price"
 
     transaction_hash = Column(BYTEA, primary_key=True)
     log_index = Column(INTEGER, primary_key=True)
@@ -141,7 +140,7 @@ class ERC20TokenTransfersWithPrice(HemeraModel):
     to_address = Column(BYTEA)
     token_address = Column(BYTEA)
     value = Column(NUMERIC(100))
-    price_usd = Column(NUMERIC)
+    price = Column(NUMERIC)
 
     block_number = Column(BIGINT)
     block_hash = Column(BYTEA, primary_key=True)

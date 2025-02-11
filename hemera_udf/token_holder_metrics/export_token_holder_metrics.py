@@ -3,17 +3,14 @@ import time
 from dataclasses import asdict
 from typing import Optional, Union
 
-from sortedcontainers import SortedDict
 from sqlalchemy import or_, text
 
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
-from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
 from hemera.indexer.jobs.base_job import ExtensionJob
 from hemera_udf.token_holder_metrics.domains.metrics import (
     ERC20TokenTransferWithPriceD,
     TokenHolderMetricsCurrentD,
     TokenHolderMetricsHistoryD,
-    TokenHolderTransferWithPriceD,
 )
 from hemera_udf.token_holder_metrics.models.metrics import TokenHolderMetricsCurrent
 from hemera_udf.uniswap_v2.domains import UniswapV2SwapEvent
@@ -263,7 +260,6 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         if metrics.block_number > transfer.block_number:
             return
 
-        # 这里继续使用原来的metrics更新逻辑
         metrics.block_number = transfer.block_number
         metrics.block_timestamp = transfer.block_timestamp
 
