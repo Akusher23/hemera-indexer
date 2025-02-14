@@ -105,6 +105,8 @@ class StreamController(BaseController):
                     else:
                         splits = self.split_blocks(last_synced_block + 1, target_block, self.process_size)
                         self.pool.map(func=self._do_stream, iterable_of_args=splits, task_timeout=self.process_time_out)
+                        # when in muliprocess env, make sure last_synced_block is right
+                        self.metrics.update_last_sync_record(target_block)
 
                     last_synced_block = target_block
                     if self.buffer_service.is_shutdown():
