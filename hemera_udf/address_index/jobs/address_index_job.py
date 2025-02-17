@@ -319,48 +319,13 @@ class AddressIndexerJob(ExtensionJob):
         self._is_multi_call = kwargs["multicall"]
 
     def _process(self, **kwargs):
-        # Sort address holder
-        if set(self._required_output_types) & {TokenAddressNftInventory, AddressTokenHolder, AddressNft1155Holder}:
-            self._data_buff[AddressTokenHolder.type()] = distinct_collections_by_group(
-                [
-                    AddressTokenHolder(
-                        address=token_balance.address,
-                        token_address=token_balance.token_address,
-                        balance_of=token_balance.balance_of,
-                    )
-                    for token_balance in self._data_buff[AddressTokenHolder.type()]
-                ],
-                group_by=["address", "token_address", "balance_of"],
-            )
 
-            self._data_buff[TokenAddressNftInventory.type()] = distinct_collections_by_group(
-                [
-                    TokenAddressNftInventory(
-                        token_address=nft_owner.token_address,
-                        token_id=nft_owner.token_id,
-                        wallet_address=nft_owner.wallet_address,
-                    )
-                    for nft_owner in self._data_buff[TokenAddressNftInventory.type()]
-                ],
-                group_by=["token_address", "token_id", "wallet_address"],
-            )
-
-            self._data_buff[AddressNft1155Holder.type()] = distinct_collections_by_group(
-                [
-                    AddressNft1155Holder(
-                        address=nft_owner.address,
-                        token_address=nft_owner.token_address,
-                        token_id=nft_owner.token_id,
-                        balance_of=nft_owner.balance_of,
-                    )
-                    for nft_owner in self._data_buff[AddressNft1155Holder.type()]
-                ],
-                group_by=["address", "token_address", "token_id", "balance_of"],
-            )
         transactions = self._get_domain(Transaction)
         self._collect_domains(list(transactions_to_address_transactions(transactions)))
 
         token_transfers = self._get_domain(ERC20TokenTransfer)
+        a = list(erc20_transfers_to_address_token_transfers(token_transfers))
+        print(a)
         self._collect_domains(list(erc20_transfers_to_address_token_transfers(token_transfers)))
 
         nft_transfers = self._get_domain(ERC721TokenTransfer)
