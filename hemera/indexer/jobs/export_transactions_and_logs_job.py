@@ -95,7 +95,6 @@ class ExportTransactionsAndLogsJob(BaseExportJob):
                 for log in transaction.receipt.logs:
                     output.collect(log)
 
-    @calculate_execution_time
     def _udf(self, blocks: List[Block], output: Collector[Union[Transaction, Log]]):
         self._batch_work_executor.execute(blocks, self.request_for_receipt, collector=output, total_items=len(blocks))
         self._batch_work_executor.wait()
