@@ -26,10 +26,10 @@ class KafkaItemExporter(BaseExporter):
         self.connection_url = self.get_connection_url(output)
         self.producer = KafkaProducer(
             bootstrap_servers=self.connection_url,
-            security_protocol="SASL_SSL" if self.protocol == "kafka+ssl" else "SASL_PLAINTEXT",
-            sasl_mechanism="PLAIN",
-            sasl_plain_username=self.username,
-            sasl_plain_password=self.password,
+            # security_protocol="SASL_SSL" if self.protocol == "kafka+ssl" else "SASL_PLAINTEXT",
+            # sasl_mechanism="PLAIN",
+            # sasl_plain_username=self.username,
+            # sasl_plain_password=self.password,
             ssl_cafile=None,
         )
 
