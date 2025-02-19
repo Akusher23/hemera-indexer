@@ -119,6 +119,7 @@ class ExportBlocksJob(BaseExportJob):
         self._collect_items(BlockTsMapper.type(), [BlockTsMapper((ts, block)) for ts, block in ts_dict.items()])
 
 
+@calculate_execution_time
 def blocks_rpc_requests(make_request, block_number_batch, is_batch):
     block_number_rpc = list(generate_get_block_by_number_json_rpc(block_number_batch, True))
 

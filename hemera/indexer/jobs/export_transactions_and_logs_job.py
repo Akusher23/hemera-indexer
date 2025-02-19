@@ -103,6 +103,7 @@ class ExportTransactionsAndLogsJob(BaseExportJob):
         self._data_buff[Log.type()].sort(key=lambda x: (x.block_number, x.log_index))
 
 
+@calculate_execution_time
 def receipt_rpc_requests(make_request, transaction_hashes, is_batch):
     receipts_rpc = list(generate_get_receipt_json_rpc(transaction_hashes))
 
@@ -115,6 +116,7 @@ def receipt_rpc_requests(make_request, transaction_hashes, is_batch):
     return list(results)
 
 
+@calculate_execution_time
 def receipt_rpc_from_block_number_requests(make_request, block_numbers, is_batch):
     receipts_rpc = list(generate_get_receipt_from_blocks_json_rpc(block_numbers))
 
