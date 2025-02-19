@@ -59,7 +59,6 @@ class KafkaItemExporter(BaseExporter):
         for item in items:
             self.export_item(item)
 
-    @calculate_execution_time
     def export_item(self, item: Domain, **kwargs):
         item = self.domain_mapping(item)
         if item is None:
@@ -72,12 +71,12 @@ class KafkaItemExporter(BaseExporter):
         try:
             future = self.producer.send(item.type(), value=data)
             record_metadata = future.get(timeout=10)
-            logger.info(f"消息发送成功 - Topic: {record_metadata.topic}, "
+            logger.debug(f"succeed send message - Topic: {record_metadata.topic}, "
                              f"Partition: {record_metadata.partition}, "
                              f"Offset: {record_metadata.offset}")
             return True
         except Exception as e:
-            logger.error(f"发送消息失败: {str(e)}")
+            logger.error(f"failed send message: {str(e)}")
             return False
 
     def close(self):

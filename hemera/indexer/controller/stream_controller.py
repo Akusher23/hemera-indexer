@@ -10,6 +10,7 @@ from hemera.common.utils.web3_utils import build_web3
 from hemera.indexer.controller.base_controller import BaseController
 from hemera.indexer.controller.scheduler.job_scheduler import JobScheduler
 from hemera.indexer.utils.limit_reader import LimitReader
+from hemera.indexer.utils.multicall_hemera.util import calculate_execution_time
 from hemera.indexer.utils.sync_recorder import BaseRecorder
 
 logger = logging.getLogger(__name__)
@@ -133,6 +134,7 @@ class StreamController(BaseController):
             blocks.append((i, min(i + step - 1, end_block)))
         return blocks
 
+    @calculate_execution_time
     def _do_stream(self, start_block, end_block):
         self.job_scheduler.run_jobs(start_block, end_block)
 
