@@ -63,7 +63,16 @@ class KafkaItemExporter(BaseExporter):
         utc_timestamp = int(utc_now.timestamp())
         data["update_time"] = utc_timestamp
         data = json.dumps(data).encode("utf-8")
-        self.producer.send(item.type(), value=data)
+        try:
+            future = self.producer.send(item.type(), value=data)
+            record_metadata = future.get(timeout=10)
+            logger.info(f"消息发送成功 - Topic: {record_metadata.topic}, "
+                             f"Partition: {record_metadata.partition}, "
+                             f"Offset: {record_metadata.offset}")
+            return True
+        except Exception as e:
+            logger.error(f"发送消息失败: {str(e)}")
+            return False
 
     def close(self):
         pass
