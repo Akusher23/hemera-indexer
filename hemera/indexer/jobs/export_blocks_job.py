@@ -16,6 +16,7 @@ from hemera.indexer.specification.specification import (
 )
 from hemera.indexer.utils.collection_utils import distinct_collections_by_group, flatten
 from hemera.indexer.utils.json_rpc_requests import generate_get_block_by_number_json_rpc
+from hemera.indexer.utils.multicall_hemera.util import calculate_execution_time
 from hemera.indexer.utils.reorg import set_reorg_sign
 from hemera.indexer.utils.rpc_utils import rpc_response_batch_to_results
 
@@ -55,6 +56,7 @@ class ExportBlocksJob(BaseExportJob):
         super()._end()
         self._specification = AlwaysFalseSpecification() if self._is_filter else AlwaysTrueSpecification()
 
+    @calculate_execution_time
     def _collect(self, **kwargs):
 
         self._start_block = int(kwargs["start_block"])
@@ -88,6 +90,7 @@ class ExportBlocksJob(BaseExportJob):
         self._batch_work_executor.execute(blocks, self._collect_batch, total_items=total_items)
         self._batch_work_executor.wait()
 
+    @calculate_execution_time
     def _collect_batch(self, block_number_batch):
         results = blocks_rpc_requests(self._batch_web3_provider.make_request, block_number_batch, self._is_batch)
         for block_rpc_dict in results:
@@ -100,6 +103,7 @@ class ExportBlocksJob(BaseExportJob):
                     satisfied_transactions.append(transaction_entity)
             block_entity.transactions = satisfied_transactions
 
+    @calculate_execution_time
     def _process(self, **kwargs):
         self._data_buff[Block.type()] = distinct_collections_by_group(self._data_buff[Block.type()], ["hash"])
         self._data_buff[Block.type()].sort(key=lambda x: x.number)

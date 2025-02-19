@@ -24,6 +24,7 @@ from hemera.indexer.jobs.base_job import (
 from hemera.indexer.jobs.export_blocks_job import ExportBlocksJob
 from hemera.indexer.jobs.source_job.pg_source_job import PGSourceJob
 from hemera.indexer.utils.buffer_service import BufferService
+from hemera.indexer.utils.multicall_hemera.util import calculate_execution_time
 
 JOB_RETRIES = int(os.environ.get("JOB_RETRIES", "5"))
 PGSOURCE_ACCURACY = bool(strtobool(os.environ.get("PGSOURCE_ACCURACY", "false")))
@@ -346,6 +347,7 @@ class JobScheduler:
             message = f"{output_type.type()} : {len(self.get_data_buff().get(output_type.type())) if self.get_data_buff().get(output_type.type()) else 0}"
             self.logger.info(f"{message}")
 
+    @calculate_execution_time
     def job_with_retires(self, job, start_block, end_block):
         for retry in range(JOB_RETRIES + 1):
             try:

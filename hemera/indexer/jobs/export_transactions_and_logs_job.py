@@ -14,6 +14,7 @@ from hemera.indexer.utils.json_rpc_requests import (
     generate_get_receipt_from_blocks_json_rpc,
     generate_get_receipt_json_rpc,
 )
+from hemera.indexer.utils.multicall_hemera.util import calculate_execution_time
 from hemera.indexer.utils.rpc_utils import rpc_response_batch_to_results, zip_rpc_response
 
 logger = logging.getLogger(__name__)
@@ -34,6 +35,7 @@ class ExportTransactionsAndLogsJob(BaseExportJob):
         self._is_batch = kwargs["batch_size"] > 1
         self._use_receipt_from_blocks_rpc = self.user_defined_config.get("use_receipt_from_blocks_rpc") or False
 
+    @calculate_execution_time
     def request_for_receipt_from_block(self, blocks: List[Block], output: Collector):
         transaction_hash_mapper = {
             transaction.hash: transaction for block in blocks for transaction in block.transactions
@@ -57,6 +59,7 @@ class ExportTransactionsAndLogsJob(BaseExportJob):
                 for log in transaction.receipt.logs:
                     output.collect(log)
 
+    @calculate_execution_time
     def request_for_receipt(self, blocks: List[Block], output: Collector):
         transaction_hash_mapper = {
             transaction.hash: transaction for block in blocks for transaction in block.transactions
@@ -92,6 +95,7 @@ class ExportTransactionsAndLogsJob(BaseExportJob):
                 for log in transaction.receipt.logs:
                     output.collect(log)
 
+    @calculate_execution_time
     def _udf(self, blocks: List[Block], output: Collector[Union[Transaction, Log]]):
         self._batch_work_executor.execute(blocks, self.request_for_receipt, collector=output, total_items=len(blocks))
         self._batch_work_executor.wait()
