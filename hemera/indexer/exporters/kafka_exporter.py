@@ -8,11 +8,14 @@ from urllib.parse import urlparse
 from kafka import KafkaProducer
 
 from hemera.indexer.domains import Domain
+from hemera.indexer.domains.block import Block
 from hemera.indexer.domains.current_token_balance import CurrentTokenBalance
 from hemera.indexer.domains.log import Log
 from hemera.indexer.domains.token_balance import TokenBalance
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
+from hemera.indexer.domains.transaction import Transaction
 from hemera.indexer.exporters.base_exporter import BaseExporter
+from hemera.indexer.utils.multicall_hemera.util import calculate_execution_time
 from hemera_udf.token_holder_metrics.domains.metrics import TokenHolderMetricsCurrentD, TokenHolderMetricsHistoryD
 from hemera_udf.token_price.domains import DexBlockTokenPrice
 from hemera_udf.uniswap_v2 import UniswapV2SwapEvent
@@ -31,6 +34,8 @@ class KafkaItemExporter(BaseExporter):
             # sasl_plain_username=self.username,
             # sasl_plain_password=self.password,
             ssl_cafile=None,
+            client_id='hemera-indexer',
+            acks=1
         )
 
     def get_connection_url(self, output):
@@ -54,6 +59,7 @@ class KafkaItemExporter(BaseExporter):
         for item in items:
             self.export_item(item)
 
+    @calculate_execution_time
     def export_item(self, item: Domain, **kwargs):
         item = self.domain_mapping(item)
         if item is None:
@@ -79,6 +85,8 @@ class KafkaItemExporter(BaseExporter):
 
     def domain_mapping(self, item):
         data = deepcopy(item)
+        if isinstance(data, (Block, Transaction, Log)):
+            return data
 
         if isinstance(data, (TokenBalance, CurrentTokenBalance)):
             if data.token_id is None or data.token_id < 0:
