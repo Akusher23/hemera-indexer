@@ -50,8 +50,9 @@ class StreamController(BaseController):
         if self.process_numbers <= 1:
             self.pool = None
         else:
-            self.pool = mpire.WorkerPool(n_jobs=self.process_numbers, use_dill=True, keep_alive=True)
-
+            self.pool = mpire.WorkerPool(n_jobs=self.process_numbers, use_dill=True, keep_alive=True, enable_insights=True, start_method="spawn")
+            insights = self.pool.get_insights()
+            print(insights)
         self.metrics = metrics
 
     def action(
@@ -106,6 +107,8 @@ class StreamController(BaseController):
                     else:
                         splits = self.split_blocks(last_synced_block + 1, target_block, self.process_size)
                         self.pool.map_unordered(func=self._do_stream, iterable_of_args=splits, task_timeout=self.process_time_out)
+                        insights = self.pool.get_insights()
+                        print(insights)
 
                         # for args_idx, args in enumerate(splits):
                         #     print(args_idx, args)
