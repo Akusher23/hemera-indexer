@@ -105,7 +105,11 @@ class StreamController(BaseController):
                         self._do_stream(last_synced_block + 1, target_block)
                     else:
                         splits = self.split_blocks(last_synced_block + 1, target_block, self.process_size)
-                        self.pool.map(func=self._do_stream, iterable_of_args=splits, task_timeout=self.process_time_out)
+                        self.pool.map_unordered(func=self._do_stream, iterable_of_args=splits, task_timeout=self.process_time_out)
+
+                        # for args_idx, args in enumerate(splits):
+                        #     print(args_idx, args)
+                        #     self.pool.apply_async(self._do_stream, args=args , callback=None, error_callback=None)
                         # when in muliprocess env, make sure last_synced_block is right
                         self.metrics.update_last_sync_record(target_block)
                         self.buffer_service.success_callback(target_block)
