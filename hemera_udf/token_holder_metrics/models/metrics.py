@@ -1,11 +1,11 @@
-from sqlalchemy import BOOLEAN, Column, PrimaryKeyConstraint, func
+from sqlalchemy import BOOLEAN, INTEGER, Column, PrimaryKeyConstraint, func, text
 from sqlalchemy.dialects.postgresql import BIGINT, BYTEA, NUMERIC, TIMESTAMP, VARCHAR
 
 from hemera.common.models import HemeraModel, general_converter
 from hemera_udf.token_holder_metrics.domains.metrics import (
+    ERC20TokenTransferWithPriceD,
     TokenHolderMetricsCurrentD,
     TokenHolderMetricsHistoryD,
-    TokenHolderTransferWithPriceD,
 )
 
 
@@ -131,33 +131,34 @@ class TokenHolderMetricsHistory(HemeraModel):
         ]
 
 
-class TokenHolderTransferWithPrice(HemeraModel):
-    __tablename__ = "af_token_holder_transfer_with_price"
+class ERC20TokenTransfersWithPrice(HemeraModel):
+    __tablename__ = "af_erc20_token_transfers_with_price"
 
-    holder_address = Column(BYTEA, primary_key=True)
-    token_address = Column(BYTEA, primary_key=True)
-    block_number = Column(BIGINT)
-    tx_hash = Column(BYTEA, primary_key=True)
-    log_index = Column(BIGINT, primary_key=True)
-    block_timestamp = Column(TIMESTAMP, primary_key=True)
-
-    price_usd = Column(NUMERIC)
-    transfer_amount = Column(NUMERIC)
-    transfer_usd = Column(NUMERIC)
-    transfer_action = Column(VARCHAR)
+    transaction_hash = Column(BYTEA, primary_key=True)
+    log_index = Column(INTEGER, primary_key=True)
+    from_address = Column(BYTEA)
+    to_address = Column(BYTEA)
+    token_address = Column(BYTEA)
+    value = Column(NUMERIC(100))
+    price = Column(NUMERIC)
     is_swap = Column(BOOLEAN)
 
-    create_time = Column(TIMESTAMP, server_default=func.now())
+    block_number = Column(BIGINT)
+    block_hash = Column(BYTEA, primary_key=True)
+    block_timestamp = Column(TIMESTAMP)
 
-    __table_args__ = (
-        PrimaryKeyConstraint("holder_address", "token_address", "block_timestamp", "tx_hash", "log_index"),
-    )
+    create_time = Column(TIMESTAMP, server_default=func.now())
+    update_time = Column(TIMESTAMP, server_default=func.now())
+    reorg = Column(BOOLEAN, server_default=text("false"))
+
+    __table_args__ = (PrimaryKeyConstraint("transaction_hash", "block_hash", "log_index"),)
+    __query_order__ = [block_number, log_index]
 
     @staticmethod
     def model_domain_mapping():
         return [
             {
-                "domain": TokenHolderTransferWithPriceD,
+                "domain": ERC20TokenTransferWithPriceD,
                 "conflict_do_update": False,
                 "update_strategy": None,
                 "converter": general_converter,

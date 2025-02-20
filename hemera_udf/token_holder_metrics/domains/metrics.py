@@ -4,19 +4,19 @@ from hemera.indexer.domains import Domain
 
 
 @dataclass
-class TokenHolderTransferWithPriceD(Domain):
-    holder_address: str
+class ERC20TokenTransferWithPriceD(Domain):
+    transaction_hash: str
+    log_index: int
+    from_address: str
+    to_address: str
+    value: int
+    price: float
+    is_swap: bool
+    token_type: str
     token_address: str
     block_number: int
+    block_hash: str
     block_timestamp: int
-
-    price_usd: float = 0.0
-    transfer_amount: int = 0
-    transfer_usd: float = 0.0
-    transfer_action: str = "in"
-    is_swap: bool = False
-    tx_hash: str = ""
-    log_index: int = 0
 
 
 @dataclass
