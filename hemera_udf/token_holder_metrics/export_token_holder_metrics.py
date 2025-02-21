@@ -94,6 +94,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 transfer,
                 "out",
                 amount_usd,
+                transfer.price,
                 token,
             )
 
@@ -105,6 +106,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 transfer,
                 "in",
                 amount_usd,
+                transfer.price,
                 token,
             )
 
@@ -223,6 +225,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         transfer,
         transfer_action: str,
         amount_usd: float,
+        token_price: float,
         token: dict,
     ):
         key = (holder_address, token_address)
@@ -274,19 +277,18 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             metrics.current_average_buy_price = new_average_buy_price
         else:
             sell_amount = transfer.value
-            sell_price = amount_usd
 
             if metrics.current_balance > 0:
-                sell_pnl = (sell_price - metrics.current_average_buy_price) * sell_amount / 10 ** token["decimals"]
+                sell_pnl = (token_price - metrics.current_average_buy_price) * sell_amount / 10 ** token["decimals"]
                 metrics.sell_pnl += sell_pnl
 
                 metrics.realized_pnl = (
                     metrics.total_sell_usd
                     - metrics.total_buy_usd
-                    + metrics.current_balance * sell_price / 10 ** token["decimals"]
+                    + metrics.current_balance * token_price / 10 ** token["decimals"]
                 )
 
-                if sell_price > metrics.current_average_buy_price:
+                if token_price > metrics.current_average_buy_price:
                     metrics.success_sell_count += 1
                 else:
                     metrics.fail_sell_count += 1
