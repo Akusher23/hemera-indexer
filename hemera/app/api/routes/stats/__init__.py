@@ -33,7 +33,7 @@ class MetricsResponse(BaseModel):
     )
 
 
-@router.get("/v1/stats/metrics", response_model=MetricsResponse)
+@router.get("/v1/developer/stats/metrics", response_model=MetricsResponse)
 async def get_address_profile(session: ReadSessionDep):
     transaction_count_minute = get_latest_txn_count(session, timedelta(minutes=1))
     transaction_count_total = get_total_txn_count(session)
