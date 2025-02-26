@@ -52,7 +52,7 @@ async def get_address_profile(session: ReadSessionDep):
         transaction_count_minute=transaction_count_minute,
         transaction_count_total=transaction_count_total,
         transaction_per_second=transaction_count_minute / 60.0,
-        block_per_second=block_times / 60.0,
+        block_per_second=int(block_times / 60.0),
         gas_stats=gas_stats,
         top_active_contracts=top_active_contracts,
     )
