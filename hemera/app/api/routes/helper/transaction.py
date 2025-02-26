@@ -13,14 +13,15 @@ from pydantic import BaseModel
 from sqlmodel import Session, and_, desc, func, or_, select
 from typing_extensions import Literal
 
+from hemera.app.api.routes.enricher.address_enricher import Address
 from hemera.app.api.routes.helper import ColumnType, process_columns
 from hemera.app.api.routes.helper.address import get_txn_cnt_by_address
 from hemera.common.enumeration.txn_type import AddressTransactionType
+from hemera.common.models.address.address_transactions import AddressTransactions
 from hemera.common.models.scheduled_metadata import ScheduledMetadata
 from hemera.common.models.stats.daily_transactions_stats import DailyTransactionsStats
 from hemera.common.models.transactions import Transactions
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
-from hemera_udf.address_index.models.address_transactions import AddressTransactions
 
 # Constants
 MAX_ADDRESS_TXN_COUNT = 100000
@@ -36,13 +37,12 @@ class TransactionDetail(BaseModel):
     # Address Info
     from_address: str
     to_address: str
-    from_address_display_name: Optional[str]
-    to_address_display_name: Optional[str]
+    from_addr: Address
+    to_addr: Address
 
     # Value and Contract Info
     value: str
-    is_contract: bool
-    contract_name: Optional[str]
+    display_value: str
 
     # Gas Related Fields
     gas: int
@@ -82,10 +82,10 @@ class TransactionDetail(BaseModel):
 
     # Transaction Fee Info
     transaction_fee: str
-    transaction_fee_dollar: str
+    transaction_fee_usd: str
     total_transaction_fee: str
-    total_transaction_fee_dollar: str
-    value_dollar: str
+    total_transaction_fee_usd: str
+    value_usd: str
 
 
 class TransactionAbbr(BaseModel):
@@ -103,12 +103,11 @@ class TransactionAbbr(BaseModel):
     block_number: Optional[int] = None
     block_hash: Optional[str] = None
     block_timestamp: Optional[datetime] = None
-    method_id: Optional[int] = None
+    method_id: Optional[str] = None
 
     @staticmethod
     def from_db_model(transaction: Union[Transactions, AddressTransactions]) -> "TransactionAbbr":
         common_fields = {
-            "hash": bytes_to_hex_str(transaction.hash),
             "value": transaction.value,
             "receipt_status": transaction.receipt_status,
             "block_number": transaction.block_number,
@@ -118,6 +117,7 @@ class TransactionAbbr(BaseModel):
         }
 
         if isinstance(transaction, Transactions):
+            common_fields["hash"] = bytes_to_hex_str(transaction.hash)
             common_fields["from_address"] = bytes_to_hex_str(transaction.from_address)
             common_fields["to_address"] = bytes_to_hex_str(transaction.to_address)
             receipt_gas_used = transaction.receipt_gas_used or Decimal(0)
@@ -126,6 +126,7 @@ class TransactionAbbr(BaseModel):
             common_fields["method_id"] = transaction.method_id
 
         else:  # AddressTransactions
+            common_fields["hash"] = bytes_to_hex_str(transaction.transaction_hash)
             common_fields["from_address"] = (
                 bytes_to_hex_str(transaction.address)
                 if transaction.txn_type in [AddressTransactionType.SENDER.value, AddressTransactionType.CREATOR.value]
@@ -358,6 +359,38 @@ def get_transactions_count_by_condition(session: Session, filter_condition: Opti
         statement = statement.where(filter_condition)
 
     return session.exec(statement).one()
+
+
+def get_transactions_and_total_count_by_condition(
+    session: Session,
+    filter_condition: Optional[Any] = None,
+    columns: ColumnType = "*",
+    limit: Optional[int] = None,
+    offset: Optional[int] = None,
+) -> (List[TransactionAbbr], int):
+    """Get transactions and total count by condition
+
+    Args:
+        session: SQLModel session
+        filter_condition: SQL filter condition, defaults to None (no filter)
+        columns: Columns to select
+        limit: Max number of transactions to return
+        offset: Number of transactions to skip
+
+    Returns:
+        (List[TransactionAbbr], int): List of standardized transaction responses and total count
+    """
+
+    transactions = get_transactions_by_condition(
+        session=session,
+        filter_condition=filter_condition,
+        columns=columns,
+        limit=limit,
+        offset=offset,
+    )
+    total_count = get_transactions_count_by_condition(session=session, filter_condition=filter_condition)
+
+    return [TransactionAbbr.from_db_model(tx) for tx in transactions], total_count
 
 
 def get_transactions_by_address(

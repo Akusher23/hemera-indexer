@@ -14,7 +14,7 @@ from typing_extensions import Literal, Union
 
 from hemera.app.api.routes.helper import ColumnType, process_columns
 from hemera.common.enumeration.txn_type import InternalTransactionType
-from hemera.common.models.address import AddressInternalTransactions
+from hemera.common.models.address.address_internal_transaciton import AddressInternalTransactions
 from hemera.common.models.traces import ContractInternalTransactions
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 
@@ -119,7 +119,7 @@ def get_internal_transactions_by_address(
             offset=offset,
         )
     else:
-        raw_transactions = get_internal_transactions_by_address_native(
+        raw_transactions = _get_internal_transactions_by_address_native(
             session=session,
             address=address,
             direction=direction,
@@ -193,7 +193,7 @@ def get_internal_transactions_by_address_using_address_index(
     return session.exec(statement).all()
 
 
-def get_internal_transactions_by_address_native(
+def _get_internal_transactions_by_address_native(
     session: Session,
     address: Union[str, bytes],
     direction: Optional[Literal["from", "to", "both"]] = "both",

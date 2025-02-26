@@ -1,9 +1,9 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from sqlalchemy import Column, desc, func, text
-from sqlalchemy.dialects.postgresql import ARRAY, BOOLEAN, INTEGER, TIMESTAMP
+from sqlalchemy.dialects.postgresql import ARRAY, BOOLEAN, INTEGER, JSONB, TIMESTAMP
 from sqlmodel import Field, Index
 
 from hemera.common.models import HemeraModel, general_converter
@@ -157,3 +157,15 @@ class ContractInternalTransactions(HemeraModel, table=True):
             desc("block_number"),
         ),
     )
+
+
+class TransactionTraceJson(HemeraModel, table=True):
+    __tablename__ = "transaction_trace_json"
+
+    # Primary key
+    transaction_hash: bytes = Field(primary_key=True)
+    block_timestamp: datetime = Field(primary_key=True)
+
+    block_number: int
+    block_hash: bytes
+    data: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))

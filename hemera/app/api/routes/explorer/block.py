@@ -8,7 +8,7 @@
 from operator import and_
 from typing import List, Union
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlmodel import select
 
@@ -21,11 +21,11 @@ from hemera.app.api.routes.helper.block import (
     get_blocks_by_range,
 )
 from hemera.app.api.routes.helper.token import get_token_price
+from hemera.app.api.routes.parameters.validate_block import validate_block_identifier
 from hemera.app.core.config import settings
 from hemera.common.models.blocks import Blocks
-from hemera.common.utils.web3_utils import valid_hash
 
-router = APIRouter(tags=["blocks"])
+router = APIRouter(tags=["BLOCK"])
 
 
 class BlockListResponse(BaseModel):
@@ -33,17 +33,6 @@ class BlockListResponse(BaseModel):
     total: int
     page: int
     size: int
-
-
-async def validate_block_identifier(
-    number_or_hash: str = Path(..., description="Block number or hash")
-) -> Union[str, int]:
-    if number_or_hash.isnumeric():
-        return number_or_hash
-    hash = valid_hash(number_or_hash)
-    if hash:
-        return hash
-    raise HTTPException(status_code=400, detail="Invalid block identifier")
 
 
 @router.get("/v1/explorer/blocks", response_model=BlockListResponse)

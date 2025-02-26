@@ -10,7 +10,7 @@ from typing import List
 import pytest
 from sqlmodel import Session
 
-from hemera.app.api.routes.developer.es_adapter.helper import LogResponse, get_event_logs
+from hemera.app.api.routes.developer.es_adapter.helper import APILogResponse, get_event_logs
 from hemera.common.models.logs import Logs
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
@@ -122,7 +122,7 @@ def test_get_event_logs_no_filters(session: Session, sample_logs):
     """
     Test that get_event_logs returns all logs when no topic or address filters are applied.
     """
-    result: List[LogResponse] = get_event_logs(
+    result: List[APILogResponse] = get_event_logs(
         session=session, from_block=1000, to_block=1010, page=1, offset=10, sort_order="asc"
     )
     # Expect all 6 logs to be returned
@@ -139,7 +139,7 @@ def test_get_event_logs_filter_by_topic0(session: Session, sample_logs):
     """
     # Use topicA (as hex string) for filtering.
     topicA_str = "0x" + "A" * 64
-    result: List[LogResponse] = get_event_logs(
+    result: List[APILogResponse] = get_event_logs(
         session=session, topic0=topicA_str, from_block=1000, to_block=1010, page=1, offset=10, sort_order="asc"
     )
     # In our sample, logs 1, 2, 4, and 6 have topic0 equal to topicA.
@@ -154,7 +154,7 @@ def test_get_event_logs_filter_by_address(session: Session, sample_logs):
     Test filtering logs by address.
     """
     target_address = "0x1111111111111111111111111111111111111111".lower()
-    result: List[LogResponse] = get_event_logs(
+    result: List[APILogResponse] = get_event_logs(
         session=session, address=target_address, from_block=1000, to_block=1010, page=1, offset=10, sort_order="asc"
     )
     # Two logs have this address (logs 1 and 4)
@@ -170,7 +170,7 @@ def test_get_event_logs_combined_topics_and(session: Session, sample_logs):
     # We want logs that have topic0 = topicA and topic1 = topicB.
     topicA_str = "0x" + "A" * 64
     topicB_str = "0x" + "B" * 64
-    result: List[LogResponse] = get_event_logs(
+    result: List[APILogResponse] = get_event_logs(
         session=session,
         topic0=topicA_str,
         topic1=topicB_str,
@@ -195,7 +195,7 @@ def test_get_event_logs_combined_topics_or(session: Session, sample_logs):
     # Request logs that have topic0 = topicA OR topic1 = topicE.
     topicA_str = "0x" + "A" * 64
     topicE_str = "0x" + "E" * 64
-    result: List[LogResponse] = get_event_logs(
+    result: List[APILogResponse] = get_event_logs(
         session=session,
         topic0=topicA_str,
         topic1=topicE_str,
@@ -220,10 +220,10 @@ def test_get_event_logs_pagination_and_sort(session: Session, sample_logs):
     Test pagination and sorting.
     """
     # Request logs with offset=2 in descending order.
-    result_page1: List[LogResponse] = get_event_logs(
+    result_page1: List[APILogResponse] = get_event_logs(
         session=session, from_block=1000, to_block=1010, page=1, offset=2, sort_order="desc"
     )
-    result_page2: List[LogResponse] = get_event_logs(
+    result_page2: List[APILogResponse] = get_event_logs(
         session=session, from_block=1000, to_block=1010, page=2, offset=2, sort_order="desc"
     )
     # Verify pagination: page1 should have 2 logs, page2 should have the next 2.
@@ -243,7 +243,7 @@ def test_get_event_logs_block_range(session: Session, sample_logs):
     Test filtering logs by block range.
     """
     # Set block range to only include logs from block 1002 to 1004.
-    result: List[LogResponse] = get_event_logs(
+    result: List[APILogResponse] = get_event_logs(
         session=session, from_block=1002, to_block=1004, page=1, offset=10, sort_order="asc"
     )
     block_numbers = sorted([int(r.blockNumber) for r in result])

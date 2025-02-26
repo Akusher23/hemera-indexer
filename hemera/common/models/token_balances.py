@@ -12,7 +12,7 @@ from hemera.indexer.domains.token_balance import TokenBalance
 
 def token_balances_general_converter(table: Type[HemeraModel], data: TokenBalance, is_update=False):
     if data.token_id is None:
-        data.token_id = -1
+        data.token_id = 0
     return general_converter(table, data, is_update)
 
 

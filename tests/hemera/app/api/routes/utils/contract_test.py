@@ -7,7 +7,7 @@
 
 import pytest
 
-from hemera.app.api.routes.helper.contract import get_contract_by_address, get_contracts_by_addresses
+from hemera.app.api.routes.helper.contract import _get_contract_by_address, _get_contracts_by_addresses
 from hemera.common.models.contracts import Contracts
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
@@ -49,24 +49,24 @@ def sample_contracts(session):
 
 def test_get_contract_by_address(session, sample_contracts):
     # Test getting existing contract with name
-    contract = get_contract_by_address(session, "0x7a250d5630b4cf539739df2c5dacb4c659f2488d")
+    contract = _get_contract_by_address(session, "0x7a250d5630b4cf539739df2c5dacb4c659f2488d")
     assert contract is not None
     assert contract.address == hex_str_to_bytes("0x7a250d5630b4cf539739df2c5dacb4c659f2488d")
     assert contract.name == "Uniswap V2 Router"
     assert contract.contract_creator == hex_str_to_bytes("0x5b6c7b13a2b82ed76f48230be0c4a13f94160c5e")
 
     # Test getting existing contract without name
-    contract = get_contract_by_address(session, "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
+    contract = _get_contract_by_address(session, "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2")
     assert contract is not None
     assert contract.name is None
     assert contract.contract_creator == hex_str_to_bytes("0x8ba1f109551bd432803012645ac136ddd64dba72")
 
     # Test getting non-existent contract
-    contract = get_contract_by_address(session, "0x0000000000000000000000000000000000000000")
+    contract = _get_contract_by_address(session, "0x0000000000000000000000000000000000000000")
     assert contract is None
 
     # Test getting specific columns
-    contract = get_contract_by_address(
+    contract = _get_contract_by_address(
         session, "0x7a250d5630b4cf539739df2c5dacb4c659f2488d", columns=["address", "name", "contract_creator"]
     )
     assert contract.address == hex_str_to_bytes("0x7a250d5630b4cf539739df2c5dacb4c659f2488d")
@@ -77,7 +77,7 @@ def test_get_contract_by_address(session, sample_contracts):
 
     # Test invalid address format
     with pytest.raises(ValueError):
-        get_contract_by_address(session, "invalid_address")
+        _get_contract_by_address(session, "invalid_address")
 
 
 def test_get_contracts_by_addresses(session, sample_contracts):
@@ -86,7 +86,7 @@ def test_get_contracts_by_addresses(session, sample_contracts):
         "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
         "0x1f9840a85d5af5bf1d1762f925bdaddc4201f984",
     ]
-    contracts = get_contracts_by_addresses(session, addresses)
+    contracts = _get_contracts_by_addresses(session, addresses)
     assert len(contracts) == 2
     assert contracts[0].address == hex_str_to_bytes(addresses[0])
     assert contracts[0].name == "Uniswap V2 Router"
@@ -98,7 +98,7 @@ def test_get_contracts_by_addresses(session, sample_contracts):
         "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
         "0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2",
     ]
-    contracts = get_contracts_by_addresses(session, addresses)
+    contracts = _get_contracts_by_addresses(session, addresses)
     assert len(contracts) == 2
     assert contracts[0].name == "Uniswap V2 Router"
     assert contracts[1].name is None
@@ -108,12 +108,12 @@ def test_get_contracts_by_addresses(session, sample_contracts):
         "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
         "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
     ]
-    contracts = get_contracts_by_addresses(session, addresses)
+    contracts = _get_contracts_by_addresses(session, addresses)
     assert len(contracts) == 1
     assert contracts[0].address == hex_str_to_bytes(addresses[0])
 
     # Test with specific columns
-    contracts = get_contracts_by_addresses(
+    contracts = _get_contracts_by_addresses(
         session, ["0x7a250d5630b4cf539739df2c5dacb4c659f2488d"], columns=["address", "name", "contract_creator"]
     )
     assert len(contracts) == 1
@@ -124,14 +124,14 @@ def test_get_contracts_by_addresses(session, sample_contracts):
 
     # Test with invalid address format
     with pytest.raises(ValueError):
-        get_contracts_by_addresses(session, ["invalid_address"])
+        _get_contracts_by_addresses(session, ["invalid_address"])
 
     # Test with non-existent addresses
     addresses = [
         "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
         "0x0000000000000000000000000000000000000000",
     ]
-    contracts = get_contracts_by_addresses(session, addresses)
+    contracts = _get_contracts_by_addresses(session, addresses)
     assert len(contracts) == 1
     assert contracts[0].address == hex_str_to_bytes(addresses[0])
 

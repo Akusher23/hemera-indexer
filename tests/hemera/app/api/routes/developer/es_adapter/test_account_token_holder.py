@@ -12,6 +12,7 @@ from sqlalchemy import delete
 from sqlmodel import Session
 
 from hemera.app.api.routes.developer.es_adapter.helper import account_address_token_holding
+from hemera.common.enumeration.token_type import TokenType
 from hemera.common.models.current_token_balances import CurrentTokenBalances
 from hemera.common.models.tokens import Tokens
 from hemera.common.utils.format_utils import hex_str_to_bytes
@@ -106,7 +107,7 @@ def sample_token_data(session: Session):
 def test_account_address_token_holding_erc20(session: Session, sample_token_data):
     """Test fetching ERC20 token holdings for an address."""
     result = account_address_token_holding(
-        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type="ERC20"
+        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type=TokenType.ERC20
     )
 
     assert len(result) == 1
@@ -122,7 +123,7 @@ def test_account_address_token_holding_erc20(session: Session, sample_token_data
 def test_account_address_token_holding_erc721(session: Session, sample_token_data):
     """Test fetching ERC721 token holdings for an address."""
     result = account_address_token_holding(
-        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type="ERC721"
+        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type=TokenType.ERC721
     )
 
     assert len(result) == 1
@@ -138,7 +139,7 @@ def test_account_address_token_holding_erc721(session: Session, sample_token_dat
 def test_account_address_token_holding_erc1155(session: Session, sample_token_data):
     """Test fetching ERC1155 token holdings for an address."""
     result = account_address_token_holding(
-        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type="ERC1155"
+        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type=TokenType.ERC1155
     )
 
     assert len(result) == 1
@@ -154,19 +155,19 @@ def test_account_address_token_holding_erc1155(session: Session, sample_token_da
 def test_account_address_token_holding_multiple_tokens(session: Session, sample_token_data):
     """Test fetching multiple token types for an address."""
     result = account_address_token_holding(
-        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type="ERC20"
+        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type=TokenType.ERC20
     )
     assert len(result) == 1  # Only one ERC20 token for address_1
     assert result[0].TokenAddress == sample_token_data["erc20_contract"]
 
     result = account_address_token_holding(
-        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type="ERC721"
+        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type=TokenType.ERC721
     )
     assert len(result) == 1  # Only one ERC721 token for address_1
     assert result[0].TokenAddress == sample_token_data["erc721_contract"]
 
     result = account_address_token_holding(
-        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type="ERC1155"
+        session=session, address=sample_token_data["address_1"], page=1, offset=10, token_type=TokenType.ERC1155
     )
     assert len(result) == 1  # Only one ERC1155 token for address_1
     assert result[0].TokenAddress == sample_token_data["erc1155_contract"]
@@ -175,10 +176,10 @@ def test_account_address_token_holding_multiple_tokens(session: Session, sample_
 def test_account_address_token_holding_pagination(session: Session, sample_token_data):
     """Test pagination when fetching token holdings for an address."""
     result_page1 = account_address_token_holding(
-        session=session, address=sample_token_data["address_1"], page=1, offset=2, token_type="ERC20"
+        session=session, address=sample_token_data["address_1"], page=1, offset=2, token_type=TokenType.ERC20
     )
     result_page2 = account_address_token_holding(
-        session=session, address=sample_token_data["address_1"], page=2, offset=2, token_type="ERC20"
+        session=session, address=sample_token_data["address_1"], page=2, offset=2, token_type=TokenType.ERC20
     )
 
     assert len(result_page1) == 1  # ERC20 token, so 1

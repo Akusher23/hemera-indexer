@@ -4,7 +4,7 @@ from decimal import Decimal
 import pytest
 
 from hemera.app.api.routes.helper.token_transfers import (
-    TokenTransfer,
+    TokenTransferAbbr,
     _get_erc20_token_transfers_by_hash,
     _get_erc20_transfers_by_address_index,
     _get_erc20_transfers_by_address_native,
@@ -21,6 +21,8 @@ from hemera.app.api.routes.helper.token_transfers import (
 )
 from hemera.common.enumeration.token_type import TokenType
 from hemera.common.enumeration.txn_type import AddressNftTransferType, AddressTokenTransferType
+from hemera.common.models.address.address_nft_transfers import AddressNftTransfers
+from hemera.common.models.address.address_token_transfers import AddressTokenTransfers
 from hemera.common.models.token_transfers import (
     ERC20TokenTransfers,
     ERC721TokenTransfers,
@@ -28,8 +30,6 @@ from hemera.common.models.token_transfers import (
     NftTransfers,
 )
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
-from hemera_udf.address_index.models.address_nft_transfers import AddressNftTransfers
-from hemera_udf.address_index.models.address_token_transfers import AddressTokenTransfers
 
 
 @pytest.fixture
@@ -394,8 +394,8 @@ def test_response_model_conversion(session, erc20_token_transfers, address_token
         session, "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
     )
     assert len(transfers) > 0
-    response = TokenTransfer.from_db_model(transfers[0])
-    assert isinstance(response, TokenTransfer)
+    response = TokenTransferAbbr.from_db_model(transfers[0])
+    assert isinstance(response, TokenTransferAbbr)
     assert response.token_type == TokenType.ERC20.value
     assert response.value is not None
     assert response.token_id is None
@@ -405,8 +405,8 @@ def test_response_model_conversion(session, erc20_token_transfers, address_token
         session, bytes_to_hex_str(address_token_transfers[0].address)
     )
     assert len(addr_transfers) > 0
-    response = TokenTransfer.from_db_model(addr_transfers[0])
-    assert isinstance(response, TokenTransfer)
+    response = TokenTransferAbbr.from_db_model(addr_transfers[0])
+    assert isinstance(response, TokenTransferAbbr)
     assert response.token_type == TokenType.ERC20.value
     assert response.from_address is not None
     assert response.to_address is not None
@@ -416,18 +416,18 @@ def test_get_token_transfer_by_hash_using_unified_table(session, nft_transfers, 
     """Test querying token transfers using unified table"""
     # Test ERC20 transfer included when token_type is "all"
     hash_str = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-    transfers = get_token_transfers_by_hash(session, hash_str, token_type="all", use_unified_table=True)
+    transfers = get_token_transfers_by_hash(session, hash_str, token_type="ALL", use_unified_table=True)
     assert len(transfers) == 1
     transfer = transfers[0]
     assert transfer.token_type == TokenType.ERC20.value
-    assert transfer.value == Decimal("1000000000000000000")
+    assert transfer.value == 1000000000000000000
 
     # Test NFT transfer filtered by type
     hash_str = "0x7234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-    transfers = get_token_transfers_by_hash(session, hash_str, token_type="erc721", use_unified_table=True)
+    transfers = get_token_transfers_by_hash(session, hash_str, token_type="ERC721", use_unified_table=True)
     assert len(transfers) == 1
     transfer = transfers[0]
-    assert transfer.token_id == Decimal("1")
+    assert transfer.token_id == "1"
     assert transfer.value is None
 
 
@@ -437,23 +437,23 @@ def test_get_token_transfer_by_hash_using_separate_tables(
     """Test querying token transfers using separate tables"""
     # Test ERC20 transfer
     hash_str = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-    transfers = get_token_transfers_by_hash(session, hash_str, token_type="erc20", use_unified_table=False)
+    transfers = get_token_transfers_by_hash(session, hash_str, token_type="ERC20", use_unified_table=False)
     assert len(transfers) == 1
     transfer = transfers[0]
     assert transfer.token_type == TokenType.ERC20.value
-    assert transfer.value == Decimal("1000000000000000000")
+    assert transfer.value == 1000000000000000000
 
     # Test ERC721 transfer
     hash_str = "0x3234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-    transfers = get_token_transfers_by_hash(session, hash_str, token_type="erc721", use_unified_table=False)
+    transfers = get_token_transfers_by_hash(session, hash_str, token_type="ERC721", use_unified_table=False)
     assert len(transfers) == 1
     transfer = transfers[0]
     assert transfer.token_type == TokenType.ERC721.value
-    assert transfer.token_id == Decimal("1")
+    assert transfer.token_id == "1"
 
     # Test all types
     hash_str = "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
-    transfers = get_token_transfers_by_hash(session, hash_str, token_type="all", use_unified_table=False)
+    transfers = get_token_transfers_by_hash(session, hash_str, token_type="ALL", use_unified_table=False)
     assert len(transfers) == 1  # Should only find the ERC20 transfer for this hash
     assert transfers[0].token_type == TokenType.ERC20.value
 
@@ -590,30 +590,30 @@ def test_get_token_transfers_by_address_using_address_index(
     """Test unified query for token transfers using address index"""
     # Test ERC20 transfers
     transfers = get_token_transfers_by_address(
-        session, sample_addresses["sender"], token_type="erc20", use_address_index=True
+        session, sample_addresses["sender"], token_type="ERC20", use_address_index=True
     )
     assert len(transfers) == 1
-    assert isinstance(transfers[0], TokenTransfer)
+    assert isinstance(transfers[0], TokenTransferAbbr)
 
     # Test ERC721 transfers
     transfers = get_token_transfers_by_address(
-        session, sample_addresses["sender"], token_type="erc721", use_address_index=True
+        session, sample_addresses["sender"], token_type="ERC721", use_address_index=True
     )
     assert len(transfers) == 1
-    assert isinstance(transfers[0], TokenTransfer)
+    assert isinstance(transfers[0], TokenTransferAbbr)
     assert transfers[0].value is None
 
     # Test ERC1155 transfers
     transfers = get_token_transfers_by_address(
-        session, sample_addresses["receiver"], token_type="erc1155", use_address_index=True
+        session, sample_addresses["receiver"], token_type="ERC1155", use_address_index=True
     )
     assert len(transfers) == 1
-    assert isinstance(transfers[0], TokenTransfer)
+    assert isinstance(transfers[0], TokenTransferAbbr)
     assert transfers[0].value is not None
 
     # Test all token types
     transfers = get_token_transfers_by_address(
-        session, sample_addresses["sender"], token_type="all", use_address_index=True
+        session, sample_addresses["sender"], token_type="ALL", use_address_index=True
     )
     assert len(transfers) == 6  # Should include both ERC20 and NFTs
 
@@ -623,17 +623,17 @@ def test_get_token_transfers_by_address_using_native_tables(
 ):
     """Test unified query for token transfers using native tables"""
     # Test filtering by token type
-    for token_type in ["erc20", "erc721", "erc1155"]:
+    for token_type in ["ERC20", "ERC721", "ERC1155"]:
         transfers = get_token_transfers_by_address(
             session, sample_addresses["sender"], token_type=token_type, use_address_index=False
         )
         assert len(transfers) > 0
         if token_type == "erc20":
-            assert isinstance(transfers[0], TokenTransfer)
+            assert isinstance(transfers[0], TokenTransferAbbr)
         elif token_type == "erc721":
-            assert isinstance(transfers[0], TokenTransfer)
+            assert isinstance(transfers[0], TokenTransferAbbr)
         else:
-            assert isinstance(transfers[0], TokenTransfer)
+            assert isinstance(transfers[0], TokenTransferAbbr)
 
     # Test direction filtering
     transfers = get_token_transfers_by_address(

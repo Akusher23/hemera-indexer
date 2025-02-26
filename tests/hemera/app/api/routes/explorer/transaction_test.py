@@ -9,23 +9,24 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from fastapi.testclient import TestClient
 
 from hemera.app.core.config import settings
-from hemera.app.main import app
-from hemera.common.enumeration.txn_type import AddressNftTransferType, AddressTokenTransferType
+from hemera.common.enumeration.txn_type import AddressNftTransferType, AddressTokenTransferType, AddressTransactionType
+from hemera.common.models.address.address_nft_transfers import AddressNftTransfers
+from hemera.common.models.address.address_token_transfers import AddressTokenTransfers
+from hemera.common.models.address.address_transactions import AddressTransactions
 from hemera.common.models.blocks import Blocks
+from hemera.common.models.contracts import Contracts
 from hemera.common.models.token_transfers import (
     ERC20TokenTransfers,
     ERC721TokenTransfers,
     ERC1155TokenTransfers,
     NftTransfers,
 )
+from hemera.common.models.tokens import Tokens
 from hemera.common.models.traces import ContractInternalTransactions
 from hemera.common.models.transactions import Transactions
 from hemera.common.utils.format_utils import hex_str_to_bytes
-from hemera_udf.address_index.models.address_nft_transfers import AddressNftTransfers
-from hemera_udf.address_index.models.address_token_transfers import AddressTokenTransfers
 
 
 @pytest.fixture
@@ -38,7 +39,56 @@ def sample_addresses():
 
 
 @pytest.fixture
-def erc20_token_transfers(session, sample_addresses):
+def sample_contracts(session):
+    contracts = [
+        Contracts(
+            address=hex_str_to_bytes("0x0000000000000000000000000000000000000008"),
+            name="Uniswap V2 Router",
+            contract_creator=hex_str_to_bytes("0x5b6c7b13a2b82ed76f48230be0c4a13f94160c5e"),
+            deployed_code=b"sample bytecode 1",
+            block_number=12345678,
+            is_verified=True,
+        ),
+        Contracts(
+            address=hex_str_to_bytes("0x0000000000000000000000000000000000000009"),
+            name="Uniswap Token",
+            contract_creator=hex_str_to_bytes("0x4d812c19d95e76fd0194ce3c0ba2d9c04584c3e8"),
+            deployed_code=b"sample bytecode 2",
+            block_number=12345679,
+            is_verified=False,
+        ),
+    ]
+
+    for contract in contracts:
+        session.add(contract)
+    session.commit()
+
+    return contracts
+
+
+@pytest.fixture
+def sample_tokens(session, sample_addresses):
+    tokens = [
+        Tokens(
+            address=hex_str_to_bytes(sample_addresses["token"]),
+            name="Wrapped Ether",
+            symbol="WETH",
+            token_type="ERC20",
+            decimals=18,
+            price=Decimal("1000"),
+            previous_price=Decimal("900"),
+            logo_url="https://example.com/logo.png",
+            market_cap=Decimal("1000000"),
+            on_chain_market_cap=Decimal("2000000"),
+        )
+    ]
+    session.add(tokens[0])
+    session.commit()
+    return tokens
+
+
+@pytest.fixture
+def erc20_token_transfers(session, sample_addresses, sample_tokens):
     """Create sample ERC20 token transfers"""
     now = datetime.utcnow()
     transfers = [
@@ -259,7 +309,7 @@ def address_nft_transfers(session, sample_addresses):
 
 @pytest.mark.serial
 @pytest.fixture
-def sample_internal_transactions(clean_db, session):
+def sample_internal_transactions(clean_db, sample_contracts, session):
     """Create a set of test internal transactions"""
     transactions = []
     base_time = datetime(2024, 1, 1, 12, 0, 0)
@@ -277,7 +327,7 @@ def sample_internal_transactions(clean_db, session):
             block_timestamp=base_time + timedelta(minutes=i),
             transaction_hash=bytes.fromhex(f"{i:064x}"),
             from_address=bytes.fromhex(f"{i:040x}"),
-            to_address=bytes.fromhex(f"{i+1:040x}"),
+            to_address=bytes.fromhex(f"{i + 1:040x}"),
         )
         transactions.append(tx)
         session.add(tx)
@@ -318,7 +368,7 @@ def sample_transactions(clean_db, session):
             number=1000 + i,
             hash=bytes.fromhex(f"bb{i:062x}"),
             timestamp=base_time + timedelta(minutes=i),
-            parent_hash=bytes.fromhex(f"{i-1:064x}") if i > 0 else bytes(32),
+            parent_hash=bytes.fromhex(f"{i - 1:064x}") if i > 0 else bytes(32),
             gas_limit="15000000",
             gas_used=f"{5000000 + i * 100000}",
             base_fee_per_gas="1000000000",
@@ -334,13 +384,13 @@ def sample_transactions(clean_db, session):
     for block in blocks:
         for j in range(2):
             tx = Transactions(
-                hash=bytes.fromhex(f"aa{block.number}{j:060x}"),
+                hash=bytes.fromhex(f"aa{block.number:012x}{j:050x}"),
                 block_number=block.number,
                 block_hash=block.hash,
                 block_timestamp=block.timestamp,
                 transaction_index=j,
                 from_address=bytes.fromhex(f"{j:040x}"),
-                to_address=bytes.fromhex(f"{j+1:040x}"),
+                to_address=bytes.fromhex(f"{j + 1:040x}"),
                 value=str(1000000000000000000 * (j + 1)),  # 1-2 ETH
                 gas="21000",
                 gas_price="1000000000",
@@ -353,6 +403,37 @@ def sample_transactions(clean_db, session):
                 receipt_gas_used="21000",
             )
             transactions.append(tx)
+
+            address_transaction_1 = AddressTransactions(
+                address=bytes.fromhex(f"{j:040x}"),
+                block_number=block.number,
+                transaction_index=j,
+                block_timestamp=block.timestamp,
+                transaction_hash=bytes.fromhex(f"aa{block.number:012x}{j:050x}"),
+                block_hash=block.hash,
+                txn_type=AddressTransactionType.SENDER.value,
+                related_address=bytes.fromhex(f"{j + 1:040x}"),
+                value=Decimal("1000000000000000000"),
+                transaction_fee=Decimal("21000") * Decimal("21000"),
+                receipt_status=1,
+                method=None,
+            )
+            address_transaction_2 = AddressTransactions(
+                address=bytes.fromhex(f"{j + 1:040x}"),
+                block_number=block.number,
+                transaction_index=j,
+                block_timestamp=block.timestamp,
+                transaction_hash=bytes.fromhex(f"aa{block.number:012x}{j:050x}"),
+                block_hash=block.hash,
+                txn_type=AddressTransactionType.RECEIVER.value,
+                related_address=bytes.fromhex(f"{j:040x}"),
+                value=Decimal("1000000000000000000"),
+                transaction_fee=Decimal("21000") * Decimal("21000"),
+                receipt_status=1,
+                method=None,
+            )
+            session.add(address_transaction_1)
+            session.add(address_transaction_2)
             session.add(tx)
 
     session.commit()
@@ -377,7 +458,10 @@ def test_get_internal_transactions_success(client, sample_internal_transactions,
     first_tx = data["data"][0]
     assert first_tx["trace_id"] == "trace_9"
     assert first_tx["trace_type"] == "call"
-    assert first_tx["value"] == "10"
+    assert first_tx["from_addr"]["is_contract"] == True
+    assert first_tx["to_addr"]["is_contract"] == False
+    assert first_tx["display_value"] == "10"
+    assert first_tx["value"] == "10000000000000000000"
     assert first_tx["status"] == 0
     assert first_tx["error"] == "Reverted"
 
@@ -482,10 +566,9 @@ def test_get_internal_transactions_response_structure(client, sample_internal_tr
         "transaction_hash",
         "from_address",
         "to_address",
-        "from_address_is_contract",
-        "to_address_is_contract",
-        "from_address_display_name",
-        "to_address_display_name",
+        "from_addr",
+        "to_addr",
+        "display_value",
     }
 
     assert all(field in first_tx for field in required_fields)
@@ -524,6 +607,8 @@ def test_get_transactions_success(client, sample_transactions, session):
     assert first_tx["block_number"] == 1004  # Latest block
     assert isinstance(first_tx["value"], str)
     assert isinstance(first_tx["transaction_fee"], str)
+    assert isinstance(first_tx["value_usd"], str)
+    assert isinstance(first_tx["transaction_fee_usd"], str)
 
 
 @pytest.mark.serial
@@ -660,11 +745,9 @@ def test_get_transactions_response_structure(client, sample_transactions):
         "block_timestamp",
         "transaction_index",
         "from_address",
-        "from_address_is_contract",
-        "from_address_display_name",
+        "from_addr",
         "to_address",
-        "to_address_is_contract",
-        "to_address_display_name",
+        "to_addr",
         "method_id",
         "receipt_status",
         "transaction_fee",
@@ -698,9 +781,9 @@ def test_get_transaction_token_transfers_success(
     assert isinstance(first_transfer["log_index"], int)
     assert first_transfer["from_address"].startswith("0x")
     assert first_transfer["to_address"].startswith("0x")
-    assert "from_address_display" in first_transfer
-    assert "to_address_display" in first_transfer
-    assert first_transfer["token_type"] == "ERC20"
+    assert "from_addr" in first_transfer
+    assert "to_addr" in first_transfer
+    assert first_transfer["token_info"]["type"] == "ERC20"
 
     # Test with a transaction that has ERC721 transfers
     tx_hash = "0x3234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
@@ -732,11 +815,12 @@ def test_get_transaction_token_transfers_invalid_hash(client):
     """Test token transfers with invalid transaction hash"""
     # Test with invalid hex
     response = client.get("/v1/explorer/transaction/invalid_hash/token_transfers")
-    assert response.status_code == 400
+
+    assert response.status_code == 422
 
     # Test with wrong length
     response = client.get("/v1/explorer/transaction/0x123/token_transfers")
-    assert response.status_code == 400
+    assert response.status_code == 422
 
 
 @pytest.mark.serial
@@ -767,8 +851,8 @@ def test_get_transaction_token_transfers_response_structure(client, erc20_token_
             "value",
             "token_type",
             "token_address",
-            "from_address_display",
-            "to_address_display",
+            "from_addr",
+            "to_addr",
         }
         assert all(field in transfer for field in required_fields)
 

@@ -64,7 +64,6 @@ class BatchIPCProvider(IPCProvider):
 
 
 class BatchHTTPProvider(HTTPProvider):
-
     http_manager = HTTPSessionManager(100, 5)
 
     def make_request(self, method=None, params=None):

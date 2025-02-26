@@ -38,7 +38,7 @@ from hemera.common.models.transactions import Transactions
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.common.utils.web3_utils import is_eth_address, is_eth_transaction_hash
 
-router = APIRouter(tags=["base"])
+router = APIRouter(tags=["BASE"])
 
 
 def get_engines_status():

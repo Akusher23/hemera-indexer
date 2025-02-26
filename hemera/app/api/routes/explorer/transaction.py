@@ -5,17 +5,16 @@
 # @File  transaction.py
 # @Brief
 from datetime import datetime, timedelta
-from pathlib import Path
-from typing import Annotated, List, Optional, Tuple
+from typing import Annotated, Any, List, Optional, Tuple
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlmodel import Session, and_, desc, func, or_, select
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from pydantic import BaseModel
+from sqlmodel import and_, desc, func, select
 
-from hemera.app.api.deps import ReadSessionDep, get_read_db
-from hemera.app.api.routes.enrichers.block_chain_info_service import BlockchainEnricher
-from hemera.app.api.routes.helper.address import get_address_display_mapping
-from hemera.app.api.routes.helper.decorator import AddressExtraInfo
-from hemera.app.api.routes.helper.format import format_coin_value
+from hemera.app.api.deps import ReadSessionDep
+from hemera.app.api.routes.enricher import BlockchainEnricherDep
+from hemera.app.api.routes.enricher.address_enricher import Address, EnricherType
+from hemera.app.api.routes.explorer.token import TokenTransferItem, TokenTransferResponse
 from hemera.app.api.routes.helper.internal_transaction import (
     InternalTransactionAbbr,
     get_internal_transactions,
@@ -26,25 +25,28 @@ from hemera.app.api.routes.helper.internal_transaction import (
     get_internal_transactions_count_by_address,
     get_internal_transactions_count_by_block_number,
 )
-from hemera.app.api.routes.helper.log import LogItem, fill_extra_contract_info_to_logs, get_logs_by_hash
-from hemera.app.api.routes.helper.price import fill_price_to_transactions
-from hemera.app.api.routes.helper.token import TokenInfo, get_tokens_by_token_address
+from hemera.app.api.routes.helper.log import LogItem, get_logs_by_hash
 from hemera.app.api.routes.helper.token_transfers import get_token_transfers_by_hash
-from hemera.app.api.routes.helper.transaction import TransactionAbbr, TransactionDetail
+from hemera.app.api.routes.helper.transaction import (
+    TransactionAbbr,
+    TransactionDetail,
+    get_transactions_and_total_count_by_condition,
+    get_transactions_by_address,
+    get_transactions_count_by_address,
+)
 from hemera.app.core.config import settings
 from hemera.common.models.blocks import Blocks
 from hemera.common.models.transactions import Transactions
-from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
+from hemera.common.utils.format_utils import hex_str_to_bytes
 from hemera.common.utils.web3_utils import valid_hash
 
-router = APIRouter(tags=["transactions"])
-
-from pydantic import BaseModel
+router = APIRouter(tags=["TRANSACTION"])
 
 
 class InternalTransactionItem(InternalTransactionAbbr):
-    from_address_extra_info: AddressExtraInfo
-    to_address_extra_info: AddressExtraInfo
+    from_addr: Address
+    to_addr: Address
+    display_value: str
 
 
 class InternalTransactionResponse(BaseModel):
@@ -56,8 +58,11 @@ class InternalTransactionResponse(BaseModel):
 
 
 class TransactionItem(TransactionAbbr):
-    from_address_extra_info: AddressExtraInfo
-    to_address_extra_info: AddressExtraInfo
+    from_addr: Address
+    to_addr: Address
+    display_value: str
+    value_usd: Optional[str]
+    transaction_fee_usd: Optional[str]
 
 
 class TransactionResponse(BaseModel):
@@ -68,28 +73,9 @@ class TransactionResponse(BaseModel):
     size: int
 
 
-class TransactionLogsResponse(BaseModel):
+class LogResponse(BaseModel):
     total: int
     data: List[LogItem]
-
-
-class TokenTransferItem(BaseModel):
-    transaction_hash: Optional[str] = None
-    log_index: Optional[int] = None
-    from_address: Optional[str] = None
-    to_address: Optional[str] = None
-    token_id: Optional[str] = None
-    value: Optional[str] = None
-    token_type: Optional[str] = None
-    token_address: Optional[str] = None
-    from_address_display: Optional[str] = None
-    to_address_display: Optional[str] = None
-    token_info: Optional[TokenInfo] = None
-
-
-class TokenTransfersResponse(BaseModel):
-    total: int
-    data: List[TokenTransferItem]
 
 
 class TraceItem(BaseModel):
@@ -109,36 +95,16 @@ class TraceItem(BaseModel):
     function_output: Optional[List[dict]]
     calls: Optional[List["TraceItem"]]
 
+    from_addr: Address
+    to_addr: Address
+
 
 class TransactionTracesResponse(BaseModel):
     data: TraceItem
 
 
-class EnricherManager:
-    _instance = None
-    _enricher = None
-
-    @classmethod
-    def get_instance(cls) -> "EnricherManager":
-        if cls._instance is None:
-            cls._instance = cls()
-        return cls._instance
-
-    def get_enricher(self, session: Session) -> BlockchainEnricher:
-        if self._enricher is None:
-            self._enricher = BlockchainEnricher(session)
-        else:
-            self._enricher.session = session
-            self._enricher.token_mapper.session = session
-            self._enricher.contract_mapper.session = session
-        return self._enricher
-
-
-def get_blockchain_enricher(session: Session = Depends(get_read_db)) -> BlockchainEnricher:
-    return EnricherManager.get_instance().get_enricher(session)
-
-
-BlockchainEnricherDep = Annotated[BlockchainEnricher, Depends(get_blockchain_enricher)]
+class TransactionTraceJsonResponse(BaseModel):
+    data: dict[str, Any]
 
 
 @router.get("/v1/explorer/internal_transactions", response_model=InternalTransactionResponse)
@@ -152,25 +118,34 @@ async def api_get_internal_transactions(
 ):
     if page * size > settings.MAX_INTERNAL_TRANSACTION:
         raise HTTPException(
-            status_code=400, detail=f"Showing the last {settings.MAX_INTERNAL_TRANSACTION} records only"
+            status_code=400,
+            detail=f"Showing the last {settings.MAX_INTERNAL_TRANSACTION} records only",
         )
+
+    offset = (page - 1) * size
 
     if address:
         total_count = get_internal_transactions_count_by_address(session, address, block)
-        transactions = get_internal_transactions_by_address(
-            session, address, block, limit=size, offset=(page - 1) * size
-        )
+        transactions = get_internal_transactions_by_address(session, address, block, limit=size, offset=offset)
     elif block:
         total_count = get_internal_transactions_count_by_block_number(session, block)
-        transactions = get_internal_transactions_by_block_number(session, block, limit=size, offset=(page - 1) * size)
+        transactions = get_internal_transactions_by_block_number(session, block, limit=size, offset=offset)
     else:
         total_count = get_internal_transactions_count(session)
-        transactions = get_internal_transactions(session, limit=size, offset=(page - 1) * size)
+        transactions = get_internal_transactions(session, limit=size, offset=offset)
+
+    enriched_transactions = enricher.enrich(
+        [transaction.dict() for transaction in transactions],
+        {
+            EnricherType.ADDRESS: {"to_address": "to_addr", "from_address": "from_addr"},
+            EnricherType.COIN_VALUE: {"value": "display_value"},
+        },
+        session,
+    )
+    data = [InternalTransactionItem(**tx) for tx in enriched_transactions]
 
     return InternalTransactionResponse(
-        data=enricher.enrich(
-            transactions, InternalTransactionItem, {"contract": lambda x: [x.from_address, x.to_address]}
-        ),
+        data=data,
         total=total_count,
         max_display=min(total_count, settings.MAX_INTERNAL_TRANSACTION),
         page=page,
@@ -210,6 +185,7 @@ class TransactionFilterParams:
 @router.get("/v1/explorer/transactions", response_model=TransactionResponse)
 async def get_transactions(
     session: ReadSessionDep,
+    enricher: BlockchainEnricherDep,
     page: int = Query(1, gt=0),
     size: int = Query(25, gt=0),
     filters: TransactionFilterParams = Depends(),
@@ -237,10 +213,6 @@ async def get_transactions(
     if page * size > max_limit:
         raise HTTPException(status_code=400, detail=f"Showing the last {max_limit} records only")
 
-    # Get transactions based on filters
-    total_records = 0
-    transactions = []
-
     if filters.block:
         total_records, transactions = _get_transactions_by_block(session, filters.block, page, size)
     elif filters.address:
@@ -249,18 +221,28 @@ async def get_transactions(
         total_records, transactions = _get_transactions_by_date(session, filters.date, page, size)
     else:
         # Get all transactions with pagination
-        transactions = session.exec(
+        transaction_list = session.exec(
             select(Transactions)
             .order_by(desc(Transactions.block_number), desc(Transactions.transaction_index))
             .offset((page - 1) * size)
             .limit(size)
         ).all()
-        total_records = _calculate_total_records(session, transactions, page, size)
 
-    fill_price_to_transactions(session, transactions)
+        total_records = _calculate_total_records(session, transaction_list, page, size)
+        transactions = [TransactionAbbr.from_db_model(tx) for tx in transaction_list]
+
+    enriched_transactions = enricher.enrich(
+        [transaction.dict() for transaction in transactions],
+        {
+            EnricherType.ADDRESS: {"to_address": "to_addr", "from_address": "from_addr"},
+            EnricherType.COIN_VALUE: {"value": "display_value"},
+            EnricherType.COIN_PRICE: {"transaction_fee": "transaction_fee_usd", "display_value": "value_usd"},
+        },
+        session,
+    )
 
     return TransactionResponse(
-        data=[TransactionItem(**tx) for tx in transactions],
+        data=[TransactionItem(**tx) for tx in enriched_transactions],
         total=total_records,
         max_display=min(max_limit, total_records),
         page=page,
@@ -270,7 +252,7 @@ async def get_transactions(
 
 def _get_transactions_by_block(
     session: ReadSessionDep, block: str, page: int, size: int
-) -> Tuple[int, List[Transactions]]:
+) -> Tuple[int, List[TransactionAbbr]]:
     """Get transactions by block number or hash
 
     Args:
@@ -280,7 +262,7 @@ def _get_transactions_by_block(
         size: Items per page
 
     Returns:
-        Tuple[int, List[Transactions]]: Total count and list of transactions
+        Tuple[int, List[TransactionAbbr]]: Total count and list of transactions
     """
     if block.isnumeric():
         # Query by block number
@@ -297,7 +279,7 @@ def _get_transactions_by_block(
             .limit(size)
         ).all()
 
-        return chain_block.transactions_count, transactions
+        return chain_block.transactions_count, [TransactionAbbr.from_db_model(tx) for tx in transactions]
     else:
         # Query by block hash
         block_hash = hex_str_to_bytes(block)
@@ -313,12 +295,12 @@ def _get_transactions_by_block(
             .limit(size)
         ).all()
 
-        return chain_block.transactions_count, transactions
+        return chain_block.transactions_count, [TransactionAbbr.from_db_model(tx) for tx in transactions]
 
 
 def _get_transactions_by_address(
     session: ReadSessionDep, address: str, page: int, size: int
-) -> Tuple[int, List[Transactions]]:
+) -> Tuple[int, List[TransactionAbbr]]:
     """Get transactions by address
 
     Args:
@@ -328,22 +310,12 @@ def _get_transactions_by_address(
         size: Items per page
 
     Returns:
-        Tuple[int, List[Transactions]]: Total count and list of transactions
+        Tuple[int, List[TransactionAbbr]]: Total count and list of transactions
     """
-    address_bytes = hex_str_to_bytes(address.lower())
-    address_condition = or_(Transactions.from_address == address_bytes, Transactions.to_address == address_bytes)
-
-    total_records = session.exec(select(func.count()).select_from(Transactions).where(address_condition)).first()
-
-    transactions = session.exec(
-        select(Transactions)
-        .where(address_condition)
-        .order_by(desc(Transactions.block_number), desc(Transactions.block_timestamp))
-        .offset((page - 1) * size)
-        .limit(size)
-    ).all()
-
-    return total_records, transactions
+    return (
+        get_transactions_count_by_address(session, address, use_address_index=True),
+        get_transactions_by_address(session, address, use_address_index=True, limit=size, offset=(page - 1) * size),
+    )
 
 
 def _get_transactions_by_date(
@@ -365,18 +337,13 @@ def _get_transactions_by_date(
     end_time = start_time + timedelta(days=1)
 
     date_condition = and_(Transactions.block_timestamp >= start_time, Transactions.block_timestamp < end_time)
-
-    total_records = session.exec(select(func.count()).select_from(Transactions).where(date_condition)).first()
-
-    transactions = session.exec(
-        select(Transactions)
-        .where(date_condition)
-        .order_by(desc(Transactions.block_number), desc(Transactions.block_timestamp))
-        .offset((page - 1) * size)
-        .limit(size)
-    ).all()
-
-    return total_records, transactions
+    transactions, total_count = get_transactions_and_total_count_by_condition(
+        session,
+        filter_condition=date_condition,
+        limit=size,
+        offset=(page - 1) * size,
+    )
+    return total_count, transactions
 
 
 def _calculate_total_records(session: ReadSessionDep, transactions: List[Transactions], page: int, size: int) -> int:
@@ -422,7 +389,7 @@ async def verify_transaction_hash(
     """
     tx_hash = valid_hash(tx_hash)
     if not tx_hash:
-        raise HTTPException(status_code=400, detail="Invalid transaction hash format")
+        raise HTTPException(status_code=422, detail="Invalid transaction hash format")
     return tx_hash
 
 
@@ -445,7 +412,7 @@ async def get_transaction_detail(session: ReadSessionDep, tx_hash: TransactionHa
     pass
 
 
-@router.get("/v1/explorer/transaction/{tx_hash}/logs", response_model=TransactionLogsResponse)
+@router.get("/v1/explorer/transaction/{tx_hash}/logs", response_model=LogResponse)
 async def get_transaction_logs(session: ReadSessionDep, tx_hash: TransactionHashDep):
     """Get all logs for a specific transaction.
 
@@ -458,15 +425,16 @@ async def get_transaction_logs(session: ReadSessionDep, tx_hash: TransactionHash
     """
 
     logs = get_logs_by_hash(session, tx_hash)
-    logs_with_contract_info = fill_extra_contract_info_to_logs(session, log_json)
-    return TransactionLogsResponse(
-        logs_with_contract_info,
-        total=len(logs_with_contract_info),
+    return LogResponse(
+        logs,
+        total=len(logs),
     )
 
 
-@router.get("/v1/explorer/transaction/{tx_hash}/token_transfers", response_model=TokenTransfersResponse)
-async def get_transaction_token_transfers(session: ReadSessionDep, tx_hash: TransactionHashDep):
+@router.get("/v1/explorer/transaction/{tx_hash}/token_transfers", response_model=TokenTransferResponse)
+async def get_transaction_token_transfers(
+    session: ReadSessionDep, enricher: BlockchainEnricherDep, tx_hash: TransactionHashDep
+):
     """Get all token transfers (ERC20, ERC721, ERC1155) for a specific transaction.
 
     Args:
@@ -478,63 +446,24 @@ async def get_transaction_token_transfers(session: ReadSessionDep, tx_hash: Tran
     """
     # Validate and format hash
     token_transfers = get_token_transfers_by_hash(session, tx_hash)
-    address_set = set()
-    for transfer in token_transfers:
-        address_set.add(transfer.from_address)
-        address_set.add(transfer.to_address)
-    address_display_map = get_address_display_mapping(session, list(address_set))
 
-    tokens = get_tokens_by_token_address(session, [t.token_address for t in token_transfers])
-    token_map = {t.address: t for t in tokens}
+    enriched_token_transfers = enricher.enrich(
+        [token_transfer.dict() for token_transfer in token_transfers],
+        {
+            EnricherType.ADDRESS: {"to_address": "to_addr", "from_address": "from_addr"},
+            EnricherType.TOKEN_INFO: {"token_address": "token_info"},
+            EnricherType.TOKEN_VALUE: {"value": "display_value"},
+        },
+        session,
+    )
 
-    def convert_transfer(transfer_obj, token_map):
-        item = transfer_obj.model_dump()
-        token_address = transfer_obj.token_address
-        token = token_map.get(token_address)
-        if token:
-            token_info = {
-                "token_name": token_map.get(token_address).name,
-                "token_address": token_address,
-                "token_symbol": token_map.get(token_address).symbol,
-                "token_logo_url": token_map.get(token_address).icon_url,
-            }
-        else:
-            token_info = {
-                "token_name": None,
-                "token_address": token_address,
-                "token_symbol": None,
-                "token_logo_url": None,
-            }
-        for key, value in item.items():
-            if isinstance(value, bytes):
-                item[key] = bytes_to_hex_str(value)
-        item.update(
-            {
-                "token": token_info,
-                "from_address_display": address_display_map.get(transfer_obj.from_address),
-                "to_address_display": address_display_map.get(transfer_obj.to_address),
-                "value": format_coin_value(
-                    transfer_obj.value,
-                    (
-                        token_map.get(transfer_obj.token_address).decimals
-                        if token_map.get(transfer_obj.token_address)
-                        else 18
-                    ),
-                ),
-                "token_id": str(transfer_obj.token_id) if transfer_obj.token_id else None,
-            }
-        )
-        return item
-
-    transfer_items = [convert_transfer(t, token_map) for t in token_transfers]
-
-    return TokenTransfersResponse(
-        total=len(transfer_items), data=[TokenTransferItem(**item) for item in transfer_items]
+    return TokenTransferResponse(
+        total=len(enriched_token_transfers), data=[TokenTransferItem(**item) for item in enriched_token_transfers]
     )
 
 
 @router.get("/v1/explorer/transaction/{tx_hash}/internal_transactions", response_model=InternalTransactionResponse)
-async def get_transaction_internal_transactions(session: ReadSessionDep, tx_hash: str):
+async def get_transaction_internal_transactions(session: ReadSessionDep, enricher: BlockchainEnricherDep, tx_hash: str):
     """Get internal transactions for a specific transaction.
 
     Args:
@@ -546,17 +475,39 @@ async def get_transaction_internal_transactions(session: ReadSessionDep, tx_hash
     """
     internal_transactions = get_internal_transactions_by_hash(session, tx_hash)
 
-    fill_is_contract_to_transactions(session, internal_transactions)
-    fill_address_display_to_transactions(session, internal_transactions)
+    enriched_transactions = enricher.enrich(
+        [transaction.dict() for transaction in internal_transactions],
+        {
+            EnricherType.ADDRESS: {"to_address": "to_addr", "from_address": "from_addr"},
+            EnricherType.COIN_VALUE: {"value": "display_value"},
+        },
+        session,
+    )
+    data = [InternalTransactionItem(**tx) for tx in enriched_transactions]
 
     return InternalTransactionResponse(
-        data=[InternalTransactionItem(**tx) for tx in internal_transactions],
-        total=len(internal_transactions),
+        data=data,
+        total=len(data),
     )
 
 
 @router.get("/v1/explorer/transaction/{tx_hash}/traces", response_model=TransactionTracesResponse)
-async def get_transaction_traces(session: ReadSessionDep, tx_hash: str):
+async def get_transaction_traces(session: ReadSessionDep, enricher: BlockchainEnricherDep, tx_hash: str):
+    """Get detailed trace information for a transaction.
+
+    Args:
+        session: Database session
+        tx_hash: Transaction hash in hex format
+
+    Raises:
+        HTTPException: If invalid hash format or trace not found
+    """
+    # Validate and format hash
+    pass
+
+
+@router.get("/v1/explorer/transaction/{tx_hash}/trace_json", response_model=TransactionTraceJsonResponse)
+async def get_transaction_traces(session: ReadSessionDep, enricher: BlockchainEnricherDep, tx_hash: str):
     """Get detailed trace information for a transaction.
 
     Args:

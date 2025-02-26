@@ -7,14 +7,10 @@
 
 import pytest
 
-from hemera.app.api.routes.helper.log import _get_logs_by_hash, fill_extra_contract_info_to_logs
 from hemera.app.api.routes.helper.transaction import *
 from hemera.app.api.routes.helper.transaction import _get_transaction_by_hash
-from hemera.common.models.contracts import Contracts
-from hemera.common.models.logs import Logs
 from hemera.common.models.transactions import Transactions
 from hemera.common.utils.format_utils import hex_str_to_bytes
-from hemera_udf.stats.models.daily_transactions_stats import DailyTransactionsStats
 
 
 @pytest.fixture

@@ -12,15 +12,15 @@ import pytest
 from sqlmodel import Session, asc, desc
 
 from hemera.app.api.routes.helper.internal_transaction import (
+    _get_internal_transactions_by_address_native,
     get_internal_transactions_by_address,
-    get_internal_transactions_by_address_native,
     get_internal_transactions_by_address_using_address_index,
     get_internal_transactions_count_by_address,
     get_internal_transactions_count_by_address_native,
     get_internal_transactions_count_by_address_using_address_index,
 )
 from hemera.common.enumeration.txn_type import InternalTransactionType
-from hemera.common.models.address import AddressInternalTransactions
+from hemera.common.models.address.address_internal_transaciton import AddressInternalTransactions
 from hemera.common.models.traces import ContractInternalTransactions
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
@@ -187,7 +187,7 @@ def test_invalid_address_format(session: Session):
 # Tests for get_internal_transactions_by_address
 def test_get_internal_transactions_by_address_both(session: Session, sample_contract_txns):
     """Test getting transactions from both directions using contract table"""
-    result = get_internal_transactions_by_address_native(session=session, address=TEST_ADDRESS, direction="both")
+    result = _get_internal_transactions_by_address_native(session=session, address=TEST_ADDRESS, direction="both")
 
     assert len(result) == 5
     # Check if transactions are ordered by block number desc
@@ -202,7 +202,7 @@ def test_get_internal_transactions_by_address_both(session: Session, sample_cont
 
 def test_get_internal_transactions_by_address_from(session: Session, sample_contract_txns):
     """Test getting only from transactions using contract table"""
-    result = get_internal_transactions_by_address_native(session=session, address=TEST_ADDRESS, direction="from")
+    result = _get_internal_transactions_by_address_native(session=session, address=TEST_ADDRESS, direction="from")
 
     assert len(result) == 3
     assert all(tx.from_address == hex_str_to_bytes(TEST_ADDRESS) for tx in result)
@@ -210,7 +210,7 @@ def test_get_internal_transactions_by_address_from(session: Session, sample_cont
 
 def test_get_internal_transactions_by_address_to(session: Session, sample_contract_txns):
     """Test getting only to transactions using contract table"""
-    result = get_internal_transactions_by_address_native(session=session, address=TEST_ADDRESS, direction="to")
+    result = _get_internal_transactions_by_address_native(session=session, address=TEST_ADDRESS, direction="to")
 
     assert len(result) == 2
     assert all(tx.to_address == hex_str_to_bytes(TEST_ADDRESS) for tx in result)
@@ -218,7 +218,7 @@ def test_get_internal_transactions_by_address_to(session: Session, sample_contra
 
 def test_get_internal_transactions_by_address_columns(session: Session, sample_contract_txns):
     """Test getting specific columns from contract table"""
-    result = get_internal_transactions_by_address_native(
+    result = _get_internal_transactions_by_address_native(
         session=session, address=TEST_ADDRESS, columns=["block_number", "transaction_hash"]
     )
 
@@ -233,7 +233,7 @@ def test_get_internal_transactions_by_address_columns(session: Session, sample_c
 
 def test_get_internal_transactions_by_address_pagination(session: Session, sample_contract_txns):
     """Test pagination in contract table query"""
-    result = get_internal_transactions_by_address_native(session=session, address=TEST_ADDRESS, limit=2, offset=1)
+    result = _get_internal_transactions_by_address_native(session=session, address=TEST_ADDRESS, limit=2, offset=1)
 
     assert len(result) == 2
     assert result[0].block_number == 1003  # Based on test data setup

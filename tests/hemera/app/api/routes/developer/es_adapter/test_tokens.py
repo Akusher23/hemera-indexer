@@ -17,6 +17,7 @@ from hemera.app.api.routes.developer.es_adapter.helper import (
     token_holder_list,
     token_info,
 )
+from hemera.common.enumeration.token_type import TokenType
 from hemera.common.models.current_token_balances import CurrentTokenBalances
 from hemera.common.models.token_balances import AddressTokenBalances
 from hemera.common.models.token_details import ERC721TokenIdDetails
@@ -169,16 +170,18 @@ def test_stats_token_supply(session: Session, sample_token_data):
 
 def test_account_token_balance(session: Session, sample_token_data):
     """Test getting the token balance for an address."""
-    result = account_token_balance(session, sample_token_data["erc20_contract"], sample_token_data["address"], "ERC20")
+    result = account_token_balance(
+        session, sample_token_data["erc20_contract"], sample_token_data["address"], TokenType.ERC20
+    )
     assert result == "1500"  # ERC20 balance for address is 1500 (latest block balance)
 
     result = account_token_balance(
-        session, sample_token_data["erc721_contract"], sample_token_data["address"], "ERC721"
+        session, sample_token_data["erc721_contract"], sample_token_data["address"], TokenType.ERC721
     )
     assert result == "5"  # ERC721 balance for address is 5 (token_id=1)
 
     result = account_token_balance(
-        session, sample_token_data["erc1155_contract"], sample_token_data["address"], "ERC1155", 2
+        session, sample_token_data["erc1155_contract"], sample_token_data["address"], TokenType.ERC1155, 2
     )
     assert result == "10"  # ERC1155 balance for address is 10 (token_id=2)
 
@@ -204,16 +207,18 @@ def test_account_token_balance_with_block_number(session: Session, sample_token_
 def test_current_account_token_balance(session: Session, sample_token_data):
     """Test getting current token balance (latest block number)."""
     # The latest block for ERC20 has a balance of 1500
-    result = account_token_balance(session, sample_token_data["erc20_contract"], sample_token_data["address"], "ERC20")
+    result = account_token_balance(
+        session, sample_token_data["erc20_contract"], sample_token_data["address"], TokenType.ERC20
+    )
     assert result == "1500"  # Latest balance from CurrentTokenBalances for ERC20
 
     result = account_token_balance(
-        session, sample_token_data["erc721_contract"], sample_token_data["address"], "ERC721", -1
+        session, sample_token_data["erc721_contract"], sample_token_data["address"], TokenType.ERC721, -1
     )
     assert result == "5"  # Latest balance for ERC721 token
 
     result = account_token_balance(
-        session, sample_token_data["erc1155_contract"], sample_token_data["address"], "ERC1155", 2
+        session, sample_token_data["erc1155_contract"], sample_token_data["address"], TokenType.ERC1155, 2
     )
     assert result == "10"  # Latest balance for ERC1155 token
 

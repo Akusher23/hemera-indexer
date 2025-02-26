@@ -7,7 +7,7 @@ from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel, delete
 
 from hemera.app.main import app
-from hemera.common.models.address import AddressInternalTransactions
+from hemera.common.models.address.address_internal_transaciton import AddressInternalTransactions
 from hemera.common.models.blocks import Blocks
 from hemera.common.models.contracts import Contracts
 from hemera.common.models.tokens import Tokens

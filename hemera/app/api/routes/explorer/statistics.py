@@ -17,10 +17,11 @@ from fastapi import APIRouter, Query
 from pydantic import BaseModel
 from sqlmodel import Session, func, select
 
+from hemera.app.api.deps import ReadSessionDep
+from hemera.common.models.address.stats.address_index_stats import AddressIndexStats
 from hemera.common.models.contracts import Contracts
 from hemera.common.models.transactions import Transactions
 from hemera.common.utils.format_utils import bytes_to_hex_str
-from hemera_udf.address_index.models.address_index_stats import AddressIndexStats
 
 router = APIRouter(tags=["statistics"])
 
@@ -47,7 +48,9 @@ class RankListResponse(BaseModel):
 
 
 @router.get("/v1/explorer/statistics/contract/ranks", response_model=RankListResponse)
-async def get_contract_ranks(session: Session, statistics: ContractStatisticsType, limit: int = Query(10, le=100)):
+async def get_contract_ranks(
+    session: ReadSessionDep, statistics: ContractStatisticsType, limit: int = Query(10, le=100)
+):
     """Get contract statistics rankings.
 
     Args:
@@ -84,7 +87,7 @@ async def get_contract_ranks(session: Session, statistics: ContractStatisticsTyp
 
 
 @router.get("/v1/explorer/statistics/address/ranks", response_model=RankListResponse)
-async def get_address_ranks(session: Session, statistics: AddressStatisticsType, limit: int = Query(10, le=100)):
+async def get_address_ranks(session: ReadSessionDep, statistics: AddressStatisticsType, limit: int = Query(10, le=100)):
     """Get address statistics rankings."""
     one_day_ago = datetime.now() - timedelta(days=1)
 

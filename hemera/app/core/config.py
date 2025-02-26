@@ -114,6 +114,7 @@ class Settings(BaseModel):
     MAX_INTERNAL_TRANSACTION: int = 10000
     MAX_TRANSACTION_WITH_CONDITION: int = 10000
     MAX_TRANSACTION: int = 10000
+    PAGE_SIZE: int = 10
 
     class Config:
         env_file = ".env"

@@ -430,7 +430,7 @@ def check_transaction_receipt_status(session: Session, txn_hash: str) -> Optiona
 # (P0)Get Event Logs by Address filtered by Topics
 
 
-class LogResponse(BaseModel):
+class APILogResponse(BaseModel):
     transactionHash: str
     logIndex: str
     address: str
@@ -458,7 +458,7 @@ def get_event_logs(
     page: int = 1,
     offset: int = 10,
     sort_order: str = "desc",
-) -> List[LogResponse]:
+) -> List[APILogResponse]:
     conditions = []
 
     if topic0:
@@ -510,7 +510,7 @@ def get_event_logs(
 
     # Format results
     result = [
-        LogResponse(
+        APILogResponse(
             transactionHash=bytes_to_hex_str(log.transaction_hash) or "",
             logIndex=str(log.log_index),
             address=bytes_to_hex_str(log.address) or "",
@@ -1014,14 +1014,6 @@ def stats_daily_average_block_time(
     ]
 
 
-# Get Historical ERC20-Token TotalSupply by ContractAddress & BlockNo (TODO)
-# Get Address ERC721 Token Inventory By Contract Address (TODO)
-# Get Daily Average Network Hash Rate (TODO)
-# Get Daily Average Network Difficulty (TODO)
-# Get Ether Historical Daily Market Cap (TODO)
-# Get Ether Historical Price (TODO)
-
-
 # Get Contract ABI for Verified Contract Source Codes
 def get_contract_abi(session: Session, contract_address):
     if not contract_address:
@@ -1124,3 +1116,11 @@ def get_contract_source_code(session: Session, contract_address: str):
     ]
 
     return output_data
+
+
+# Get Historical ERC20-Token TotalSupply by ContractAddress & BlockNo (TODO)
+# Get Address ERC721 Token Inventory By Contract Address (TODO)
+# Get Daily Average Network Hash Rate (TODO)
+# Get Daily Average Network Difficulty (TODO)
+# Get Ether Historical Daily Market Cap (TODO)
+# Get Ether Historical Price (TODO)

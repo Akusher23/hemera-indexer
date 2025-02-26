@@ -4,13 +4,24 @@
 # @Author  ideal93
 # @File  token.py
 # @
+import datetime
 from enum import Enum
 from typing import List, Optional
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from pydantic import BaseModel
 from sqlmodel import Session, and_, desc, func, nullslast, select
 
+from hemera.app.api.deps import ReadSessionDep
+from hemera.app.api.routes.enricher import BlockchainEnricherDep
+from hemera.app.api.routes.enricher.address_enricher import Address, EnricherType
+from hemera.app.api.routes.helper.token import TokenInfo
+from hemera.app.api.routes.helper.token_transfers import (
+    TokenTransferAbbr,
+    get_token_transfers,
+    get_token_transfers_by_token_address,
+)
+from hemera.app.api.routes.parameters.validate_address import is_eth_address
 from hemera.app.core.config import settings
 from hemera.app.models import SortOrder
 from hemera.common.enumeration.token_type import TokenType
@@ -89,10 +100,22 @@ class TokenListResponse(BaseModel):
     data: List[TokenResponse]
 
 
+class TokenTransferItem(TokenTransferAbbr):
+    token_info: Optional[TokenInfo] = None
+    display_value: Optional[str]
+    from_addr: Optional[Address]
+    to_addr: Optional[Address]
+
+
+class TokenTransferResponse(BaseModel):
+    total: int
+    data: List[TokenTransferItem]
+
+
 # API Endpoints
 @router.get("/v1/explorer/tokens", response_model=TokenListResponse)
-async def get_tokens(
-    session: Session,
+async def api_get_tokens(
+    session: ReadSessionDep,
     page: int = Query(1, gt=0),
     size: int = Query(25, gt=0),
     type: TokenType = Query(...),
@@ -171,7 +194,7 @@ async def get_tokens(
 
 
 @router.get("/v1/explorer/token/{address}/profile", response_model=TokenProfileResponse)
-async def get_token_profile(session: Session, address: str):
+async def api_get_token_profile(session: ReadSessionDep, address: str):
     """Get detailed profile information for a token."""
     token = session.exec(select(Tokens).where(Tokens.address == hex_str_to_bytes(address.lower()))).first()
     if not token:
@@ -214,8 +237,8 @@ async def get_token_profile(session: Session, address: str):
 
 
 @router.get("/v1/explorer/token/{token_address}/top_holders", response_model=TokenHoldersResponse)
-async def get_token_top_holders(
-    session: Session, token_address: str, page: int = Query(1, gt=0), size: int = Query(settings.PAGE_SIZE, gt=0)
+async def api_get_token_top_holders(
+    session: ReadSessionDep, token_address: str, page: int = Query(1, gt=0), size: int = Query(settings.PAGE_SIZE, gt=0)
 ):
     """Get top holders for a specific token."""
     if page <= 0 or size <= 0:
@@ -250,3 +273,51 @@ async def get_token_top_holders(
     ).one()
 
     return {"data": holder_list, "total": total_count}
+
+
+class TokenTransfersFilterParams:
+    def __init__(
+        self,
+        token_address: Optional[str] = Query(
+            None, description="Token contract address for filtering transfers by a specific token"
+        ),
+        type: TokenType = Query(TokenType.ERC20, description="Token type, e.g., ERC20, ERC721, or ERC1155"),
+    ):
+        self.token_address = token_address
+        self.type = type
+        self._validate_filters()
+
+    def _validate_filters(self):
+        if self.token_address and not is_eth_address(self.token_address):
+            raise HTTPException(status_code=400, detail="Invalid token address")
+
+
+@router.get("/v1/explorer/token_transfers", response_model=TokenTransferResponse)
+async def api_get_token_transfers(
+    session: ReadSessionDep,
+    enricher: BlockchainEnricherDep,
+    page: int = Query(1, gt=0),
+    size: int = Query(settings.PAGE_SIZE, gt=0),
+    filters: TokenTransfersFilterParams = Depends(),
+):
+    if filters.token_address:
+        token_transfers = get_token_transfers_by_token_address(
+            session, filters.token_address, token_type=filters.type.value, limit=size, offset=(page - 1) * size
+        )
+    else:
+        token_transfers = get_token_transfers(
+            session, None, token_type=filters.type.value, limit=size, offset=(page - 1) * size
+        )
+
+    enriched_token_transfers = enricher.enrich(
+        [token_transfer.dict() for token_transfer in token_transfers],
+        {
+            EnricherType.ADDRESS: {"to_address": "to_addr", "from_address": "from_addr"},
+            EnricherType.TOKEN_INFO: {"token_address": "token_info"},
+        },
+        session,
+    )
+
+    return TokenTransferResponse(
+        total=len(enriched_token_transfers), data=[TokenTransferItem(**item) for item in enriched_token_transfers]
+    )

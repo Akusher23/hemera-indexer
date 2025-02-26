@@ -75,7 +75,7 @@ def test_account_balance(client, sample_coin_balance, session):
 def test_account_balancemulti(client, sample_coin_balance, session):
     """Test fetching balance for multiple addresses"""
     addresses = [f"0x{0:040x}", f"0x{1:040x}", f"0x{3:040x}"]
-    balances = account_balancemulti(session, None, addresses)
+    balances = account_balancemulti(session, addresses=addresses, tag=None)
 
     assert len(balances) == 3
     assert balances[0].balance == 1000000  # address 0

@@ -14,7 +14,7 @@ from pydantic import conint, constr, model_validator, validator
 from hemera.app.api.deps import ReadSessionDep
 from hemera.app.api.routes.developer.es_adapter.helper import *
 
-router = APIRouter(tags=["developer_api"])
+router = APIRouter(tags=["DEVELOPER"])
 
 
 def limit_address_validator(value: Optional[str]) -> Optional[str]:

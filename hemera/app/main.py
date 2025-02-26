@@ -10,10 +10,10 @@ from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
 from hemera.app.api.routes.developer.es_adapter.router import router as developer_router
-
-# from hemera.app.api.routes.explorer.base import router as base_router
-# from hemera.app.api.routes.explorer.block import router as block_router
-# from hemera.app.api.routes.explorer.transaction import router as transaction_router
+from hemera.app.api.routes.explorer.base import router as base_router
+from hemera.app.api.routes.explorer.block import router as block_router
+from hemera.app.api.routes.explorer.export import router as export_router
+from hemera.app.api.routes.explorer.transaction import router as transaction_router
 
 app = FastAPI(
     title="Hemera Explorer API",
@@ -23,10 +23,11 @@ app = FastAPI(
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
-# app.include_router(block_router)
-# app.include_router(base_router)
-# app.include_router(transaction_router)
+app.include_router(block_router)
+app.include_router(base_router)
+app.include_router(transaction_router)
 app.include_router(developer_router)
+app.include_router(export_router)
 
 
 def serialize_errors(errors):

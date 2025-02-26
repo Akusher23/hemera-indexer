@@ -63,7 +63,7 @@ class DecodedInputData(BaseModel):
     dec_data: str
 
 
-class ContractInfo(BaseModel):
+class ContractFunctionInfo(BaseModel):
     address_display_name: Optional[str] = None
     function_name: Optional[str] = None
     full_function_name: Optional[str] = None
@@ -71,14 +71,14 @@ class ContractInfo(BaseModel):
     input_data: List[DecodedInputData] = []
 
 
-class LogItem(LogDetails, ContractInfo):
-    def __init__(self, log_details: LogDetails, contract_info: ContractInfo):
+class LogItem(LogDetails, ContractFunctionInfo):
+    def __init__(self, log_details: LogDetails, contract_info: ContractFunctionInfo):
         """
         Initialize LogItem by combining LogDetails and ContractInfo.
 
         Args:
             log_details (LogDetails): The LogDetails instance.
-            contract_info (ContractInfo): The ContractInfo instance.
+            contract_info (ContractFunctionInfo): The ContractInfo instance.
         """
         combined_data = {**log_details.dict(), **contract_info.dict()}
         super().__init__(**combined_data)
@@ -188,96 +188,3 @@ def get_logs_by_address(session: Session, address: str, limit: int = 25, offset:
     """
     logs = _get_logs_by_address(session, address, "*", limit, offset)
     return [LogDetails.from_db_model(log) for log in logs]
-
-
-def fill_extra_contract_info_to_logs(session: Session, log_list: List[LogDetails] = None) -> List[LogItem]:
-    """Fill address display names to log entries
-
-    Args:
-        session: SQLModel session
-        log_list: List of log dictionaries to enrich
-    Returns:
-        List[LogItem]: List of logs with contract info
-    """
-    contract_topic_list = []
-    count_non_none = lambda x: 0 if x is None else 1
-    for log in log_list:
-        indexed_true_count = sum(count_non_none(topic) for topic in [log["topic1"], log["topic2"], log["topic3"]])
-        contract_topic_list.append((log["address"], log["topic0"], indexed_true_count))
-    # Get method list by transaction_method_list
-    if extra_contract_service:
-        address_sign_contract_abi_dict = extra_contract_service.get_abis_for_logs(contract_topic_list)
-    else:
-        address_sign_contract_abi_dict = {}
-    for log_json in log_list:
-        # Continue loop if 'topic0' is missing or has a falsy/empty value
-        if not log_json.get("topic0"):
-            continue
-        # Set method id
-        topic0_value = log_json["topic0"]
-        log_json["method_id"] = topic0_value[0:10]
-
-        event_abi = address_sign_contract_abi_dict.get((log_json["address"], topic0_value))
-        if not event_abi:
-            continue
-        try:
-            event_abi_json = json.loads(event_abi.get("function_abi"))
-            # Get full data types
-            index_data_types = []
-            data_types = []
-
-            # Get full data string
-            index_data_str = ""
-            data_str = log_json["data"][2:]
-
-            for param in event_abi_json["inputs"]:
-                if param["indexed"]:
-                    index_data_types.append(param["type"])
-                    index_data_str += log_json[f"topic{len(index_data_types)}"][2:]
-                else:
-                    data_types.append(param["type"])
-            decoded_index_data, endcoded_index_data = decode_log_data(index_data_types, index_data_str)
-            decoded_data, endcoded_data = decode_log_data(data_types, data_str)
-
-            index_input_data = []
-            input_data = []
-            full_function_name = ""
-            for index in range(len(event_abi_json["inputs"])):
-                param = event_abi_json["inputs"][index]
-                if param["indexed"]:
-                    index_input_data.append(
-                        {
-                            "indexed": param["indexed"],
-                            "name": param["name"],
-                            "data_type": param["type"],
-                            "hex_data": decoded_index_data[len(index_input_data)],
-                            "dec_data": endcoded_index_data[len(index_input_data)],
-                        }
-                    )
-                else:
-                    input_data.append(
-                        {
-                            "indexed": param["indexed"],
-                            "name": param["name"],
-                            "data_type": param["type"],
-                            "hex_data": decoded_data[len(input_data)],
-                            "dec_data": endcoded_data[len(input_data)],
-                        }
-                    )
-                if param["indexed"]:
-                    full_function_name += f"index_topic_{index + 1} {param['type']} {param['name']}, "
-                else:
-                    full_function_name += f"{param['type']} {param['name']}, "
-            function_name = event_abi.get("function_name")
-            full_function_name = f"{function_name}({full_function_name[:-2]})"
-            log_json["input_data"] = index_input_data + input_data
-            log_json["function_name"] = function_name
-            log_json["function_unsigned"] = event_abi.get("function_unsigned")
-            log_json["full_function_name"] = full_function_name
-        except Exception as e:
-            log_json["input_data"] = []
-            log_json["function_name"] = ""
-            log_json["function_unsigned"] = ""
-            log_json["full_function_name"] = ""
-            log_json["error"] = str(e)
-    fill_address_display_to_logs(session, log_list)

@@ -41,12 +41,11 @@ class Tokens(HemeraModel, table=True):
     cmc_slug: Optional[str] = Field(default=None)
     gecko_id: Optional[str] = Field(default=None)
     description: Optional[str] = Field(default=None)
-    no_balance_of = Column(BOOLEAN, default=False)
-    fail_balance_of_count = Column(INTEGER, default=0)
-    succeed_balance_of_count = Column(INTEGER, default=0)
-    no_total_supply = Column(BOOLEAN, default=False)
-    fail_total_supply_count = Column(BOOLEAN, default=0)
-
+    no_balance_of: bool = Field(default=False)
+    fail_balance_of_count: Optional[int] = Field(default=0)
+    succeed_balance_of_count: Optional[int] = Field(default=0)
+    no_total_supply: bool = Field(default=False)
+    fail_total_supply_count: Optional[int] = Field(default=0)
 
     # Metadata
     create_time: datetime = Field(
