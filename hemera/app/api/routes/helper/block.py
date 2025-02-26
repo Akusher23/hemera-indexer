@@ -5,17 +5,16 @@
 # @File  block_utils.py.py
 # @Brief
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, List, Optional, Union
 
 from psycopg2._psycopg import Column
 from pydantic import BaseModel
-from sqlmodel import Session, and_
+from sqlmodel import Session, and_, func, select
 
 from hemera.app.api.routes.helper import process_columns
 from hemera.app.utils import ColumnType
 from hemera.common.models.blocks import Blocks
-from hemera.common.models.logs import Logs
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 
 
@@ -94,6 +93,39 @@ class BlockDetails(BlockAbbr):
 
 def _process_columns(columns: ColumnType):
     return process_columns(Blocks, columns)
+
+
+def get_block_count(session: Session, duration: timedelta) -> int:
+    """
+    Calculate the number of blocks within the specified duration (up to 1 hour)
+    based on the latest block_timestamp in the Blocks table.
+
+    Args:
+        session (Session): SQLModel session object.
+        duration (timedelta): Time duration for which to calculate the block count,
+                              must not exceed 1 hour.
+
+    Returns:
+        int: Number of blocks within the specified time duration.
+
+    Raises:
+        ValueError: If the provided duration exceeds 1 hour.
+    """
+    if duration > timedelta(hours=1):
+        raise ValueError("duration must not exceed 1 hour")
+
+    # Retrieve the latest block_timestamp from the Blocks table
+    latest_time_stmt = select(func.max(Blocks.timestamp))
+    latest_time = session.exec(latest_time_stmt).one()
+    if latest_time is None:
+        return 0
+
+    start_time = latest_time - duration
+
+    # Count blocks with block_timestamp greater than or equal to start_time
+    block_count_stmt = select(func.count()).where(Blocks.timestamp >= start_time)
+    block_count = session.exec(block_count_stmt).one()
+    return block_count
 
 
 def _get_last_block(session: Session, columns: ColumnType = "*") -> Optional[Blocks]:

@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Any, List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlmodel import Session, and_, desc, func, or_, select
 from typing_extensions import Literal
 
@@ -151,9 +151,100 @@ def _process_address_columns(columns: ColumnType):
     return process_columns(AddressTransactions, columns)
 
 
+class GasStats(BaseModel):
+    gas_price_avg: float = Field(None, description="Average gas price")
+    gas_price_max: float = Field(None, description="Maximum gas price")
+    gas_price_min: float = Field(None, description="Minimum gas price")
+    gas_fee_avg: float = Field(None, description="Average gas fee")
+    gas_fee_max: float = Field(None, description="Maximum gas fee")
+    gas_fee_min: float = Field(None, description="Minimum gas fee")
+
+
+def get_gas_stats(session: Session, duration: timedelta) -> GasStats:
+    """
+    Calculate the average, maximum, and minimum values of gas_price and gas_fee (i.e. gas_price * receipt_cumulative_gas_used)
+    within the specified duration (up to 1 hour) based on the latest block_timestamp in the database.
+
+    Args:
+        session (Session): SQLModel session object.
+        duration (timedelta): Time duration for which to calculate the metrics, must not exceed 1 hour.
+
+    Returns:
+        GasStats: A Pydantic model instance containing the aggregated values for gas_price and gas_fee.
+
+    Raises:
+        ValueError: If the provided duration exceeds 1 hour.
+    """
+    if duration > timedelta(hours=1):
+        raise ValueError("duration must not exceed 1 hour")
+
+    # Retrieve the latest block_timestamp from the Transactions table
+    latest_time_stmt = select(func.max(Transactions.block_timestamp))
+    latest_time = session.exec(latest_time_stmt).one()
+    if latest_time is None:
+        # Return a GasStats instance with None for all values if there is no data in the database
+        return GasStats()
+
+    start_time = latest_time - duration
+
+    # Construct the SQL statement to calculate aggregated metrics for gas_price and gas_fee
+    stmt = select(
+        func.avg(Transactions.gas_price),
+        func.max(Transactions.gas_price),
+        func.min(Transactions.gas_price),
+        func.avg(Transactions.gas_price * Transactions.receipt_cumulative_gas_used),
+        func.max(Transactions.gas_price * Transactions.receipt_cumulative_gas_used),
+        func.min(Transactions.gas_price * Transactions.receipt_cumulative_gas_used),
+    ).where(Transactions.block_timestamp >= start_time)
+
+    result = session.exec(stmt).one()
+
+    return GasStats(
+        gas_price_avg=result[0],
+        gas_price_max=result[1],
+        gas_price_min=result[2],
+        gas_fee_avg=result[3],
+        gas_fee_max=result[4],
+        gas_fee_min=result[5],
+    )
+
+
+def get_latest_txn_count(session: Session, duration: timedelta) -> int:
+    """
+    Calculate the number of transactions within the specified duration (up to 1 hour)
+    based on the latest block_timestamp in the database.
+
+    Args:
+        session (Session): SQLModel session.
+        duration (timedelta): Time duration for which to calculate the transaction count.
+                              Must not exceed 1 hour.
+
+    Returns:
+        int: Number of transactions within the specified time duration.
+
+    Raises:
+        ValueError: If the provided duration exceeds 1 hour.
+    """
+    if duration > timedelta(hours=1):
+        raise ValueError("duration must not exceed 1 hour")
+
+    # Retrieve the latest block_timestamp from the Transactions table
+    latest_time_stmt = select(func.max(Transactions.block_timestamp))
+    latest_time = session.exec(latest_time_stmt).one()
+    if latest_time is None:
+        return 0
+
+    start_time = latest_time - duration
+
+    # Count transactions with block_timestamp greater than or equal to start_time
+    count_stmt = select(func.count()).where(Transactions.block_timestamp >= start_time)
+    count = session.exec(count_stmt).one()
+    return count
+
+
 def get_total_txn_count(session: Session) -> int:
     """
-    Get the total transaction count, estimating based on last known block date and recent transactions.
+    Get the total transaction count, estimating based on the last known block date and recent transactions.
 
     Args:
         session: SQLModel session
@@ -181,8 +272,11 @@ def get_total_txn_count(session: Session) -> int:
         select(func.count()).select_from(Transactions).where(Transactions.block_timestamp >= ten_minutes_ago)
     ).first()
 
+    # Convert block_date (datetime.date) to datetime.datetime (assuming midnight as the time)
+    block_datetime = datetime.combine(block_date, datetime.min.time())
+
     avg_txn_per_minute = latest_10_min_txn_cnt / 10
-    minutes_since_last_block = int((current_time - block_date).total_seconds() / 60)
+    minutes_since_last_block = int((current_time - block_datetime).total_seconds() / 60)
 
     estimated_txn = int(avg_txn_per_minute * minutes_since_last_block)
 
