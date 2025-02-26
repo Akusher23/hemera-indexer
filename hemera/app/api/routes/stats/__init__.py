@@ -4,12 +4,12 @@
 # @Author  ideal93
 # @File  __init__.py.py
 # @Brief
-from datetime import timedelta
+from datetime import date, datetime, timedelta
 from typing import List
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
-from sqlalchemy import desc
+from sqlalchemy import desc, func
 
 from hemera.app.api.deps import ReadSessionDep
 from hemera.app.api.routes.helper.block import get_block_count
@@ -70,12 +70,27 @@ class ECOBoardResponse(BaseModel):
     rank: int
     board_id: str
     block_date: str
+    actual_date: str
     key: str
     count: int
 
 
+time_ranges = {
+    "1d": lambda now: now - timedelta(days=1),
+    "7d": lambda now: now - timedelta(days=7),
+    "30d": lambda now: now - timedelta(days=30),
+    "6m": lambda now: now - timedelta(days=180),
+    "YTD": lambda now: datetime(now.year, 1, 1),
+    "1y": lambda now: now - timedelta(days=365),
+    "all": lambda now: datetime(2020, 1, 1),
+}
+
+
 @router.get("/v1/developer/stats/get_board_data", response_model=List[ECOBoardResponse])
-async def get_board_data(board_id: str, block_date: str, session: ReadSessionDep):
+# get("time_range", "7d")
+async def get_board_data(board_id: str, time_range: str, session: ReadSessionDep):
+    today = date.today()
+    block_date = time_ranges[time_range](today)
     query = (
         session.query(DailyBoardsStats)
         .filter(DailyBoardsStats.board_id == board_id, DailyBoardsStats.block_date == block_date)
@@ -83,11 +98,31 @@ async def get_board_data(board_id: str, block_date: str, session: ReadSessionDep
     )
 
     result = query.all()
+    if not result:
+        # handle missing data
+        closest_block_date = (
+            session.query(DailyBoardsStats.block_date)
+            .filter(DailyBoardsStats.board_id == board_id)
+            .order_by(
+                func.abs(func.date_part("epoch", DailyBoardsStats.block_date) - func.date_part("epoch", block_date))
+            )
+            .limit(1)
+            .scalar()
+        )
+        if not closest_block_date:
+            return []
+        query = (
+            session.query(DailyBoardsStats)
+            .filter(DailyBoardsStats.board_id == board_id, DailyBoardsStats.block_date == closest_block_date)
+            .order_by(desc(DailyBoardsStats.count))
+        )
+        result = query.all()
     data = [
         ECOBoardResponse(
             rank=index + 1,
             board_id=row.board_id,
-            block_date=row.block_date.strftime("%Y-%m-%d"),
+            block_date=block_date.strftime("%Y-%m-%d"),
+            actual_date=row.block_date.strftime("%Y-%m-%d"),
             key=row.key,
             count=row.count,
         )
