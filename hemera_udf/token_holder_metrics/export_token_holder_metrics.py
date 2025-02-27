@@ -317,6 +317,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             metrics.sell_50_timestamp = metrics.block_timestamp
 
         metrics.last_transfer_timestamp = metrics.block_timestamp
+        metrics.last_price = token_price
         if transfer.is_swap:
             metrics.last_swap_timestamp = metrics.block_timestamp
 

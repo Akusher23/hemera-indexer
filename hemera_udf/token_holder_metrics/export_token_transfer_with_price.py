@@ -36,7 +36,7 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
         transfers = self._data_buff[ERC20TokenTransfer.type()]
         token_balance = {}
         for balance in self._data_buff[TokenBalance.type()]:
-            token_balance[f"{balance.token_address}_{balance.address}_{balance.block_number}"] = balance
+            token_balance[f"{balance.token_address}_{balance.address}_{balance.block_number}"] = balance.balance
 
         swaps = self._data_buff[UniswapV2SwapEvent.type()] + self._data_buff[UniswapV3SwapEvent.type()]
         swap_txs = {swap.transaction_hash: swap for swap in swaps}
