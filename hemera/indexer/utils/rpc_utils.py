@@ -1,6 +1,9 @@
+import logging
 import random
 
 from hemera.common.utils.exception_control import RetriableError, decode_response_error
+
+logger = logging.getLogger(__name__)
 
 
 # TODO: Implement fallback mechanism for provider uris instead of picking randomly
@@ -28,6 +31,7 @@ def rpc_response_to_result(response):
             # synced node
             raise RetriableError(error_message)
         elif response.get("error") is not None:
+            logger.error(f"rpc error response: {response}")
             return decode_response_error(response.get("error"))
         else:
             return result

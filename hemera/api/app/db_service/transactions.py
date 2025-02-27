@@ -139,8 +139,9 @@ def get_total_txn_count():
     latest_10_min_txn_cnt = Transactions.query.filter(Transactions.block_timestamp >= ten_minutes_ago).count()
 
     avg_txn_per_minute = latest_10_min_txn_cnt / 10
+    block_date_datetime = datetime.combine(block_date, datetime.min.time())
 
-    minutes_since_last_block = int((current_time - block_date).total_seconds() / 60)
+    minutes_since_last_block = int((current_time - block_date_datetime).total_seconds() / 60)
 
     estimated_txn = int(avg_txn_per_minute * minutes_since_last_block)
 
