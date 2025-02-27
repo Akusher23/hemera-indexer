@@ -56,7 +56,7 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
             decimals = 0
             token = self.tokens.get(transfer.token_address)
             if token:
-                decimals = token.decimals
+                decimals = token["decimals"]
 
             price = self._get_token_dex_price(transfer.token_address, transfer.block_number)
             from_address_balance = token_balance.get(
