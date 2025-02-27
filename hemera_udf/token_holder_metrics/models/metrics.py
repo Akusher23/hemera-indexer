@@ -41,7 +41,7 @@ class TokenHolderMetricsCurrent(HemeraModel):
 
     last_transfer_timestamp = Column(TIMESTAMP)
     last_swap_timestamp = Column(TIMESTAMP)
-
+    last_price = Column(NUMERIC)
     success_sell_count = Column(BIGINT)
     fail_sell_count = Column(BIGINT)
 
@@ -102,6 +102,7 @@ class TokenHolderMetricsHistory(HemeraModel):
 
     last_transfer_timestamp = Column(TIMESTAMP)
     last_swap_timestamp = Column(TIMESTAMP)
+    last_price = Column(NUMERIC)
 
     success_sell_count = Column(BIGINT)
     fail_sell_count = Column(BIGINT)
@@ -141,7 +142,10 @@ class ERC20TokenTransfersWithPrice(HemeraModel):
     token_address = Column(BYTEA)
     value = Column(NUMERIC(100))
     price = Column(NUMERIC)
+    decimals = Column(NUMERIC(100))
     is_swap = Column(BOOLEAN)
+    from_address_balance = Column(NUMERIC(100))
+    to_address_balance = Column(NUMERIC(100))
 
     block_number = Column(BIGINT)
     block_hash = Column(BYTEA, primary_key=True)
