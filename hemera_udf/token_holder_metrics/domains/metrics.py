@@ -63,6 +63,7 @@ class TokenHolderMetricsD(Domain):
     realized_pnl: float = 0.0
     sell_pnl: float = 0.0
     win_rate: float = 0.0
+    pnl_valid: bool = False
 
 
 @dataclass

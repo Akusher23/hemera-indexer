@@ -52,6 +52,20 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         )
         logger.info(f"Filtered non-meme tokens in {time.time() - t2:.2f}s")
 
+        self._block_address_token_values = {}
+        for transfer in transfers:
+            block_number = transfer.block_number
+            from_key = (block_number, transfer.from_address, transfer.token_address)
+            to_key = (block_number, transfer.to_address, transfer.token_address)
+
+            if from_key not in self._block_address_token_values:
+                self._block_address_token_values[from_key] = 0
+            self._block_address_token_values[from_key] -= transfer.value
+
+            if to_key not in self._block_address_token_values:
+                self._block_address_token_values[to_key] = 0
+            self._block_address_token_values[to_key] += transfer.value
+
         t3 = time.time()
         address_token_pairs = set()
         for transfer in transfers:
@@ -212,6 +226,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                             realized_pnl=float(metrics.realized_pnl or 0),
                             sell_pnl=float(metrics.sell_pnl or 0),
                             win_rate=float(metrics.win_rate or 0),
+                            pnl_valid=bool(metrics.pnl_valid or False),
                         )
 
         session.close()
@@ -239,6 +254,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 first_block_timestamp=transfer.block_timestamp,
                 last_swap_timestamp=transfer.block_timestamp,
                 last_transfer_timestamp=transfer.block_timestamp,
+                pnl_valid=False,
             )
 
         metrics = current_metrics[key]
@@ -247,6 +263,26 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
 
         metrics.block_number = transfer.block_number
         metrics.block_timestamp = transfer.block_timestamp
+
+        set_pnl_valid_block_number = 0
+
+        # Check if pnl_valid needs to be updated
+        if not metrics.pnl_valid:
+            # 直接从预计算的map中获取总价值
+            block_key = (transfer.block_number, holder_address, token_address)
+            total_value = self._block_address_token_values.get(block_key, 0)
+
+            # Get the balance from transfer data based on the action
+            transfer_balance = (
+                transfer.from_address_balance if transfer_action == "out" else transfer.to_address_balance
+            )
+
+            # Compare total_value with transfer_balance
+            if (
+                abs(total_value - transfer_balance) < 1e-4 or transfer_balance == 0
+            ):  # Using small epsilon for float comparison
+                metrics.pnl_valid = True
+                set_pnl_valid_block_number = transfer.block_number
 
         # buy
         # update balance
@@ -329,3 +365,11 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 metrics.swap_sell_count += 1
                 metrics.swap_sell_amount += transfer.value
                 metrics.swap_sell_usd += amount_usd
+
+        if not metrics.pnl_valid or metrics.block_number == set_pnl_valid_block_number:
+            metrics.sell_pnl = 0
+            metrics.realized_pnl = 0
+            metrics.success_sell_count = 0
+            metrics.fail_sell_count = 0
+            metrics.win_rate = 0
+            metrics.current_average_buy_price = 0

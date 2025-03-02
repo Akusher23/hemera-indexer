@@ -112,6 +112,7 @@ class TokenHolderMetricsHistory(HemeraModel):
     realized_pnl = Column(NUMERIC)
     sell_pnl = Column(NUMERIC)
     win_rate = Column(NUMERIC)
+    pnl_valid = Column(BOOLEAN)
 
     first_block_timestamp = Column(TIMESTAMP)
 
