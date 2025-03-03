@@ -274,9 +274,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             total_value = self._block_address_token_values.get(block_key, 0)
 
             # Get the balance from transfer data based on the action
-            transfer_balance = (
-                transfer.from_address_balance if transfer_action == "out" else transfer.to_address_balance
-            )
+            transfer_balance = (transfer.from_address_balance if transfer_action == "out" else transfer.to_address_balance) or 0
 
             # Compare total_value with transfer_balance
             if abs(total_value - transfer_balance) < MIN_BALANCE_THRESHOLD or transfer_balance < MIN_BALANCE_THRESHOLD:
