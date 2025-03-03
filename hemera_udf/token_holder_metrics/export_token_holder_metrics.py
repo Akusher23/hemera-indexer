@@ -164,7 +164,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 query = text(
                     f"""
                     SELECT *
-                    FROM af_token_holder_metrics_current
+                    FROM af_token_holder_metrics_current_p{partition_idx}
                     WHERE (holder_address, token_address) IN :pairs
                 """
                 )
