@@ -16,6 +16,7 @@ from hemera_udf.token_holder_metrics.models.metrics import TokenHolderMetricsCur
 logger = logging.getLogger(__name__)
 
 MAX_SAFE_VALUE = 2**255
+MIN_BALANCE_THRESHOLD = 1e-4
 
 
 class ExportTokenHolderMetricsJob(ExtensionJob):
@@ -278,9 +279,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             )
 
             # Compare total_value with transfer_balance
-            if (
-                abs(total_value - transfer_balance) < 1e-4 or transfer_balance == 0
-            ):  # Using small epsilon for float comparison
+            if abs(total_value - transfer_balance) < MIN_BALANCE_THRESHOLD or transfer_balance < MIN_BALANCE_THRESHOLD:
                 metrics.pnl_valid = True
                 set_pnl_valid_block_number = transfer.block_number
 
@@ -289,7 +288,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         # update total buy count, amount, usd
         # update current average buy price
         # sell
-        # set average buy price to 0 when balance is less than 0.00001
+        # set average buy price to 0 when balance is less than MIN_BALANCE_THRESHOLD
         # calculate pnl
         # update balance
         # update total sell count, amount, usd
@@ -299,7 +298,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         # update win rate
         if transfer_action == "in":
             new_balance = metrics.current_balance + transfer.value
-            if new_balance / 10 ** token["decimals"] > 0.00001:
+            if new_balance / 10 ** token["decimals"] > MIN_BALANCE_THRESHOLD:
                 new_average_buy_price = (
                     amount_usd + metrics.current_balance * metrics.current_average_buy_price / 10 ** token["decimals"]
                 ) / ((transfer.value + metrics.current_balance) / 10 ** token["decimals"])
@@ -334,7 +333,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                     metrics.win_rate = metrics.success_sell_count / total_sells
 
             metrics.current_balance -= sell_amount
-            if metrics.current_balance / 10 ** token["decimals"] < 0.00001:
+            if metrics.current_balance / 10 ** token["decimals"] < MIN_BALANCE_THRESHOLD:
                 metrics.current_average_buy_price = 0
 
             metrics.total_sell_count += 1
