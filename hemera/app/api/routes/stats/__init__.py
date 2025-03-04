@@ -5,15 +5,24 @@
 # @File  __init__.py.py
 # @Brief
 from datetime import date, datetime, timedelta
-from typing import List
+from typing import List, Optional, Tuple
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, func
 
 from hemera.app.api.deps import ReadSessionDep
-from hemera.app.api.routes.helper.block import get_block_count
-from hemera.app.api.routes.helper.transaction import GasStats, get_gas_stats, get_latest_txn_count, get_total_txn_count
+from hemera.app.api.routes.helper.block import _get_last_block, get_block_count
+from hemera.app.api.routes.helper.transaction import (
+    GasStats,
+    get_gas_stats,
+    get_gas_stats_list,
+    get_latest_txn_count,
+    get_total_txn_count,
+    get_transaction_count_stats_list,
+)
 from hemera.common.models.stats.daily_boards_stats import DailyBoardsStats
 
 router = APIRouter(tags=["STATS"])
@@ -35,8 +44,124 @@ class MetricsResponse(BaseModel):
     )
 
 
+class GasStatsWithBlockTimestamp(BaseModel):
+    block_timestamp: datetime = Field(..., description="Timestamp of the block")
+    gas_stats: GasStats = Field(..., description="Statistics related to gas usage")
+
+
+class TransactionCountWithBlockTimestamp(BaseModel):
+    block_timestamp: datetime = Field(..., description="Timestamp of the block")
+    transaction_count: float = Field(..., description="Number of transactions in the current minute")
+
+
+class TopActiveContractWithBlockTimestamp(BaseModel):
+    block_timestamp: datetime = Field(..., description="Timestamp of the block")
+    top_active_contracts: List[SmartContractMetric] = Field(
+        ..., description="Top active smart contracts based on the previous day's data"
+    )
+
+
+class TransactionCountListResponse(BaseModel):
+    metrics: List[TransactionCountWithBlockTimestamp] = Field(
+        ..., description="List of transaction count statistics for the latest period"
+    )
+
+
+class GasStatsListResponse(BaseModel):
+    metrics: List[GasStatsWithBlockTimestamp] = Field(..., description="List of metrics for the last N minutes")
+
+
+class TopActiveContractListResponse(BaseModel):
+    metrics: List[TopActiveContractWithBlockTimestamp] = Field(
+        ..., description="List of top active contracts for the latest period"
+    )
+
+
+def validate_stats_params(
+    duration: timedelta = Query(default=timedelta(minutes=30), description="Duration for stats (e.g., 30 minutes)"),
+    interval: timedelta = Query(default=timedelta(minutes=2), description="Time bucket interval (e.g., 2 minutes)"),
+    latest_timestamp: Optional[datetime] = Query(
+        default=None, description="Optional latest timestamp to override the database's latest timestamp"
+    ),
+) -> Tuple[timedelta, timedelta, Optional[datetime]]:
+    """
+    Validates that the given duration is evenly divisible by the interval.
+    Returns a tuple of (duration, interval, latest_timestamp) if valid.
+    """
+    if duration.total_seconds() % interval.total_seconds() != 0:
+        raise HTTPException(status_code=400, detail="Duration must be evenly divisible by interval")
+    return duration, interval, latest_timestamp
+
+
+@router.get("/v1/developer/stats/latest_gas_stats_list", response_model=GasStatsListResponse)
+async def get_latest_gas_stats_list(
+    session: ReadSessionDep, params: Tuple[timedelta, timedelta, Optional[datetime]] = Depends(validate_stats_params)
+):
+    duration, interval, latest_timestamp = params
+    result = get_gas_stats_list(session, duration, interval, latest_timestamp)
+    return GasStatsListResponse(
+        metrics=[
+            GasStatsWithBlockTimestamp(block_timestamp=block_timestamp, gas_stats=gas_stats)
+            for (block_timestamp, gas_stats) in result
+        ]
+    )
+
+
+@router.get("/v1/developer/stats/latest_transaction_count_list", response_model=TransactionCountListResponse)
+async def get_latest_transaction_count_stats(
+    session: ReadSessionDep, params: Tuple[timedelta, timedelta, Optional[datetime]] = Depends(validate_stats_params)
+):
+    """
+    Retrieves transaction count statistics for the latest period specified by duration and interval.
+    The duration must be evenly divisible by the interval.
+    """
+    duration, interval, latest_timestamp = params
+    result = get_transaction_count_stats_list(session, duration, interval, latest_timestamp)
+    return TransactionCountListResponse(
+        metrics=[
+            TransactionCountWithBlockTimestamp(block_timestamp=block_timestamp, transaction_count=tx_count_per_second)
+            for (block_timestamp, tx_count_per_second) in result
+        ]
+    )
+
+
+# TODO
+@router.get("/v1/developer/stats/latest_top_active_contracts_list", response_model=TopActiveContractListResponse)
+async def get_latest_top_active_contracts(
+    session: ReadSessionDep, params: Tuple[timedelta, timedelta, Optional[datetime]] = Depends(validate_stats_params)
+):
+
+    duration, interval, latest_timestamp = params
+
+    if latest_timestamp is None:
+        latest_timestamp = datetime.utcnow().replace(microsecond=0)
+
+    start_time = latest_timestamp - duration
+
+    interval_seconds = int(interval.total_seconds())
+    total_seconds = int(duration.total_seconds())
+    num_buckets = total_seconds // interval_seconds
+
+    buckets = []
+    for i in range(num_buckets):
+        bucket_time = start_time + timedelta(seconds=i * interval_seconds)
+
+        top_active_contracts = []
+        for j in range(20):
+            top_active_contracts.append(
+                SmartContractMetric(contract_address=f"0x{'{:040x}'.format(j)}", minute_transaction_count=15 + j)
+            )
+
+        buckets.append(
+            TopActiveContractWithBlockTimestamp(block_timestamp=bucket_time, top_active_contracts=top_active_contracts)
+        )
+
+    return TopActiveContractListResponse(metrics=buckets)
+
+
 @router.get("/v1/developer/stats/metrics", response_model=MetricsResponse)
 async def get_address_profile(session: ReadSessionDep):
+
     transaction_count_minute = get_latest_txn_count(session, timedelta(minutes=1))
     transaction_count_total = get_total_txn_count(session)
     block_times = get_block_count(session, timedelta(minutes=1))

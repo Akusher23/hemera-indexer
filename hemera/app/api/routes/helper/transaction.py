@@ -11,7 +11,7 @@ from typing import Any, List, Optional, Union
 
 from pydantic import BaseModel, Field
 from sqlmodel import Session, and_, desc, func, or_, select
-from typing_extensions import Literal
+from typing_extensions import Literal, Tuple
 
 from hemera.app.api.routes.enricher.address_enricher import Address
 from hemera.app.api.routes.helper import ColumnType, process_columns
@@ -757,3 +757,120 @@ def _get_transaction_by_hash(
     statement = _process_columns(columns)
     statement = statement.where(Transactions.hash == hash)
     return session.exec(statement).first()
+
+
+def get_gas_stats_list(
+    session: Session, duration: timedelta, interval: timedelta, latest_timestamp: Optional[datetime] = None
+) -> List[Tuple[datetime, GasStats]]:
+    """
+    Returns a list of GasStats, each corresponding to a time bucket of aggregated statistics,
+    for the given duration and interval (e.g., 12:01, 12:02, 12:03).
+    The duration must not exceed 1 hour.
+    Note: This example is for PostgreSQL; adjustments may be needed for other databases.
+    """
+    if duration > timedelta(hours=1):
+        raise ValueError("duration must not exceed 1 hour")
+
+    if latest_timestamp is None:
+        # Retrieve the latest block_timestamp from the Transactions table
+        latest_time_stmt = select(func.max(Transactions.block_timestamp))
+        latest_time = session.exec(latest_time_stmt).one()
+        if latest_time is None:
+            # Return a GasStats instance with None for all values if there is no data in the database
+            return List[Tuple[datetime, GasStats]]()
+    else:
+        latest_time = latest_timestamp
+
+    start_time = latest_time - duration
+    interval_seconds = interval.total_seconds()
+    start_epoch = start_time.timestamp()
+
+    bucket_expr = func.to_timestamp(
+        func.floor((func.extract("epoch", Transactions.block_timestamp) - start_epoch) / interval_seconds)
+        * interval_seconds
+        + start_epoch
+    ).label("bucket")
+
+    stmt = (
+        select(
+            bucket_expr,
+            func.avg(Transactions.gas_price).label("gas_price_avg"),
+            func.max(Transactions.gas_price).label("gas_price_max"),
+            func.min(Transactions.gas_price).label("gas_price_min"),
+            func.avg(Transactions.gas_price * Transactions.receipt_cumulative_gas_used).label("gas_fee_avg"),
+            func.max(Transactions.gas_price * Transactions.receipt_cumulative_gas_used).label("gas_fee_max"),
+            func.min(Transactions.gas_price * Transactions.receipt_cumulative_gas_used).label("gas_fee_min"),
+        )
+        .where(Transactions.block_timestamp >= start_time, Transactions.block_timestamp < latest_time)
+        .group_by(bucket_expr)
+        .order_by(bucket_expr)
+    )
+
+    results = session.exec(stmt).all()
+
+    stats_list = [
+        (
+            row.bucket,
+            GasStats(
+                gas_price_avg=row.gas_price_avg,
+                gas_price_max=row.gas_price_max,
+                gas_price_min=row.gas_price_min,
+                gas_fee_avg=row.gas_fee_avg,
+                gas_fee_max=row.gas_fee_max,
+                gas_fee_min=row.gas_fee_min,
+            ),
+        )
+        for row in results
+    ]
+    return stats_list
+
+
+def get_transaction_count_stats_list(
+    session: Session, duration: timedelta, interval: timedelta, latest_timestamp: Optional[datetime] = None
+) -> List[Tuple[datetime, float]]:
+    """
+    Returns a list of tuples, each containing a bucket start datetime and the average transaction
+    count per second for that bucket. The buckets are defined over the given duration and interval.
+    The duration must not exceed 1 hour.
+    Note: This example is for PostgreSQL; adjustments may be needed for other databases.
+    """
+    if duration > timedelta(hours=1):
+        raise ValueError("duration must not exceed 1 hour")
+
+    if latest_timestamp is None:
+        # Retrieve the latest block_timestamp from the Transactions table
+        latest_time_stmt = select(func.max(Transactions.block_timestamp))
+        latest_time = session.exec(latest_time_stmt).one()
+        if latest_time is None:
+            # Return an empty list if there is no data in the database
+            return []
+    else:
+        latest_time = latest_timestamp
+
+    start_time = latest_time - duration
+    interval_seconds = interval.total_seconds()
+    start_epoch = start_time.timestamp()
+
+    # Build a bucket expression:
+    # Convert block_timestamp to epoch seconds, subtract start_epoch, divide by interval_seconds,
+    # floor the result, multiply back by interval_seconds, add start_epoch, and convert back to timestamp.
+    bucket_expr = func.to_timestamp(
+        func.floor((func.extract("epoch", Transactions.block_timestamp) - start_epoch) / interval_seconds)
+        * interval_seconds
+        + start_epoch
+    ).label("bucket")
+
+    # Construct the SQL statement:
+    # For each bucket, count the transactions and calculate the average per second (count / interval_seconds)
+    stmt = (
+        select(bucket_expr, (func.count(Transactions.hash) / interval_seconds).label("tx_count_per_second"))
+        .where(Transactions.block_timestamp >= start_time, Transactions.block_timestamp < latest_time)
+        .group_by(bucket_expr)
+        .order_by(bucket_expr)
+    )
+
+    results = session.exec(stmt).all()
+
+    # Build a list of tuples (bucket timestamp, average transaction count per second)
+    stats_list: List[Tuple[datetime, float]] = [(row.bucket, row.tx_count_per_second) for row in results]
+    return stats_list
