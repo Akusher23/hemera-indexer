@@ -275,7 +275,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
 
         set_pnl_valid_block_number = 0
 
-        new_current_balance = self._block_address_token_balances.get((transfer.block_number, holder_address, token_address), 0)
+        new_current_balance = self._block_address_token_balances.get((transfer.block_number, holder_address, token_address), 0) or 0
 
         if not metrics.pnl_valid:
             block_key = (transfer.block_number, holder_address, token_address)
