@@ -75,6 +75,13 @@ class ECOBoardResponse(BaseModel):
     count: int
 
 
+class WrappedECOBoardResponse(BaseModel):
+    total_count: int
+    page: int
+    page_size: int
+    data: List[ECOBoardResponse]
+
+
 time_ranges = {
     "1d": lambda now: now - timedelta(days=1),
     "7d": lambda now: now - timedelta(days=7),
@@ -86,9 +93,9 @@ time_ranges = {
 }
 
 
-@router.get("/v1/developer/stats/get_board_data", response_model=List[ECOBoardResponse])
+@router.get("/v1/developer/stats/get_board_data", response_model=WrappedECOBoardResponse)
 # get("time_range", "7d")
-async def get_board_data(board_id: str, time_range: str, session: ReadSessionDep):
+async def get_board_data(board_id: str, time_range: str, session: ReadSessionDep, page: int = 1, page_size: int = 10):
     today = date.today()
     block_date = time_ranges[time_range](today)
     query = (
@@ -97,9 +104,9 @@ async def get_board_data(board_id: str, time_range: str, session: ReadSessionDep
         .order_by(desc(DailyBoardsStats.count))
     )
 
-    result = query.all()
+    total_count = query.count()
+    result = query.offset((page - 1) * page_size).limit(page_size).all()
     if not result:
-        # handle missing data
         closest_block_date = (
             session.query(DailyBoardsStats.block_date)
             .filter(DailyBoardsStats.board_id == board_id)
@@ -116,17 +123,25 @@ async def get_board_data(board_id: str, time_range: str, session: ReadSessionDep
             .filter(DailyBoardsStats.board_id == board_id, DailyBoardsStats.block_date == closest_block_date)
             .order_by(desc(DailyBoardsStats.count))
         )
-        result = query.all()
+
+        total_count = query.count()
+        result = query.offset((page - 1) * page_size).limit(page_size).all()
+
     data = [
         ECOBoardResponse(
-            rank=index + 1,
+            rank=(page - 1) * page_size + index + 1,  # 计算全局排名
             board_id=row.board_id,
             block_date=block_date.strftime("%Y-%m-%d"),
             actual_date=row.block_date.strftime("%Y-%m-%d"),
             key=row.key,
             count=row.count,
         )
-        for (index, row) in enumerate(result)
+        for index, row in enumerate(result)
     ]
 
-    return data
+    return {
+        "total_count": total_count,
+        "page": page,
+        "page_size": page_size,
+        "data": data,
+    }
