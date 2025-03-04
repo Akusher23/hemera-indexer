@@ -124,8 +124,12 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 transfer.price,
                 token,
             )
-
+        
+        for metrics in current_metrics.values():
+            metrics.current_balance = self._block_address_token_balances.get((metrics.block_number, metrics.holder_address, metrics.token_address), 0)
+            
         logger.info(f"Metrics update completed in {time.time() - t6:.2f}s")
+        
 
         self._collect_items(TokenHolderMetricsCurrentD.type(), list(current_metrics.values()))
         history_metrics = [TokenHolderMetricsHistoryD(**asdict(metrics)) for metrics in current_metrics.values()]
@@ -267,17 +271,13 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
 
         set_pnl_valid_block_number = 0
 
-        # Check if pnl_valid needs to be updated
+        new_current_balance = self._block_address_token_balances.get((transfer.block_number, holder_address, token_address), 0)
+
         if not metrics.pnl_valid:
-            # 直接从预计算的map中获取总价值
             block_key = (transfer.block_number, holder_address, token_address)
             total_value = self._block_address_token_values.get(block_key, 0)
 
-            # Get the balance from transfer data based on the action
-            transfer_balance = (transfer.from_address_balance if transfer_action == "out" else transfer.to_address_balance) or 0
-
-            # Compare total_value with transfer_balance
-            if abs(total_value - transfer_balance) < MIN_BALANCE_THRESHOLD or transfer_balance < MIN_BALANCE_THRESHOLD:
+            if abs(total_value - new_current_balance) < MIN_BALANCE_THRESHOLD or new_current_balance < MIN_BALANCE_THRESHOLD:
                 metrics.pnl_valid = True
                 set_pnl_valid_block_number = transfer.block_number
 
@@ -370,3 +370,6 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             metrics.fail_sell_count = 0
             metrics.win_rate = 0
             metrics.current_average_buy_price = 0
+            if metrics.block_number == set_pnl_valid_block_number and new_current_balance > MIN_BALANCE_THRESHOLD:
+                metrics.current_average_buy_price = token_price
+            
