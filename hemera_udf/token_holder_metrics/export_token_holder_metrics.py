@@ -54,6 +54,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         logger.info(f"Filtered non-meme tokens in {time.time() - t2:.2f}s")
 
         self._block_address_token_values = {}
+        self._block_address_token_balances = {}
         for transfer in transfers:
             block_number = transfer.block_number
             from_key = (block_number, transfer.from_address, transfer.token_address)
@@ -66,6 +67,9 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             if to_key not in self._block_address_token_values:
                 self._block_address_token_values[to_key] = 0
             self._block_address_token_values[to_key] += transfer.value
+            
+            self._block_address_token_balances[from_key] = transfer.from_address_balance
+            self._block_address_token_balances[to_key] = transfer.to_address_balance
 
         t3 = time.time()
         address_token_pairs = set()
