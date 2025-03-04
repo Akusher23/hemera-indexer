@@ -19,9 +19,9 @@ from hemera.app.api.routes.developer.es_adapter.helper import (
     get_account_token_transfers,
 )
 from hemera.common.enumeration.token_type import TokenType
-from hemera.common.models.token_transfers import ERC20TokenTransfers, ERC721TokenTransfers, ERC1155TokenTransfers
-from hemera.common.models.tokens import Tokens
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.transactions import Transactions
+from hemera.common.models.token.token_transfers import ERC20TokenTransfers, ERC721TokenTransfers, ERC1155TokenTransfers
+from hemera.common.models.token.tokens import Tokens
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

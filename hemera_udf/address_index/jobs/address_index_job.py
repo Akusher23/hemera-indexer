@@ -11,8 +11,8 @@ from hemera.indexer.domains.token_transfer import ERC20TokenTransfer, ERC721Toke
 from hemera.indexer.domains.transaction import Transaction
 from hemera.indexer.executors.batch_work_executor import BatchWorkExecutor
 from hemera.indexer.jobs.base_job import ExtensionJob
+from hemera.indexer.jobs.export_nft_infos_job import generate_token_id_info
 from hemera.indexer.jobs.export_token_balances_job import extract_token_parameters
-from hemera.indexer.jobs.export_token_id_infos_job import generate_token_id_info
 from hemera.indexer.utils.collection_utils import distinct_collections_by_group
 from hemera.indexer.utils.token_fetcher import TokenFetcher
 from hemera_udf.address_index.domains import *

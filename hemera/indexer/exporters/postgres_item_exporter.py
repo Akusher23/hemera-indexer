@@ -121,7 +121,7 @@ def sql_insert_statement(model: Type[HemeraModel], do_update: bool, columns, whe
 
     if do_update:
         insert_stmt = "INSERT INTO {}.{} ({}) VALUES %s ON CONFLICT ({}) DO UPDATE SET {}".format(
-            model.schema(),
+            model.metadata.schema,
             model.__tablename__,
             ", ".join(columns),
             ", ".join(pk_list),
@@ -131,7 +131,7 @@ def sql_insert_statement(model: Type[HemeraModel], do_update: bool, columns, whe
             insert_stmt += " WHERE {}".format(where_clause)
     else:
         insert_stmt = "INSERT INTO {}.{} ({}) VALUES %s ON CONFLICT DO NOTHING ".format(
-            model.schema(),
+            model.metadata.schema,
             model.__tablename__,
             ", ".join(columns),
         )

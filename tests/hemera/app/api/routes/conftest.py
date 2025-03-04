@@ -8,11 +8,11 @@ from sqlmodel import Session, SQLModel, delete
 
 from hemera.app.main import app
 from hemera.common.models.address.address_internal_transaciton import AddressInternalTransactions
-from hemera.common.models.blocks import Blocks
-from hemera.common.models.contracts import Contracts
-from hemera.common.models.tokens import Tokens
-from hemera.common.models.traces import ContractInternalTransactions
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.blocks import Blocks
+from hemera.common.models.base.transactions import Transactions
+from hemera.common.models.token.tokens import Tokens
+from hemera.common.models.trace.contracts import Contracts
+from hemera.common.models.trace.traces import ContractInternalTransactions
 
 postgresql_proc = factories.postgresql_proc()
 

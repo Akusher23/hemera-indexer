@@ -3,7 +3,7 @@ from typing import Optional, Union
 
 from hemera.api.app.address.features import register_feature
 from hemera.common.models import db
-from hemera.common.models.tokens import Tokens
+from hemera.common.models.token import Tokens
 from hemera.common.utils.format_utils import bytes_to_hex_str, format_value_for_json, hex_str_to_bytes
 from hemera_udf.eigen_layer.models.af_eigen_layer_address_current import AfEigenLayerAddressCurrent
 

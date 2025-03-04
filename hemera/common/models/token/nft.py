@@ -23,12 +23,13 @@ def token_uri_format_converter(table: Type[HemeraModel], data, is_update=False):
     return general_converter(table, data, is_update)
 
 
-class ERC1155TokenIdDetails(HemeraModel, table=True):
-    __tablename__ = "erc1155_token_id_details"
+class NFTDetails(HemeraModel, table=True):
+    __tablename__ = "nft_details"
 
     token_address: bytes = Field(sa_column=Column(BYTEA, primary_key=True))
     token_id: Decimal = Field(sa_column=Column(NUMERIC(100), primary_key=True))
     token_supply: Optional[Decimal] = Field(sa_column=Column(NUMERIC(78)))
+    token_owner: Optional[bytes] = Field(sa_column=Column(BYTEA))
     token_uri: Optional[str] = Field(sa_column=Column(VARCHAR))
     token_uri_info: Optional[dict] = Field(sa_column=Column(JSONB))
 
@@ -39,7 +40,10 @@ class ERC1155TokenIdDetails(HemeraModel, table=True):
     update_time: datetime = Field(default_factory=datetime.utcnow)
     reorg: bool = Field(default=False)
 
-    __table_args__ = (Index("erc1155_detail_desc_address_id_index", text("token_address DESC, token_id")),)
+    __table_args__ = (
+        Index("nft_details_token_address_index", text("token_address DESC, token_id")),
+        Index("nft_details_address_index", text("token_owner DESC, token_id ASC")),
+    )
 
     @staticmethod
     def model_domain_mapping():
@@ -53,33 +57,9 @@ class ERC1155TokenIdDetails(HemeraModel, table=True):
             {
                 "domain": UpdateERC1155TokenIdDetail,
                 "conflict_do_update": True,
-                "update_strategy": "EXCLUDED.block_number >= erc1155_token_id_details.block_number",
+                "update_strategy": "EXCLUDED.block_number >= nft_details.block_number",
                 "converter": general_converter,
             },
-        ]
-
-
-class ERC721TokenIdDetails(HemeraModel, table=True):
-    __tablename__ = "erc721_token_id_details"
-
-    token_address: bytes = Field(sa_column=Column(BYTEA, primary_key=True))
-    token_id: Decimal = Field(sa_column=Column(NUMERIC(100), primary_key=True))
-    token_owner: Optional[bytes] = Field(sa_column=Column(BYTEA))
-    token_uri: Optional[str] = Field(sa_column=Column(VARCHAR))
-    token_uri_info: Optional[dict] = Field(sa_column=Column(JSONB))
-
-    block_number: Optional[int] = Field(sa_column=Column(BIGINT))
-    block_timestamp: Optional[datetime] = Field(sa_column=Column(TIMESTAMP))
-
-    create_time: datetime = Field(default_factory=datetime.utcnow)
-    update_time: datetime = Field(default_factory=datetime.utcnow)
-    reorg: bool = Field(default=False)
-
-    __table_args__ = (Index("erc721_detail_owner_address_id_index", text("token_owner DESC, token_address, token_id")),)
-
-    @staticmethod
-    def model_domain_mapping():
-        return [
             {
                 "domain": ERC721TokenIdDetail,
                 "conflict_do_update": False,
@@ -89,14 +69,14 @@ class ERC721TokenIdDetails(HemeraModel, table=True):
             {
                 "domain": UpdateERC721TokenIdDetail,
                 "conflict_do_update": True,
-                "update_strategy": "EXCLUDED.block_number >= erc721_token_id_details.block_number",
+                "update_strategy": "EXCLUDED.block_number >= nft_details.block_number",
                 "converter": general_converter,
             },
         ]
 
 
-class ERC721TokenIdChanges(HemeraModel, table=True):
-    __tablename__ = "erc721_token_id_changes"
+class NFTIdChanges(HemeraModel, table=True):
+    __tablename__ = "nft_id_changes"
 
     token_address: bytes = Field(sa_column=Column(BYTEA, primary_key=True))
     token_id: Decimal = Field(sa_column=Column(NUMERIC(100), primary_key=True))
@@ -109,9 +89,7 @@ class ERC721TokenIdChanges(HemeraModel, table=True):
     update_time: datetime = Field(default_factory=datetime.utcnow)
     reorg: bool = Field(default=False)
 
-    __table_args__ = (
-        Index("erc721_change_address_id_number_desc_index", text("token_address, token_id, block_number DESC")),
-    )
+    __table_args__ = (Index("nft_id_number_desc_index", text("token_address, token_id, block_number DESC")),)
 
     @staticmethod
     def model_domain_mapping():

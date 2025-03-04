@@ -5,10 +5,10 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
 from hemera.app.main import app
-from hemera.common.models.blocks import Blocks
-from hemera.common.models.contracts import Contracts
-from hemera.common.models.tokens import Tokens
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.blocks import Blocks
+from hemera.common.models.base.transactions import Transactions
+from hemera.common.models.token import Tokens
+from hemera.common.models.trace.contracts import Contracts
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

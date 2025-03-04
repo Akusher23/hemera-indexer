@@ -11,7 +11,7 @@ import pytest
 from sqlmodel import Session
 
 from hemera.app.api.routes.developer.es_adapter.helper import APILogResponse, get_event_logs
-from hemera.common.models.logs import Logs
+from hemera.common.models.base.logs import Logs
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

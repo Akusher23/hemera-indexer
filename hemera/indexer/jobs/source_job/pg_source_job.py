@@ -9,14 +9,14 @@ from typing import List, Type, Union, get_args, get_origin
 from sqlalchemy import and_, func, select
 from sqlalchemy.dialects.postgresql import BIGINT, INTEGER
 
-from hemera.common.models.blocks import Blocks
-from hemera.common.models.logs import Logs
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.blocks import Blocks
+from hemera.common.models.base.logs import Logs
+from hemera.common.models.base.transactions import Transactions
 from hemera.common.services.postgresql_service import PostgreSQLService
 from hemera.common.utils.db_utils import table_to_dataclass
 from hemera.common.utils.exception_control import FastShutdownError
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
-from hemera.indexer.domains import Domain, dict_to_dataclass
+from hemera.indexer.domains import Domain
 from hemera.indexer.domains.block import Block
 from hemera.indexer.domains.log import Log
 from hemera.indexer.domains.receipt import Receipt

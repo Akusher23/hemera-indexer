@@ -13,8 +13,9 @@ from sqlmodel import Session
 
 from hemera.app.api.routes.developer.es_adapter.helper import account_address_token_holding
 from hemera.common.enumeration.token_type import TokenType
-from hemera.common.models.current_token_balances import CurrentTokenBalances
-from hemera.common.models.tokens import Tokens
+from hemera.common.models.token.token_balances import CurrentTokenBalances
+from hemera.common.models.token.token_id_balances import CurrentTokenIdBalances
+from hemera.common.models.token.tokens import Tokens
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 
@@ -66,6 +67,7 @@ def sample_token_data(session: Session):
             token_type="ERC20",
             token_id=-1,
             block_number=1000,
+            block_timestamp=base_time,
         ),
         CurrentTokenBalances(
             address=hex_str_to_bytes("0x" + "1" * 40),
@@ -74,21 +76,21 @@ def sample_token_data(session: Session):
             token_type="ERC721",
             token_id=-1,
             block_number=1000,
+            block_timestamp=base_time,
         ),
-        CurrentTokenBalances(
+        CurrentTokenIdBalances(
             address=hex_str_to_bytes("0x" + "1" * 40),
             token_address=hex_str_to_bytes("0x" + "C" * 40),
             balance=10,
             token_type="ERC1155",
             token_id=2,
             block_number=1000,
+            block_timestamp=base_time,
         ),
         CurrentTokenBalances(
             address=hex_str_to_bytes("0x" + "2" * 40),
             token_address=hex_str_to_bytes("0x" + "A" * 40),
             balance=500,
-            token_type="ERC20",
-            token_id=-1,
             block_number=1000,
         ),
     ]

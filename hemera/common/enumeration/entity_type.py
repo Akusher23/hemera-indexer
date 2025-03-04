@@ -7,9 +7,11 @@ from hemera.indexer.domains.block_ts_mapper import BlockTsMapper
 from hemera.indexer.domains.contract import Contract
 from hemera.indexer.domains.contract_internal_transaction import ContractInternalTransaction
 from hemera.indexer.domains.current_token_balance import CurrentTokenBalance
+from hemera.indexer.domains.current_token_id_balance import CurrentTokenIdBalance
 from hemera.indexer.domains.log import Log
 from hemera.indexer.domains.token import MarkBalanceToken, Token, UpdateToken
 from hemera.indexer.domains.token_balance import TokenBalance
+from hemera.indexer.domains.token_id_balance import TokenIdBalance
 from hemera.indexer.domains.token_id_infos import (
     ERC721TokenIdChange,
     ERC721TokenIdDetail,
@@ -20,6 +22,7 @@ from hemera.indexer.domains.token_id_infos import (
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer, ERC721TokenTransfer, ERC1155TokenTransfer
 from hemera.indexer.domains.trace import Trace
 from hemera.indexer.domains.transaction import Transaction
+from hemera.indexer.domains.transaction_trace_json import TransactionTraceJson
 
 
 class DynamicEntityTypeRegistry:
@@ -95,6 +98,17 @@ class StaticOutputTypes:
         """Register output types for a static entity type."""
         cls._output_types[entity_type] = output_types
 
+    @classmethod
+    def get_output_types(cls, entity_types: int) -> Set[Type]:
+        """Get all output types for given static entity types, removing duplicates."""
+        seen_types = set()
+        for bit_value, types in cls._output_types.items():
+            if entity_types & bit_value:
+                for type_class in types:
+                    if type_class not in seen_types:
+                        seen_types.add(type_class)
+        return seen_types
+
 
 class EntityType(IntFlag):
     """
@@ -105,7 +119,12 @@ class EntityType(IntFlag):
     # Core package
     EXPLORER_BASE = 1 << 0
     EXPLORER_TOKEN = 1 << 1
+
     EXPLORER_TRACE = 1 << 2
+
+    EXPLORER_TOKEN_TRANSFER = 1 << 3
+    EXPLORER_TOKEN_BALANCE = 1 << 4
+    EXPLORER_TOKEN_NFT = 1 << 5
 
     # Composite type
     EXPLORER = EXPLORER_BASE | EXPLORER_TOKEN | EXPLORER_TRACE
@@ -134,21 +153,44 @@ def register_all_output_types():
     StaticOutputTypes.register_output_types(EntityType.EXPLORER_BASE, {Block, BlockTsMapper, Transaction, Log})
 
     StaticOutputTypes.register_output_types(
-        EntityType.EXPLORER_TOKEN,
+        EntityType.EXPLORER_TOKEN_TRANSFER,
         {
-            Token,
-            UpdateToken,
             ERC20TokenTransfer,
             ERC721TokenTransfer,
             ERC1155TokenTransfer,
+        },
+    )
+
+    StaticOutputTypes.register_output_types(
+        EntityType.EXPLORER_TOKEN_BALANCE,
+        {
             TokenBalance,
             CurrentTokenBalance,
-            MarkBalanceToken,
+            TokenIdBalance,
+            CurrentTokenIdBalance,
+        },
+    )
+
+    StaticOutputTypes.register_output_types(
+        EntityType.EXPLORER_TOKEN_NFT,
+        {
             UpdateERC1155TokenIdDetail,
             ERC1155TokenIdDetail,
             UpdateERC721TokenIdDetail,
             ERC721TokenIdDetail,
             ERC721TokenIdChange,
+        },
+    )
+
+    StaticOutputTypes.register_output_types(
+        EntityType.EXPLORER_TOKEN,
+        StaticOutputTypes.get_output_types(
+            EntityType.EXPLORER_TOKEN_TRANSFER | EntityType.EXPLORER_TOKEN_BALANCE | EntityType.EXPLORER_TOKEN_NFT
+        )
+        | {
+            Token,
+            UpdateToken,
+            MarkBalanceToken,
         },
     )
 
@@ -159,6 +201,7 @@ def register_all_output_types():
             Contract,
             ContractInternalTransaction,
             UpdateBlockInternalCount,
+            TransactionTraceJson,
             # CoinBalance
         },
     )

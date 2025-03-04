@@ -4,8 +4,8 @@ from datetime import datetime, timezone
 from sqlalchemy import and_, func, insert, literal, select
 
 from hemera.common.models import HemeraModel
-from hemera.common.models.blocks import Blocks
-from hemera.common.models.records import FixRecord
+from hemera.common.models.base.blocks import Blocks
+from hemera.common.models.utils.records import FixRecords
 from hemera.common.services.postgresql_service import PostgreSQLService
 from hemera.common.utils.exception_control import RetriableError
 
@@ -98,7 +98,7 @@ def check_reorg(service: PostgreSQLService, check_range: int = None):
         )
     )
 
-    insert_stmt = insert(FixRecord).from_select(
+    insert_stmt = insert(FixRecords).from_select(
         ["start_block_number", "last_fixed_block_number", "remain_process", "job_status"], select_stmt
     )
 

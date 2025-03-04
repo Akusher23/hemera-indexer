@@ -5,8 +5,8 @@ from datetime import datetime, timezone
 from sqlalchemy import and_, update
 from sqlalchemy.dialects.postgresql import insert
 
-from hemera.common.models.blocks import Blocks
-from hemera.common.models.records import FixRecord
+from hemera.common.models.base.blocks import Blocks
+from hemera.common.models.utils.records import FixRecords
 from hemera.common.utils.exception_control import HemeraBaseException
 from hemera.common.utils.format_utils import hex_str_to_bytes
 from hemera.common.utils.web3_utils import build_web3
@@ -143,7 +143,7 @@ class ReorgController(BaseController):
 
     def submit_new_fixing_job(self, start_block_number, remain_process):
         session = self.db_service.get_service_session()
-        stmt = insert(FixRecord).values(
+        stmt = insert(FixRecords).values(
             {
                 "start_block_number": start_block_number,
                 "last_fixed_block_number": start_block_number + 1,
@@ -162,7 +162,7 @@ class ReorgController(BaseController):
     def update_job_info(self, job_id, job_info):
         session = self.db_service.get_service_session()
         try:
-            stmt = update(FixRecord).where(FixRecord.job_id == job_id).values(job_info)
+            stmt = update(FixRecords).where(FixRecords.job_id == job_id).values(job_info)
             session.execute(stmt)
             session.commit()
         finally:
@@ -172,10 +172,10 @@ class ReorgController(BaseController):
         runnable = False
         session = self.db_service.get_service_session()
         try:
-            running_cnt = session.query(FixRecord).filter(FixRecord.job_status == "running").count()
+            running_cnt = session.query(FixRecords).filter(FixRecords.job_status == "running").count()
             runnable = running_cnt == 0
             if not runnable:
-                running_job = session.query(FixRecord).filter(FixRecord.job_status == "running").first()
+                running_job = session.query(FixRecords).filter(FixRecords.job_status == "running").first()
                 runnable = running_job.job_id == job_id
         finally:
             session.close()
@@ -186,9 +186,9 @@ class ReorgController(BaseController):
         job = None
         try:
             job = (
-                session.query(FixRecord)
-                .filter(FixRecord.job_status != "completed")
-                .order_by(FixRecord.create_time)
+                session.query(FixRecords)
+                .filter(FixRecords.job_status != "completed")
+                .order_by(FixRecords.create_time)
                 .first()
             )
         except Exception as e:

@@ -2,23 +2,22 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy.sql import text
-from sqlmodel import Field, Index
+from sqlmodel import Field
 
 from hemera.common.models import HemeraModel, general_converter
 from hemera.indexer.domains.coin_balance import CoinBalance
 
 
-class CoinBalances(HemeraModel, table=True):
+class AddressCoinBalances(HemeraModel, table=True):
     __tablename__ = "address_coin_balances"
 
     # Primary key fields
     address: bytes = Field(primary_key=True)
     block_number: int = Field(primary_key=True)
+    block_timestamp: datetime = Field(primary_key=True)
 
-    # Balance and timestamp fields
+    # Balance
     balance: Optional[Decimal] = Field(default=None, max_digits=100)
-    block_timestamp: Optional[datetime] = Field(default=None)
 
     # Metadata fields
     create_time: Optional[datetime] = Field(default_factory=datetime.utcnow)
@@ -36,4 +35,4 @@ class CoinBalances(HemeraModel, table=True):
             }
         ]
 
-    __table_args__ = (Index("coin_balance_address_number_desc_index", text("address DESC"), text("block_number DESC")),)
+    __table_args__ = ()

@@ -11,7 +11,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from hemera.app.api.routes.helper import ColumnType, process_columns
-from hemera.common.models.contracts import Contracts
+from hemera.common.models.trace.contracts import Contracts
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 
 

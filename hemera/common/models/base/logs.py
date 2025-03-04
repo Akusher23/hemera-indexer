@@ -13,9 +13,11 @@ class Logs(HemeraModel, table=True):
     __tablename__ = "logs"
 
     # Primary keys
-    log_index: int = Field(primary_key=True)
     transaction_hash: bytes = Field(primary_key=True)
+    log_index: int = Field(primary_key=True)
     block_hash: bytes = Field(primary_key=True)
+    block_number: Optional[int] = Field(default=True)
+    block_timestamp: Optional[datetime] = Field(primary_key=True)
 
     # Log data
     address: Optional[bytes] = Field(default=None)
@@ -27,8 +29,6 @@ class Logs(HemeraModel, table=True):
 
     # Block info
     transaction_index: Optional[int] = Field(default=None)
-    block_number: Optional[int] = Field(default=None)
-    block_timestamp: Optional[datetime] = Field(default=None)
 
     # Metadata
     create_time: datetime = Field(
@@ -53,23 +53,11 @@ class Logs(HemeraModel, table=True):
         ]
 
     __table_args__ = (
-        # Block timestamp index
-        Index("logs_block_timestamp_index", desc("block_timestamp")),
         # Address with block number index
-        Index(
-            "logs_address_block_number_log_index_index",
-            "address",
-            desc("block_number"),
-            desc("log_index"),
-        ),
-        # Block number with log index
-        Index("logs_block_number_log_index_index", desc("block_number"), desc("log_index")),
+        Index("logs_address_block_number_log_index_index", text("address, block_number DESC, log_index DESC")),
         # Address with topic index
         Index(
             "logs_address_topic_0_number_log_index_index",
-            "address",
-            "topic0",
-            desc("block_number"),
-            desc("log_index"),
+            text("address, topic0, block_number DESC, log_index DESC"),
         ),
     )

@@ -12,15 +12,15 @@ from hemera.indexer.domains.token_transfer import ERC20TokenTransfer, ERC721Toke
 class BaseTokenTransfer(SQLModel):
     """Base model for all token transfers"""
 
-    transaction_hash: bytes = Field(default=None)
-    log_index: int = Field(default=None)
+    transaction_hash: bytes = Field(primary_key=True)
+    log_index: int = Field(primary_key=True)
+    block_number: Optional[int] = Field(primary_key=True)
+    block_hash: bytes = Field(primary_key=True)
+    block_timestamp: Optional[datetime] = Field(primary_key=True)
+
     from_address: Optional[bytes] = Field(default=None)
     to_address: Optional[bytes] = Field(default=None)
     token_address: Optional[bytes] = Field(default=None)
-
-    block_number: Optional[int] = Field(default=None)
-    block_hash: bytes = Field(default=None)
-    block_timestamp: Optional[datetime] = Field(default=None)
 
     create_time: Optional[datetime] = Field(default_factory=datetime.utcnow)
     update_time: Optional[datetime] = Field(default_factory=datetime.utcnow)
@@ -109,7 +109,7 @@ class ERC1155TokenTransfers(BaseTokenTransfer, table=True):
 
     __tablename__ = "erc1155_token_transfers"
 
-    token_id: Decimal = Field(default=None)
+    token_id: Decimal = Field(primary_key=True)
     value: Optional[Decimal] = Field(default=None)
 
     __table_args__ = (
@@ -157,8 +157,8 @@ class NftTransfers(HemeraModel, table=True):
     block_hash: bytes = Field(nullable=False, primary_key=True)
     log_index: int = Field(nullable=False, primary_key=True)
     token_id: Decimal = Field(nullable=False, primary_key=True, max_digits=100)
-    block_timestamp: datetime = Field(primary_key=True)
-    block_number: int = Field(primary_key=True)
+    block_timestamp: datetime = Field(nullable=False, primary_key=True)
+    block_number: int = Field(nullable=False, primary_key=True)
 
     # Transfer info
     from_address: Optional[bytes] = Field(default=None)

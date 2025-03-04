@@ -26,4 +26,4 @@ class BlockTimestampMapper(HemeraModel, table=True):
             }
         ]
 
-    __table_args__ = Index("block_ts_mapper_idx", text("block_number DESC"))
+    __table_args__ = (Index("block_ts_mapper_block_number_idx", text("block_number DESC")),)

@@ -4,7 +4,7 @@ from typing import Any, Dict, Set, Type
 
 from psycopg2._json import Json
 from sqlalchemy import NUMERIC as SQL_NUMERIC
-from sqlalchemy import DateTime, LargeBinary
+from sqlalchemy import DateTime, LargeBinary, MetaData
 from sqlalchemy import Numeric
 from sqlalchemy import Numeric as SQL_Numeric
 from sqlalchemy.dialects.postgresql import ARRAY, BYTEA, JSON, JSONB, NUMERIC, TIMESTAMP
@@ -13,6 +13,8 @@ from sqlmodel import SQLModel
 from hemera.common.utils.format_utils import hex_str_to_bytes
 from hemera.common.utils.module_loading import import_string, import_submodules
 from hemera.indexer.domains import Domain
+
+meta = MetaData(schema="public")
 
 
 class HemeraMeta(type(SQLModel)):
@@ -42,6 +44,7 @@ class HemeraMeta(type(SQLModel)):
 
 class HemeraModel(SQLModel, metaclass=HemeraMeta):
 
+    metadata = meta
     model_config = {"arbitrary_types_allowed": True}
     __query_order__: list = []
 

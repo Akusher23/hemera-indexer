@@ -2,8 +2,6 @@ import threading
 from contextlib import contextmanager
 from multiprocessing import current_process
 
-from alembic import command
-from alembic.config import Config
 from psycopg2.pool import ThreadedConnectionPool
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -97,44 +95,7 @@ class PostgreSQLService:
         self._initialized[(p_name, jdbc_url)] = True
 
     def _init_schema(self, script_location: str) -> None:
-        """
-        Initialize database schema using Alembic migrations.
-        """
-        alembic_cfg = Config()
-        alembic_cfg.set_main_option("script_location", script_location)
-        alembic_cfg.set_main_option("sqlalchemy.url", self.jdbc_url)
-
-        # Configure logging
-        self._configure_alembic_logging(alembic_cfg)
-
-        command.upgrade(alembic_cfg, self.db_version)
-
-    def _configure_alembic_logging(self, config: Config) -> None:
-        """
-        Configure Alembic logging settings.
-        """
-        config.set_main_option("loggers", "root,sqlalchemy,alembic")
-        config.set_main_option("handlers", "console")
-        config.set_main_option("formatters", "generic")
-
-        # Logger configurations
-        loggers = {
-            "root": ("WARN", "console", ""),
-            "sqlalchemy": ("WARN", "", "sqlalchemy.engine"),
-            "alembic": ("INFO", "", "alembic"),
-        }
-
-        for logger, (level, handlers, qualname) in loggers.items():
-            section = f"logger_{logger}"
-            config.set_section_option(section, "level", level)
-            config.set_section_option(section, "handlers", handlers)
-            config.set_section_option(section, "qualname", qualname)
-
-        # Configure console handler
-        config.set_section_option("handler_console", "class", "StreamHandler")
-        config.set_section_option("handler_console", "args", "(sys.stderr,)")
-        config.set_section_option("handler_console", "level", "NOTSET")
-        config.set_section_option("handler_console", "formatter", "generic")
+        pass
 
     @contextmanager
     def session_scope(self) -> Session:

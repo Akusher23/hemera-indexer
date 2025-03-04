@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 
-from hemera.common.models.metrics_persistence import MetricsPersistence
+from hemera.common.models.utils.metrics_persistence import MetricsPersistence
 from hemera.common.utils.file_utils import write_to_file
 
 logger = logging.getLogger(__name__)

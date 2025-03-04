@@ -35,8 +35,8 @@ from hemera.app.api.routes.helper.transaction import (
     get_transactions_count_by_address,
 )
 from hemera.app.core.config import settings
-from hemera.common.models.blocks import Blocks
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.blocks import Blocks
+from hemera.common.models.base.transactions import Transactions
 from hemera.common.utils.format_utils import hex_str_to_bytes
 from hemera.common.utils.web3_utils import valid_hash
 

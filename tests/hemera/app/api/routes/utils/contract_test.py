@@ -8,7 +8,7 @@
 import pytest
 
 from hemera.app.api.routes.helper.contract import _get_contract_by_address, _get_contracts_by_addresses
-from hemera.common.models.contracts import Contracts
+from hemera.common.models.trace.contracts import Contracts
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

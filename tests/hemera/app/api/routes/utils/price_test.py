@@ -12,7 +12,7 @@ import pytest
 from sqlmodel import delete
 
 from hemera.app.api.routes.helper.token import get_coin_prices, get_latest_coin_price, get_token_price
-from hemera.common.models.prices import CoinPrices, TokenHourlyPrices, TokenPrices
+from hemera.common.models.utils.prices import CoinPrices, TokenHourlyPrices, TokenPrices
 
 
 @pytest.fixture

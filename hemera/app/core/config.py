@@ -115,6 +115,7 @@ class Settings(BaseModel):
     MAX_TRANSACTION_WITH_CONDITION: int = 10000
     MAX_TRANSACTION: int = 10000
     PAGE_SIZE: int = 10
+    DATABASE_URI: str = Field(default="postgresql://postgres:admin@localhost:5432/postgres")
 
     class Config:
         env_file = ".env"
@@ -172,6 +173,8 @@ class Settings(BaseModel):
             self.token_configuration.native_token = native_token
         if gas_fee_token := os.getenv("GAS_FEE_TOKEN"):
             self.token_configuration.gas_fee_token = gas_fee_token
+        if DATABASE_URI := os.getenv("DATABASE_URI"):
+            self.DATABASE_URI = DATABASE_URI
 
 
 def get_settings() -> Settings:

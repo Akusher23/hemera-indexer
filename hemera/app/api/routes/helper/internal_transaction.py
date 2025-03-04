@@ -15,7 +15,7 @@ from typing_extensions import Literal, Union
 from hemera.app.api.routes.helper import ColumnType, process_columns
 from hemera.common.enumeration.txn_type import InternalTransactionType
 from hemera.common.models.address.address_internal_transaciton import AddressInternalTransactions
-from hemera.common.models.traces import ContractInternalTransactions
+from hemera.common.models.trace.traces import ContractInternalTransactions
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 
 

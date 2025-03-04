@@ -15,12 +15,12 @@ from typing import List, Optional
 
 from fastapi import APIRouter, Query
 from pydantic import BaseModel
-from sqlmodel import Session, func, select
+from sqlmodel import func, select
 
 from hemera.app.api.deps import ReadSessionDep
 from hemera.common.models.address.stats.address_index_stats import AddressIndexStats
-from hemera.common.models.contracts import Contracts
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.transactions import Transactions
+from hemera.common.models.trace.contracts import Contracts
 from hemera.common.utils.format_utils import bytes_to_hex_str
 
 router = APIRouter(tags=["statistics"])

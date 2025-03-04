@@ -2,7 +2,7 @@ from flask_restx import Resource
 from sqlalchemy import func
 
 from hemera.common.models import db
-from hemera.common.models.tokens import Tokens
+from hemera.common.models.token import Tokens
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera_udf.staking_fbtc.endpoints import staking_namespace
 from hemera_udf.staking_fbtc.models.feature_staked_fbtc_detail_records import FeatureStakedFBTCDetailRecords

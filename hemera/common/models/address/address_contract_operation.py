@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Optional
 
 from sqlalchemy import Index, desc
+from sqlalchemy.sql import text
 from sqlmodel import Field
 
 from hemera.common.models import HemeraModel, general_converter
@@ -49,9 +50,6 @@ class AddressContractOperations(HemeraModel, table=True):
     __table_args__ = (
         Index(
             "address_contract_operations_address_block_tn_t_idx",
-            "address",
-            desc("block_timestamp"),
-            desc("block_number"),
-            desc("transaction_index"),
+            text("address, block_timestamp DESC, block_number DESC, transaction_index DESC"),
         ),
     )

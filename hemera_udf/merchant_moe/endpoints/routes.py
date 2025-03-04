@@ -2,7 +2,7 @@ from flask_restx import Resource
 
 from hemera.common.models import db
 from hemera.common.models.current_token_balances import CurrentTokenBalances
-from hemera.common.models.tokens import Tokens
+from hemera.common.models.token import Tokens
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera_udf.merchant_moe.endpoints import merchant_moe_namespace
 from hemera_udf.merchant_moe.models.feature_erc1155_token_current_supply import FeatureErc1155TokenCurrentSupplyStatus

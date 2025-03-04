@@ -5,7 +5,7 @@ from typing import List, Type
 from sqlalchemy import text
 
 from hemera.common.models import HemeraModel
-from hemera.common.models.blocks import Blocks
+from hemera.common.models.base.blocks import Blocks
 from hemera.common.services.postgresql_service import PostgreSQLService
 from hemera.common.utils.format_utils import bytes_to_hex_str
 from hemera.indexer.domains import Domain, dict_to_dataclass

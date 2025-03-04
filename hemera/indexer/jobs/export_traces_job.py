@@ -11,6 +11,7 @@ from hemera.indexer.domains import dataclass_to_dict
 from hemera.indexer.domains.block import Block, UpdateBlockInternalCount
 from hemera.indexer.domains.contract_internal_transaction import ContractInternalTransaction
 from hemera.indexer.domains.trace import Trace
+from hemera.indexer.domains.transaction_trace_json import TransactionTraceJson
 from hemera.indexer.executors.batch_work_executor import BatchWorkExecutor
 from hemera.indexer.jobs.base_job import BaseExportJob
 from hemera.indexer.utils.exception_recorder import ExceptionRecorder
@@ -24,7 +25,7 @@ exception_recorder = ExceptionRecorder()
 # Exports traces
 class ExportTracesJob(BaseExportJob):
     dependency_types = [Block]
-    output_types = [Trace, ContractInternalTransaction, UpdateBlockInternalCount]
+    output_types = [Trace, ContractInternalTransaction, UpdateBlockInternalCount, TransactionTraceJson]
     able_to_reorg = True
 
     def __init__(self, **kwargs):
@@ -48,11 +49,13 @@ class ExportTracesJob(BaseExportJob):
         self._batch_work_executor.wait()
 
     def _collect_batch(self, blocks):
-        traces = traces_rpc_requests(
+        traces, total_transaction_json_list = traces_rpc_requests(
             self._batch_web3_provider.make_request,
             [dataclass_to_dict(block) for block in blocks],
             self._is_batch,
         )
+        for total_transaction_json in total_transaction_json_list:
+            self._collect_item(TransactionTraceJson.type(), TransactionTraceJson.from_rpc(total_transaction_json))
 
         for trace in traces:
             trace_entity = Trace.from_rpc(trace)
@@ -174,6 +177,7 @@ def traces_rpc_requests(make_requests, blocks: List[dict], is_batch):
         responses = [make_requests(params=orjson.dumps(trace_block_rpc[0]))]
 
     total_traces = []
+    total_transaction_json = []
     for block, response in zip_rpc_response(blocks, responses, index="number"):
         block_number = block["number"]
         transactions = block["transactions"]
@@ -213,8 +217,20 @@ def traces_rpc_requests(make_requests, blocks: List[dict], is_batch):
             "transaction_traces": result,
         }
         trace_spliter = ExtractTraces()
+        for trace in geth_trace["transaction_traces"]:
+            total_transaction_json.append(
+                {
+                    **trace,
+                    **{
+                        "block_number": block_number,
+                        "block_hash": block["hash"],
+                        "block_timestamp": block["timestamp"],
+                    },
+                }
+            )
+
         traces = trace_spliter.geth_trace_to_traces(geth_trace)
 
         total_traces.extend(traces)
 
-    return total_traces
+    return total_traces, total_transaction_json

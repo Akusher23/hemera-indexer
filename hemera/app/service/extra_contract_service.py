@@ -11,7 +11,7 @@ import requests
 from sqlmodel import Session, select
 
 from hemera.app.utils.web3_utils import get_code, get_storage_at, w3
-from hemera.common.models.contracts import Contracts
+from hemera.common.models.trace.contracts import Contracts
 from hemera.common.utils.exception_control import APIError
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 

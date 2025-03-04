@@ -14,7 +14,7 @@ from sqlmodel import Session, and_, func, select
 
 from hemera.app.api.routes.helper import process_columns
 from hemera.app.utils import ColumnType
-from hemera.common.models.blocks import Blocks
+from hemera.common.models.base.blocks import Blocks
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 
 

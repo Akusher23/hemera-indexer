@@ -2,7 +2,8 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import Index
-from sqlmodel import Field, SQLModel
+from sqlalchemy.sql import text
+from sqlmodel import Field
 
 from hemera.common.models import HemeraModel, general_converter
 from hemera_udf.address_index.domains import TokenAddressNftInventory
@@ -20,9 +21,7 @@ class TokenAddressNftInventories(HemeraModel, table=True):
     __table_args__ = (
         Index(
             "token_address_nft_inventories_wallet_address_token_address__idx",
-            "wallet_address",
-            "token_address",
-            "token_id",
+            text("wallet_address, token_address, token_id"),
         ),
     )
 

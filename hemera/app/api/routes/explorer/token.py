@@ -25,8 +25,8 @@ from hemera.app.api.routes.parameters.validate_address import is_eth_address
 from hemera.app.core.config import settings
 from hemera.app.models import SortOrder
 from hemera.common.enumeration.token_type import TokenType
-from hemera.common.models.current_token_balances import CurrentTokenBalances
-from hemera.common.models.tokens import Tokens
+from hemera.common.models.token.token_balances import CurrentTokenBalances
+from hemera.common.models.token.tokens import Tokens
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.common.utils.web3_utils import to_checksum_address
 

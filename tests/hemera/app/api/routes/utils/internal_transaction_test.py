@@ -9,7 +9,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
-from sqlmodel import Session, asc, desc
+from sqlmodel import Session
 
 from hemera.app.api.routes.helper.internal_transaction import (
     _get_internal_transactions_by_address_native,
@@ -21,7 +21,7 @@ from hemera.app.api.routes.helper.internal_transaction import (
 )
 from hemera.common.enumeration.txn_type import InternalTransactionType
 from hemera.common.models.address.address_internal_transaciton import AddressInternalTransactions
-from hemera.common.models.traces import ContractInternalTransactions
+from hemera.common.models.trace.traces import ContractInternalTransactions
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 # Test data constants

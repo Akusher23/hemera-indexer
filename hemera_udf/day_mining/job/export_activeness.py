@@ -1,6 +1,6 @@
 from collections import defaultdict
 
-from hemera.common.models.contracts import Contracts
+from hemera.common.models.trace.contracts import Contracts
 from hemera.common.utils.format_utils import bytes_to_hex_str
 from hemera.indexer.domains.contract import Contract
 from hemera.indexer.domains.transaction import Transaction

@@ -7,7 +7,7 @@ from distutils.util import strtobool
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 
-from hemera.common.models.records import SyncRecord
+from hemera.common.models.utils.records import FailureRecords, SyncRecords
 from hemera.common.utils.file_utils import smart_open, write_to_file
 
 logger = logging.getLogger(__name__)
@@ -86,7 +86,7 @@ class PGSyncRecorder(BaseRecorder):
         update_time = func.to_timestamp(int(datetime.now(timezone.utc).timestamp()))
         try:
             conflict_args = {
-                "index_elements": [SyncRecord.mission_sign],
+                "index_elements": [SyncRecords.mission_sign],
                 "set_": {
                     "last_block_number": last_synced_block,
                     "update_time": update_time,
@@ -94,10 +94,10 @@ class PGSyncRecorder(BaseRecorder):
             }
 
             if ASYNC_SUBMIT or self.multi_mode:
-                conflict_args["where"] = SyncRecord.last_block_number <= last_synced_block
+                conflict_args["where"] = SyncRecords.last_block_number <= last_synced_block
 
             statement = (
-                insert(SyncRecord)
+                insert(SyncRecords)
                 .values(
                     {
                         "mission_sign": self.key,
@@ -117,7 +117,7 @@ class PGSyncRecorder(BaseRecorder):
     def get_last_synced_block(self):
         session = self.service.get_service_session()
         try:
-            result = session.query(SyncRecord.last_block_number).filter(SyncRecord.mission_sign == self.key).scalar()
+            result = session.query(SyncRecords.last_block_number).filter(SyncRecords.mission_sign == self.key).scalar()
         except Exception as e:
             raise e
         finally:

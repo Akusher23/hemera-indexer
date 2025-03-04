@@ -4,17 +4,14 @@
 # @Author  ideal93
 # @File  log.py
 # @Brief
-import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import List, Optional, Union
 
 from pydantic import BaseModel
 from sqlmodel import Session, desc, select
 
-from hemera.app.core.service import extra_contract_service
 from hemera.app.utils import ColumnType
-from hemera.common.models.logs import Logs
-from hemera.common.utils.abi_code_utils import decode_log_data
+from hemera.common.models.base.logs import Logs
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 
 

@@ -9,7 +9,7 @@ import pytest
 
 from hemera.app.api.routes.helper.transaction import *
 from hemera.app.api.routes.helper.transaction import _get_transaction_by_hash
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.transactions import Transactions
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

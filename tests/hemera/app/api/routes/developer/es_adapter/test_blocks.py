@@ -10,7 +10,7 @@ import pytest
 from sqlmodel import Session, delete
 
 from hemera.app.api.routes.developer.es_adapter.helper import block_number_by_timestamp
-from hemera.common.models.blocks import Blocks
+from hemera.common.models.base.blocks import Blocks
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

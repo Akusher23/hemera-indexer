@@ -69,7 +69,7 @@ class Blocks(HemeraModel, table=True):
 
     __table_args__ = (
         Index("blocks_timestamp_index", text("timestamp DESC")),
-        Index("blocks_number_index", text("timestamp DESC")),
+        Index("blocks_number_index", text("number DESC")),
         Index("blocks_number_unique_when_not_reorg", "number", unique=True, postgresql_where="reorg = false"),
         Index("blocks_hash_unique_when_not_reorg", "hash", unique=True, postgresql_where="reorg = false"),
     )

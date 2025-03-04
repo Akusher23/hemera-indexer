@@ -13,8 +13,8 @@ from hemera.indexer.domains.token_balance import TokenBalance
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer, ERC721TokenTransfer, ERC1155TokenTransfer
 from hemera.indexer.executors.batch_work_executor import BatchWorkExecutor
 from hemera.indexer.jobs.base_job import BaseExportJob
-from hemera.indexer.utils.abi import pad_address, uint256_to_bytes
-from hemera.indexer.utils.abi_setting import ERC20_BALANCE_OF_FUNCTION, ERC1155_TOKEN_ID_BALANCE_OF_FUNCTION
+from hemera.indexer.utils.abi import pad_address
+from hemera.indexer.utils.abi_setting import ERC20_BALANCE_OF_FUNCTION
 from hemera.indexer.utils.collection_utils import distinct_collections_by_group
 from hemera.indexer.utils.exception_recorder import ExceptionRecorder
 from hemera.indexer.utils.multicall_hemera.util import calculate_execution_time
@@ -28,8 +28,6 @@ exception_recorder = ExceptionRecorder()
 class TokenBalanceParam:
     address: str
     token_address: str
-    token_id: Optional[int]
-    token_type: str
     block_number: int
     block_timestamp: int
 
@@ -39,7 +37,7 @@ FAILURE_THRESHOLD = 100
 
 # Exports token balance
 class ExportTokenBalancesJob(BaseExportJob):
-    dependency_types = [ERC20TokenTransfer, ERC721TokenTransfer, ERC1155TokenTransfer]
+    dependency_types = [ERC20TokenTransfer, ERC721TokenTransfer]
     output_types = [TokenBalance, CurrentTokenBalance, MarkBalanceToken]
     able_to_reorg = True
 
@@ -57,7 +55,7 @@ class ExportTokenBalancesJob(BaseExportJob):
 
     @calculate_execution_time
     def _collect(self, **kwargs):
-        token_transfers = self._collect_all_token_transfers()
+        token_transfers = self._collect_erc20_and_erc721_token_transfers()
         parameters = self.extract_token_parameters(token_transfers)
         self._collect_batch(parameters)
 
@@ -97,8 +95,6 @@ class ExportTokenBalancesJob(BaseExportJob):
                     [
                         CurrentTokenBalance(
                             address=token_balance.address,
-                            token_id=token_balance.token_id,
-                            token_type=token_balance.token_type,
                             token_address=token_balance.token_address,
                             balance=token_balance.balance,
                             block_number=token_balance.block_number,
@@ -106,13 +102,13 @@ class ExportTokenBalancesJob(BaseExportJob):
                         )
                         for token_balance in self._data_buff[TokenBalance.type()]
                     ],
-                    group_by=["token_address", "address", "token_id"],
+                    group_by=["token_address", "address"],
                     max_key="block_number",
                 )
             )
 
     @calculate_execution_time
-    def _collect_all_token_transfers(self):
+    def _collect_erc20_and_erc721_token_transfers(self):
         token_transfers = []
         erc20_tokens = set()
         if ERC20TokenTransfer.type() in self._data_buff:
@@ -122,9 +118,6 @@ class ExportTokenBalancesJob(BaseExportJob):
             for erc721_token_transfer in self._data_buff[ERC721TokenTransfer.type()]:
                 if erc721_token_transfer.token_address not in erc20_tokens:
                     token_transfers.append(erc721_token_transfer)
-
-        if ERC1155TokenTransfer.type() in self._data_buff:
-            token_transfers += self._data_buff[ERC1155TokenTransfer.type()]
 
         return token_transfers
 
@@ -141,8 +134,6 @@ class ExportTokenBalancesJob(BaseExportJob):
                 continue
             common_params = {
                 "token_address": transfer.token_address,
-                "token_id": (transfer.token_id if isinstance(transfer, ERC1155TokenTransfer) else None),
-                "token_type": transfer.token_type,
                 "block_number": transfer.block_number if block_number is None else block_number,
                 "block_timestamp": transfer.block_timestamp,
             }
@@ -156,12 +147,8 @@ class ExportTokenBalancesJob(BaseExportJob):
                 {
                     "address": parameter.address,
                     "token_address": parameter.token_address,
-                    "token_id": parameter.token_id,
-                    "token_type": parameter.token_type,
                     "param_to": parameter.token_address,
-                    "param_data": encode_balance_abi_parameter(
-                        parameter.address, parameter.token_type, parameter.token_id
-                    ),
+                    "param_data": encode_balance_abi_parameter(parameter.address),
                     "param_number": parameter.block_number if block_number is None else block_number,
                     "block_number": parameter.block_number if block_number is None else block_number,
                     "block_timestamp": parameter.block_timestamp,
@@ -171,17 +158,13 @@ class ExportTokenBalancesJob(BaseExportJob):
         return token_parameters
 
 
-def encode_balance_abi_parameter(address, token_type, token_id):
-    if token_type == "ERC1155":
-        encoded_arguments = HexBytes(pad_address(address) + uint256_to_bytes(token_id))
-        return to_hex(HexBytes(ERC1155_TOKEN_ID_BALANCE_OF_FUNCTION.get_signature()) + encoded_arguments)
-    else:
-        encoded_arguments = HexBytes(pad_address(address))
-        return to_hex(HexBytes(ERC20_BALANCE_OF_FUNCTION.get_signature()) + encoded_arguments)
+def encode_balance_abi_parameter(address):
+    encoded_arguments = HexBytes(pad_address(address))
+    return to_hex(HexBytes(ERC20_BALANCE_OF_FUNCTION.get_signature()) + encoded_arguments)
 
 
 def extract_token_parameters(
-    token_transfers: List[Union[ERC20TokenTransfer, ERC721TokenTransfer, ERC1155TokenTransfer]],
+    token_transfers: List[Union[ERC20TokenTransfer, ERC721TokenTransfer]],
     block_number: Union[Optional[int], str] = None,
 ):
     origin_parameters = set()
@@ -189,8 +172,6 @@ def extract_token_parameters(
     for transfer in token_transfers:
         common_params = {
             "token_address": transfer.token_address,
-            "token_id": (transfer.token_id if isinstance(transfer, ERC1155TokenTransfer) else None),
-            "token_type": transfer.token_type,
             "block_number": transfer.block_number if block_number is None else block_number,
             "block_timestamp": transfer.block_timestamp,
         }
@@ -204,10 +185,8 @@ def extract_token_parameters(
             {
                 "address": parameter.address,
                 "token_address": parameter.token_address,
-                "token_id": parameter.token_id,
-                "token_type": parameter.token_type,
                 "param_to": parameter.token_address,
-                "param_data": encode_balance_abi_parameter(parameter.address, parameter.token_type, parameter.token_id),
+                "param_data": encode_balance_abi_parameter(parameter.address),
                 "param_number": parameter.block_number if block_number is None else block_number,
                 "block_number": parameter.block_number if block_number is None else block_number,
                 "block_timestamp": parameter.block_timestamp,

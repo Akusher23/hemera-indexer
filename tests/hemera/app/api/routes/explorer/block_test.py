@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from hemera.app.api.routes.helper.block import _get_blocks_by_condition
-from hemera.common.models.blocks import Blocks
+from hemera.common.models.base.blocks import Blocks
 
 
 @pytest.mark.serial

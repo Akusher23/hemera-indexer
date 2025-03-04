@@ -8,7 +8,7 @@ from hemera.common.enumeration.token_type import TokenType
 from hemera.common.enumeration.txn_type import AddressNftTransferType, AddressTokenTransferType
 from hemera.common.models.address.address_nft_transfers import AddressNftTransfers
 from hemera.common.models.address.address_token_transfers import AddressTokenTransfers
-from hemera.common.models.token_transfers import (
+from hemera.common.models.token.token_transfers import (
     ERC20TokenTransfers,
     ERC721TokenTransfers,
     ERC1155TokenTransfers,

@@ -9,6 +9,7 @@ from sqlmodel import Field, Index
 from hemera.common.models import HemeraModel, general_converter
 from hemera.indexer.domains.contract_internal_transaction import ContractInternalTransaction
 from hemera.indexer.domains.trace import Trace
+from hemera.indexer.domains.transaction_trace_json import TransactionTraceJson
 
 
 class Traces(HemeraModel, table=True):
@@ -16,6 +17,7 @@ class Traces(HemeraModel, table=True):
 
     # Primary key
     trace_id: str = Field(primary_key=True)
+    block_timestamp: datetime = Field(primary_key=True)
 
     # Address fields
     from_address: Optional[bytes] = Field(default=None)
@@ -43,7 +45,6 @@ class Traces(HemeraModel, table=True):
     # Block fields
     block_number: Optional[int] = Field(default=None)
     block_hash: Optional[bytes] = Field(default=None)
-    block_timestamp: Optional[datetime] = Field(default=None)
     transaction_index: Optional[int] = Field(default=None)
     transaction_hash: Optional[bytes] = Field(default=None)
 
@@ -90,6 +91,7 @@ class ContractInternalTransactions(HemeraModel, table=True):
 
     # Primary key
     trace_id: str = Field(primary_key=True)
+    block_timestamp: datetime = Field(primary_key=True)
 
     # Address fields
     from_address: Optional[bytes] = Field(default=None)
@@ -117,7 +119,6 @@ class ContractInternalTransactions(HemeraModel, table=True):
     # Block fields
     block_number: Optional[int] = Field(default=None)
     block_hash: Optional[bytes] = Field(default=None)
-    block_timestamp: Optional[datetime] = Field(default=None)
     transaction_index: Optional[int] = Field(default=None)
     transaction_hash: Optional[bytes] = Field(default=None)
 
@@ -159,13 +160,24 @@ class ContractInternalTransactions(HemeraModel, table=True):
     )
 
 
-class TransactionTraceJson(HemeraModel, table=True):
+class TransactionTraceJsons(HemeraModel, table=True):
     __tablename__ = "transaction_trace_json"
 
     # Primary key
     transaction_hash: bytes = Field(primary_key=True)
     block_timestamp: datetime = Field(primary_key=True)
 
-    block_number: int
-    block_hash: bytes
+    block_number: int = Field(default=None)
+    block_hash: bytes = Field(default=None)
     data: Optional[Dict] = Field(default=None, sa_column=Column(JSONB))
+
+    @staticmethod
+    def model_domain_mapping():
+        return [
+            {
+                "domain": TransactionTraceJson,
+                "conflict_do_update": False,
+                "update_strategy": None,
+                "converter": general_converter,
+            }
+        ]

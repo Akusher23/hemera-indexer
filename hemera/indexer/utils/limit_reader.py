@@ -1,6 +1,6 @@
 from sqlalchemy import func
 
-from hemera.common.models.blocks import Blocks
+from hemera.common.models.base.blocks import Blocks
 from hemera.common.services.postgresql_service import PostgreSQLService
 from hemera.common.utils.exception_control import FastShutdownError
 from hemera.common.utils.web3_utils import build_web3

@@ -9,8 +9,8 @@ from sqlalchemy import and_, desc, func
 from hemera.api.app.address.features import register_feature
 from hemera.api.app.cache import cache
 from hemera.common.models import db
+from hemera.common.models.token import Tokens
 from hemera.common.models.token_hourly_price import TokenHourlyPrices
-from hemera.common.models.tokens import Tokens
 from hemera.common.utils.format_utils import as_dict, bytes_to_hex_str, format_to_dict, hex_str_to_bytes
 from hemera_udf.opensea.endpoint import opensea_namespace
 from hemera_udf.opensea.jobs.opensea_job import (

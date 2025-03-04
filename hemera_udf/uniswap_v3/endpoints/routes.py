@@ -11,8 +11,8 @@ from hemera.api.app.address.features import register_feature
 from hemera.api.app.cache import cache
 from hemera.api.app.db_service.tokens import get_token_price_map_by_symbol_list
 from hemera.common.models import db
+from hemera.common.models.token import Tokens
 from hemera.common.models.token_hourly_price import TokenHourlyPrices
-from hemera.common.models.tokens import Tokens
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera_udf.opensea.endpoint.routes import get_token_daily_price
 from hemera_udf.uniswap_v3.endpoints import uniswap_v3_namespace

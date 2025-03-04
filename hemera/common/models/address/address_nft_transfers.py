@@ -6,7 +6,7 @@ from sqlalchemy import text
 from sqlmodel import Field, Index, SQLModel
 
 from hemera.common.models import HemeraModel, general_converter
-from hemera.common.models.token_transfers import BaseTokenTransfer
+from hemera.common.models.token.token_transfers import BaseTokenTransfer
 from hemera_udf.address_index.domains import AddressNftTransfer
 
 

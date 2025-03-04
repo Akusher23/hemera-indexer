@@ -78,7 +78,7 @@ def stream_process(
     pid_file,
 ):
     print_logo()
-    import_submodules("hemera_udf")
+    # import_submodules("hemera_udf")
     configure_logging(log_level, log_file)
     configure_signals()
     provider_uri = pick_random_provider_uri(provider_uri)

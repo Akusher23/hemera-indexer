@@ -18,10 +18,10 @@ from hemera.app.api.routes.developer.es_adapter.helper import (
     token_info,
 )
 from hemera.common.enumeration.token_type import TokenType
-from hemera.common.models.current_token_balances import CurrentTokenBalances
-from hemera.common.models.token_balances import AddressTokenBalances
-from hemera.common.models.token_details import ERC721TokenIdDetails
-from hemera.common.models.tokens import Tokens
+from hemera.common.models.token.nft import NFTDetails
+from hemera.common.models.token.token_balances import AddressTokenBalances, CurrentTokenBalances
+from hemera.common.models.token.token_id_balances import AddressTokenIdBalances, CurrentTokenIdBalances
+from hemera.common.models.token.tokens import Tokens
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 
@@ -30,6 +30,8 @@ def clean_db(session: Session):
     session.exec(delete(Tokens))
     session.exec(delete(AddressTokenBalances))
     session.exec(delete(CurrentTokenBalances))
+    session.exec(delete(AddressTokenIdBalances))
+    session.exec(delete(CurrentTokenIdBalances))
     session.commit()
 
 
@@ -74,34 +76,31 @@ def sample_token_data(session: Session):
         AddressTokenBalances(
             address=hex_str_to_bytes("0x" + "1" * 40),
             token_address=hex_str_to_bytes("0x" + "A" * 40),
-            token_type="ERC20",
-            token_id=-1,
             balance=1000,
             block_number=1000,
+            block_timestamp=base_time,
         ),
         AddressTokenBalances(
             address=hex_str_to_bytes("0x" + "1" * 40),
             token_address=hex_str_to_bytes("0x" + "A" * 40),
-            token_type="ERC20",
-            token_id=-1,
             balance=1500,
             block_number=1005,  # newer block number
+            block_timestamp=base_time,
         ),
         AddressTokenBalances(
             address=hex_str_to_bytes("0x" + "1" * 40),
             token_address=hex_str_to_bytes("0x" + "B" * 40),
-            token_type="ERC721",
-            token_id=-1,
             balance=5,
             block_number=1000,
+            block_timestamp=base_time,
         ),
-        AddressTokenBalances(
+        AddressTokenIdBalances(
             address=hex_str_to_bytes("0x" + "1" * 40),
             token_address=hex_str_to_bytes("0x" + "C" * 40),
-            token_type="ERC1155",
             token_id=2,
             balance=10,
             block_number=1000,
+            block_timestamp=base_time,
         ),
     ]
     session.add_all(balances)
@@ -113,33 +112,30 @@ def sample_token_data(session: Session):
             address=hex_str_to_bytes("0x" + "1" * 40),
             token_address=hex_str_to_bytes("0x" + "A" * 40),
             balance=1500,
-            token_type="ERC20",
-            token_id=-1,
             block_number=1005,  # latest block for ERC20
+            block_timestamp=base_time,
         ),
         CurrentTokenBalances(
             address=hex_str_to_bytes("0x" + "1" * 40),
             token_address=hex_str_to_bytes("0x" + "B" * 40),
             balance=5,
-            token_type="ERC721",
-            token_id=-1,
             block_number=1000,
+            block_timestamp=base_time,
         ),
-        CurrentTokenBalances(
+        CurrentTokenIdBalances(
             address=hex_str_to_bytes("0x" + "1" * 40),
             token_address=hex_str_to_bytes("0x" + "C" * 40),
             balance=10,
-            token_type="ERC1155",
             token_id=2,
             block_number=1000,
+            block_timestamp=base_time,
         ),
         CurrentTokenBalances(
             address=hex_str_to_bytes("0x" + "2" * 40),
             token_address=hex_str_to_bytes("0x" + "A" * 40),
             balance=500,
-            token_type="ERC20",
-            token_id=-1,
             block_number=1000,
+            block_timestamp=base_time,
         ),
     ]
     session.add_all(current_balances)
@@ -189,17 +185,17 @@ def test_account_token_balance(session: Session, sample_token_data):
 def test_account_token_balance_with_block_number(session: Session, sample_token_data):
     """Test getting token balance with a specific block number."""
     result = account_token_balance_with_block_number(
-        session, sample_token_data["erc20_contract"], sample_token_data["address"], 1000, "ERC20"
+        session, sample_token_data["erc20_contract"], sample_token_data["address"], 1000, TokenType.ERC20
     )
     assert result == "1000"  # ERC20 balance at block number 1000 is 1000
 
     result = account_token_balance_with_block_number(
-        session, sample_token_data["erc721_contract"], sample_token_data["address"], 1000, "ERC721", -1
+        session, sample_token_data["erc721_contract"], sample_token_data["address"], 1000, TokenType.ERC721, -1
     )
     assert result == "5"  # ERC721 balance for token_id=1 at block number 1000 is 5
 
     result = account_token_balance_with_block_number(
-        session, sample_token_data["erc1155_contract"], sample_token_data["address"], 1000, "ERC1155", 2
+        session, sample_token_data["erc1155_contract"], sample_token_data["address"], 1000, TokenType.ERC1155, 2
     )
     assert result == "10"  # ERC1155 balance for token_id=2 at block number 1000 is 10
 
@@ -257,13 +253,13 @@ def sample_nft_data(session: Session):
 
     # Create ERC721 token details
     nfts = [
-        ERC721TokenIdDetails(
+        NFTDetails(
             token_id="1", token_address=hex_str_to_bytes("0x" + "A" * 40), token_owner=hex_str_to_bytes("0x" + "1" * 40)
         ),
-        ERC721TokenIdDetails(
+        NFTDetails(
             token_id="2", token_address=hex_str_to_bytes("0x" + "A" * 40), token_owner=hex_str_to_bytes("0x" + "1" * 40)
         ),
-        ERC721TokenIdDetails(
+        NFTDetails(
             token_id="3", token_address=hex_str_to_bytes("0x" + "A" * 40), token_owner=hex_str_to_bytes("0x" + "2" * 40)
         ),
     ]

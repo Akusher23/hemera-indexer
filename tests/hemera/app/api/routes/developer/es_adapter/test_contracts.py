@@ -9,7 +9,7 @@ import pytest
 from sqlmodel import Session, delete
 
 from hemera.app.api.routes.developer.es_adapter.helper import get_contract_creator_and_creation_tx_hash
-from hemera.common.models.contracts import Contracts
+from hemera.common.models.trace.contracts import Contracts
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

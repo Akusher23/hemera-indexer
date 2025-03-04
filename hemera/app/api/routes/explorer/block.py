@@ -23,7 +23,7 @@ from hemera.app.api.routes.helper.block import (
 from hemera.app.api.routes.helper.token import get_token_price
 from hemera.app.api.routes.parameters.validate_block import validate_block_identifier
 from hemera.app.core.config import settings
-from hemera.common.models.blocks import Blocks
+from hemera.common.models.base.blocks import Blocks
 
 router = APIRouter(tags=["BLOCK"])
 

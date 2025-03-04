@@ -15,12 +15,12 @@ from sqlmodel import Session, and_, func, or_, select
 
 from hemera.app.api.deps import ReadSessionDep
 from hemera.app.api.routes.parameters.validate_address import external_api_validate_address
-from hemera.common.models.blocks import Blocks
-from hemera.common.models.current_token_balances import CurrentTokenBalances
-from hemera.common.models.token_transfers import ERC20TokenTransfers, ERC721TokenTransfers, ERC1155TokenTransfers
-from hemera.common.models.tokens import Tokens
-from hemera.common.models.traces import ContractInternalTransactions
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.blocks import Blocks
+from hemera.common.models.base.transactions import Transactions
+from hemera.common.models.token.token_balances import CurrentTokenBalances
+from hemera.common.models.token.token_transfers import ERC20TokenTransfers, ERC721TokenTransfers, ERC1155TokenTransfers
+from hemera.common.models.token.tokens import Tokens
+from hemera.common.models.trace.traces import ContractInternalTransactions
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 
 

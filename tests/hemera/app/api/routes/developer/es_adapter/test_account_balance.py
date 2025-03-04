@@ -16,7 +16,7 @@ from hemera.app.api.routes.developer.es_adapter.helper import (
     account_balancemulti,
 )
 from hemera.app.main import app
-from hemera.common.models.coin_balances import CoinBalances
+from hemera.common.models.trace.address_coin_balances import AddressCoinBalances
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 
@@ -24,7 +24,7 @@ from hemera.common.utils.format_utils import hex_str_to_bytes
 def clean_db(session):
     """Clean database before each test"""
     # Order matters due to foreign key constraints
-    session.exec(delete(CoinBalances))
+    session.exec(delete(AddressCoinBalances))
 
     session.commit()
 
@@ -45,7 +45,7 @@ def sample_coin_balance(clean_db, session):
 
     # Create 10 consecutive blocks
     for i in range(5):
-        block = CoinBalances(
+        block = AddressCoinBalances(
             address=hex_str_to_bytes(f"0x{i:040x}"),
             balance=1000000 * (i + 1),
             block_number=1000 + i,

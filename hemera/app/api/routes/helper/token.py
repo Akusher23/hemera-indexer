@@ -1,12 +1,12 @@
 from datetime import datetime
 from decimal import Decimal
-from typing import Dict, List, Optional, Sequence, Union
+from typing import List, Optional, Sequence, Union
 
 from pydantic import BaseModel
 from sqlmodel import Session, select
 
-from hemera.common.models.prices import CoinPrices, TokenHourlyPrices, TokenPrices
-from hemera.common.models.tokens import Tokens
+from hemera.common.models.token.tokens import Tokens
+from hemera.common.models.utils.prices import CoinPrices, TokenHourlyPrices, TokenPrices
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 
 

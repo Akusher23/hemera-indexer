@@ -4,7 +4,7 @@ from typing import Union
 
 from sqlalchemy import and_
 
-from hemera.common.models.blocks import Blocks
+from hemera.common.models.base.blocks import Blocks
 from hemera.common.utils.format_utils import as_dict
 from hemera.indexer.domains import dict_to_dataclass
 from hemera.indexer.domains.block import Block

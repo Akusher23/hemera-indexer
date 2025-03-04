@@ -5,9 +5,8 @@ from typing import List, Set, Type
 from pottery import RedisDict
 from redis.client import Redis
 
-from hemera.common.models.tokens import Tokens
+from hemera.common.models.token.tokens import Tokens
 from hemera.common.utils.format_utils import bytes_to_hex_str
-from hemera.common.utils.module_loading import import_submodules
 from hemera.indexer.jobs import FilterTransactionDataJob
 from hemera.indexer.jobs.base_job import BaseExportJob, BaseJob, ExtensionJob
 from hemera.indexer.jobs.export_blocks_job import ExportBlocksJob

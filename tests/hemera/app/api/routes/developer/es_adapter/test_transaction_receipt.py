@@ -8,14 +8,14 @@
 from datetime import datetime
 
 import pytest
-from sqlmodel import Session, delete, select
+from sqlmodel import Session, delete
 
 from hemera.app.api.routes.developer.es_adapter.helper import (
     check_contract_execution_status,
     check_transaction_receipt_status,
 )
-from hemera.common.models.traces import Traces
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.transactions import Transactions
+from hemera.common.models.trace.traces import Traces
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

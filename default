@@ -1,0 +1,1 @@
+{"failure_batch_counter": [{"label": ["default"], "value": 4.0}], "instance_shutdown": [{"label": ["default"], "value": 5.0}], "job_processing_retry": [{"label": ["default", "ExportBlocksJob"], "value": 2.0}, {"label": ["default", "ExportTracesJob"], "value": 1.0}, {"label": ["default", "ExportTokenBalancesJob"], "value": 1.0}]}

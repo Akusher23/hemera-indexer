@@ -165,10 +165,9 @@ class TokenFetcher:
             cnt += 1
 
             token, wal = row["token_address"], row["address"]
-            token_id = row["token_id"]
-            token_type = row["token_type"]
+            token_id = row.get("token_id")
             block_number = row["block_number"]
-            if token_type == "ERC1155" and token_id is not None:
+            if token_id is not None:
                 construct_call = Call(
                     target=token,
                     function_abi=ERC1155_TOKEN_ID_BALANCE_OF_FUNCTION,
@@ -204,8 +203,7 @@ class TokenFetcher:
             return_data.append(
                 {
                     "address": item["address"].lower(),
-                    "token_id": item["token_id"],
-                    "token_type": item["token_type"],
+                    "token_id": item.get("token_id"),
                     "token_address": item["token_address"].lower(),
                     "balance": balance,
                     "block_number": item["block_number"],

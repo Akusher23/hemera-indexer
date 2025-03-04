@@ -12,20 +12,20 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, and_, or_, select
 
 from hemera.common.enumeration.token_type import TokenType
-from hemera.common.models.blocks import Blocks
-from hemera.common.models.coin_balances import CoinBalances
-from hemera.common.models.contracts import Contracts
-from hemera.common.models.current_token_balances import CurrentTokenBalances
-from hemera.common.models.logs import Logs
+from hemera.common.models.base.blocks import Blocks
+from hemera.common.models.base.logs import Logs
+from hemera.common.models.base.transactions import Transactions
 from hemera.common.models.stats.daily_addresses_stats import DailyAddressesStats
 from hemera.common.models.stats.daily_blocks_stats import DailyBlocksStats
 from hemera.common.models.stats.daily_transactions_stats import DailyTransactionsStats
-from hemera.common.models.token_balances import AddressTokenBalances
-from hemera.common.models.token_details import ERC721TokenIdDetails
-from hemera.common.models.token_transfers import ERC20TokenTransfers, ERC721TokenTransfers, ERC1155TokenTransfers
-from hemera.common.models.tokens import Tokens
-from hemera.common.models.traces import ContractInternalTransactions, Traces
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.token.nft import NFTDetails
+from hemera.common.models.token.token_balances import AddressTokenBalances, CurrentTokenBalances
+from hemera.common.models.token.token_id_balances import AddressTokenIdBalances, CurrentTokenIdBalances
+from hemera.common.models.token.token_transfers import ERC20TokenTransfers, ERC721TokenTransfers, ERC1155TokenTransfers
+from hemera.common.models.token.tokens import Tokens
+from hemera.common.models.trace.address_coin_balances import AddressCoinBalances
+from hemera.common.models.trace.contracts import Contracts
+from hemera.common.models.trace.traces import ContractInternalTransactions, Traces
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 
 
@@ -34,9 +34,9 @@ def account_balance(session: Session, address, tag=None) -> Optional[int]:
     if isinstance(address, str):
         address = hex_str_to_bytes(address)
     balance_record = (
-        session.query(CoinBalances)
-        .where(CoinBalances.address == address)
-        .order_by(CoinBalances.block_number.desc())
+        session.query(AddressCoinBalances)
+        .where(AddressCoinBalances.address == address)
+        .order_by(AddressCoinBalances.block_number.desc())
         .limit(1)
         .first()
     )
@@ -55,9 +55,9 @@ def account_balancemulti(session: Session, addresses, tag=None) -> List[AddressB
         if isinstance(address, str):
             address = hex_str_to_bytes(address)
         balance_record = (
-            session.query(CoinBalances)
-            .where(CoinBalances.address == address)
-            .order_by(CoinBalances.block_number.desc())
+            session.query(AddressCoinBalances)
+            .where(AddressCoinBalances.address == address)
+            .order_by(AddressCoinBalances.block_number.desc())
             .limit(1)
             .first()
         )
@@ -72,12 +72,12 @@ def account_balancehistory(session: Session, address, blockno) -> int:
         address = hex_str_to_bytes(address)
 
     balance_record = (
-        session.query(CoinBalances)
+        session.query(AddressCoinBalances)
         .where(
-            CoinBalances.address == address,
-            CoinBalances.block_number <= blockno,
+            AddressCoinBalances.address == address,
+            AddressCoinBalances.block_number <= blockno,
         )
-        .order_by(CoinBalances.block_number.desc())
+        .order_by(AddressCoinBalances.block_number.desc())
         .limit(1)
         .first()
     )
@@ -556,15 +556,23 @@ def account_token_balance(
 ) -> Optional[str]:
     if not address or not contract_address:
         return "0"
-
-    token_balance = session.exec(
-        select(CurrentTokenBalances.balance).where(
-            CurrentTokenBalances.address == hex_str_to_bytes(address),
-            CurrentTokenBalances.token_address == hex_str_to_bytes(contract_address),
-            CurrentTokenBalances.token_type == token_type.value,
-            CurrentTokenBalances.token_id == token_id,
-        )
-    ).first()
+    if token_type in [TokenType.ERC20, TokenType.ERC721]:
+        token_balance = session.exec(
+            select(CurrentTokenBalances.balance).where(
+                CurrentTokenBalances.address == hex_str_to_bytes(address),
+                CurrentTokenBalances.token_address == hex_str_to_bytes(contract_address),
+            )
+        ).first()
+    elif token_type == TokenType.ERC1155:
+        token_balance = session.exec(
+            select(CurrentTokenIdBalances.balance).where(
+                CurrentTokenIdBalances.address == hex_str_to_bytes(address),
+                CurrentTokenIdBalances.token_address == hex_str_to_bytes(contract_address),
+                CurrentTokenIdBalances.token_id == token_id,
+            )
+        ).first()
+    else:
+        token_balance = 0
 
     return str(token_balance or 0)
 
@@ -573,24 +581,43 @@ def account_token_balance(
 # Get Historical ERC721-Token Account Balance for TokenContractAddress by BlockNo
 # Get Historical ERC1155-Token Account Balance for TokenContractAddress by BlockNo
 def account_token_balance_with_block_number(
-    session: Session, contract_address: str, address: str, block_number: int, token_type: str, token_id: int = -1
+    session: Session,
+    contract_address: str,
+    address: str,
+    block_number: int,
+    token_type: TokenType = TokenType.ERC20,
+    token_id: int = -1,
 ) -> str:
     if not address or not contract_address or not block_number:
         return "0"
-
-    token_balance = session.exec(
-        select(AddressTokenBalances.balance)
-        .where(
-            and_(
-                AddressTokenBalances.address == hex_str_to_bytes(address),
-                AddressTokenBalances.token_address == hex_str_to_bytes(contract_address),
-                AddressTokenBalances.token_type == token_type,
-                AddressTokenBalances.token_id == token_id,
-                AddressTokenBalances.block_number <= block_number,
+    if token_type in [TokenType.ERC20, TokenType.ERC721]:
+        token_balance = session.exec(
+            select(AddressTokenBalances.balance)
+            .where(
+                and_(
+                    AddressTokenBalances.address == hex_str_to_bytes(address),
+                    AddressTokenBalances.token_address == hex_str_to_bytes(contract_address),
+                    AddressTokenBalances.block_number <= block_number,
+                )
             )
-        )
-        .order_by(AddressTokenBalances.block_number.desc())
-    ).first()
+            .order_by(AddressTokenBalances.block_number.desc())
+        ).first()
+    elif token_type == TokenType.ERC1155:
+        token_balance = session.exec(
+            select(AddressTokenIdBalances.balance)
+            .where(
+                and_(
+                    AddressTokenIdBalances.address == hex_str_to_bytes(address),
+                    AddressTokenIdBalances.token_address == hex_str_to_bytes(contract_address),
+                    AddressTokenIdBalances.block_number <= block_number,
+                    AddressTokenIdBalances.token_id == token_id,
+                )
+            )
+            .order_by(AddressTokenIdBalances.block_number.desc())
+        ).first()
+
+    else:
+        token_balance = 0
 
     return str(token_balance or 0)
 
@@ -623,7 +650,7 @@ def token_holder_list(
     return [
         TokenHolderResponse(
             TokenHolderAddress=bytes_to_hex_str(token_holder.address),
-            TokenId=token_holder.token_id if token_holder.token_id >= 0 else None,
+            TokenId=None,
             TokenHolderQuantity=str(token_holder.balance),
         )
         for token_holder in token_holders
@@ -666,12 +693,12 @@ def account_address_nft_inventory(session: Session, contract_address, address, p
     address = address.lower()
     contract_address = contract_address.lower()
     query = (
-        select(ERC721TokenIdDetails)
+        select(NFTDetails)
         .where(
-            ERC721TokenIdDetails.token_address == hex_str_to_bytes(contract_address),
-            ERC721TokenIdDetails.token_owner == hex_str_to_bytes(address),
+            NFTDetails.token_address == hex_str_to_bytes(contract_address),
+            NFTDetails.token_owner == hex_str_to_bytes(address),
         )
-        .order_by(ERC721TokenIdDetails.token_id.asc())
+        .order_by(NFTDetails.token_id.asc())
         .limit(offset)
         .offset((page - 1) * offset)
     )
@@ -735,7 +762,6 @@ def account_address_token_holding(
         select(
             CurrentTokenBalances.token_address,
             CurrentTokenBalances.balance,
-            CurrentTokenBalances.token_id,
             Tokens.name,
             Tokens.token_type,
             Tokens.symbol,
@@ -766,7 +792,7 @@ def account_address_token_holding(
                 # TokenQuantity=str(token_holder.balance / (10**token_holder.decimals or 0)),
                 TokenQuantity=str(token_holder.balance or 0),
                 TokenDecimals=str(token_holder.decimals) if token_holder.decimals else None,
-                TokenID=str(token_holder.token_id) if token_holder.token_id >= 0 else None,
+                TokenID=None,
             )
         )
     return token_holder_list

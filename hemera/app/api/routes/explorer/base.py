@@ -31,10 +31,10 @@ from hemera.app.models import (
     TransactionSearchResult,
 )
 from hemera.app.utils.web3_utils import get_gas_price
-from hemera.common.models.blocks import Blocks
-from hemera.common.models.contracts import Contracts
-from hemera.common.models.tokens import Tokens
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.blocks import Blocks
+from hemera.common.models.base.transactions import Transactions
+from hemera.common.models.token.tokens import Tokens
+from hemera.common.models.trace.contracts import Contracts
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.common.utils.web3_utils import is_eth_address, is_eth_transaction_hash
 

@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from sqlalchemy import Column, Computed, func, text
-from sqlalchemy.dialects.postgresql import BIGINT, BOOLEAN, BYTEA, INTEGER, JSONB, TIMESTAMP, VARCHAR
+from sqlalchemy import Column, String, text
+from sqlalchemy.dialects.postgresql import BOOLEAN, JSONB, TIMESTAMP
+from sqlalchemy.sql.expression import func
 from sqlmodel import Field
 
 from hemera.common.models import HemeraModel, general_converter
@@ -48,9 +49,8 @@ class Contracts(HemeraModel, table=True):
         default_factory=datetime.utcnow, sa_column=Column(TIMESTAMP, server_default=func.now())
     )
     reorg: bool = Field(default=False, sa_column=Column(BOOLEAN, server_default=text("false")))
-    deployed_code_hash: Optional[str] = Field(
-        default=None,
-    )
+    deployed_code_hash: Optional[str] = Field(default=None)
+    bytecode: str = Field(default=None)
 
     @staticmethod
     def model_domain_mapping():

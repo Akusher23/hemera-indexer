@@ -15,17 +15,17 @@ from hemera.common.enumeration.txn_type import AddressNftTransferType, AddressTo
 from hemera.common.models.address.address_nft_transfers import AddressNftTransfers
 from hemera.common.models.address.address_token_transfers import AddressTokenTransfers
 from hemera.common.models.address.address_transactions import AddressTransactions
-from hemera.common.models.blocks import Blocks
-from hemera.common.models.contracts import Contracts
+from hemera.common.models.base.blocks import Blocks
+from hemera.common.models.base.transactions import Transactions
+from hemera.common.models.token import Tokens
 from hemera.common.models.token_transfers import (
     ERC20TokenTransfers,
     ERC721TokenTransfers,
     ERC1155TokenTransfers,
     NftTransfers,
 )
-from hemera.common.models.tokens import Tokens
-from hemera.common.models.traces import ContractInternalTransactions
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.trace.contracts import Contracts
+from hemera.common.models.trace.traces import ContractInternalTransactions
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

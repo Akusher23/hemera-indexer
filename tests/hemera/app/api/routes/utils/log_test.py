@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from hemera.app.api.routes.helper.log import _get_logs_by_address, _get_logs_by_hash
-from hemera.common.models.logs import Logs
+from hemera.common.models.base.logs import Logs
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

@@ -11,8 +11,8 @@ import pytest
 from sqlmodel import delete
 
 from hemera.app.api.routes.developer.es_adapter.helper import account_txlist, account_txlistinternal
-from hemera.common.models.traces import ContractInternalTransactions
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.base.transactions import Transactions
+from hemera.common.models.trace.traces import ContractInternalTransactions
 from hemera.common.utils.format_utils import hex_str_to_bytes
 
 

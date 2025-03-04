@@ -17,6 +17,8 @@ class Transactions(HemeraModel, table=True):
 
     # Primary key and transaction basic fields
     hash: bytes = Field(primary_key=True)
+    block_timestamp: datetime = Field(primary_key=True)
+
     transaction_index: Optional[int] = Field(default=None)
     from_address: Optional[bytes] = Field(default=None)
     to_address: Optional[bytes] = Field(default=None)
@@ -31,7 +33,6 @@ class Transactions(HemeraModel, table=True):
     # Block related fields
     block_hash: Optional[bytes] = Field(default=None)
     block_number: Optional[int] = Field(default=None)
-    block_timestamp: Optional[datetime] = Field(default=None)
 
     # Gas related fields
     gas: Optional[Decimal] = Field(default=None, max_digits=100)

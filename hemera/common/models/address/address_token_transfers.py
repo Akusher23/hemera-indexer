@@ -2,7 +2,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlmodel import Field, SQLModel
+from sqlalchemy import Index
+from sqlalchemy.sql import text
+from sqlmodel import Field
 
 from hemera.common.models import HemeraModel, general_converter
 from hemera_udf.address_index.domains import AddressTokenTransfer
@@ -41,3 +43,10 @@ class AddressTokenTransfers(HemeraModel, table=True):
                 "converter": general_converter,
             }
         ]
+
+    __table_args__ = (
+        Index(
+            "address_token_transfers_wallet_address_token_address__idx",
+            text("address, block_number DESC, block_timestamp DESC"),
+        ),
+    )

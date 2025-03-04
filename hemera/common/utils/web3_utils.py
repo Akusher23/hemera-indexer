@@ -1,11 +1,11 @@
 import base64
 import json
 import re
-from optparse import Option
 from typing import Optional
 
 import requests
 from web3 import Web3
+from web3.middleware import PythonicMiddleware
 
 ZERO_ADDRESS = "0x0000000000000000000000000000000000000000"
 
@@ -94,13 +94,8 @@ chain_id_name_mapping = {SUPPORT_CHAINS[chain_name]["chain_id"]: chain_name for 
 
 
 def build_web3(provider):
-    w3 = Web3(provider)
-    w3.middleware_onion.inject(PythonicMiddleware, layer=0)
+    w3 = Web3(provider, middleware=[PythonicMiddleware])
     return w3
-
-
-def verify_0_address(address):
-    return set(address[2:]) == {"0"}
 
 
 def get_debug_trace_transaction(traces):

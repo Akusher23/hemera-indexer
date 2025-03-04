@@ -18,9 +18,9 @@ from hemera.api.app.utils.web3_utils import get_balance
 from hemera.common.enumeration.token_type import TokenType
 from hemera.common.enumeration.txn_type import AddressTokenTransferType, AddressTransactionType
 from hemera.common.models import db
-from hemera.common.models.contracts import Contracts
-from hemera.common.models.scheduled_metadata import ScheduledMetadata
-from hemera.common.models.tokens import Tokens
+from hemera.common.models.token import Tokens
+from hemera.common.models.trace.contracts import Contracts
+from hemera.common.models.utils.scheduled_metadata import ScheduledMetadata
 from hemera.common.utils.db_utils import app_config, build_entities
 from hemera.common.utils.exception_control import APIError
 from hemera.common.utils.format_utils import (

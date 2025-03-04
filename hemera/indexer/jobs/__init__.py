@@ -18,8 +18,8 @@ from hemera.indexer.jobs.export_blocks_job import ExportBlocksJob
 from hemera.indexer.jobs.export_coin_balances_job import ExportCoinBalancesJob
 from hemera.indexer.jobs.export_contracts_from_transaction_job import ExportContractsFromTransactionJob
 from hemera.indexer.jobs.export_contracts_job import ExportContractsJob
+from hemera.indexer.jobs.export_nft_infos_job import ExportTokenIdInfosJob
 from hemera.indexer.jobs.export_token_balances_job import ExportTokenBalancesJob
-from hemera.indexer.jobs.export_token_id_infos_job import ExportTokenIdInfosJob
 from hemera.indexer.jobs.export_tokens_and_transfers_job import ExportTokensAndTransfersJob
 from hemera.indexer.jobs.export_traces_job import ExportTracesJob
 from hemera.indexer.jobs.export_transactions_and_logs_job import ExportTransactionsAndLogsJob

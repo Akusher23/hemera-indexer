@@ -18,9 +18,9 @@ from hemera.app.api.routes.helper import ColumnType, process_columns
 from hemera.app.api.routes.helper.address import get_txn_cnt_by_address
 from hemera.common.enumeration.txn_type import AddressTransactionType
 from hemera.common.models.address.address_transactions import AddressTransactions
-from hemera.common.models.scheduled_metadata import ScheduledMetadata
+from hemera.common.models.base.transactions import Transactions
 from hemera.common.models.stats.daily_transactions_stats import DailyTransactionsStats
-from hemera.common.models.transactions import Transactions
+from hemera.common.models.utils.scheduled_metadata import ScheduledMetadata
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 
 # Constants

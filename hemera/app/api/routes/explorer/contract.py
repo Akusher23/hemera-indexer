@@ -1,12 +1,11 @@
-from enum import Enum
-from typing import Dict, List, Optional
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel
-from sqlmodel import Session, and_, select
+from sqlmodel import select
 
 from hemera.app.api.deps import ReadSessionDep
-from hemera.common.models.contracts import Contracts
+from hemera.common.models.trace.contracts import Contracts
 from hemera.common.utils.format_utils import as_dict, hex_str_to_bytes
 from hemera.common.utils.web3_utils import ZERO_ADDRESS
 
