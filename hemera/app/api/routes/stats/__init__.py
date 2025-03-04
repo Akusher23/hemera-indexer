@@ -34,6 +34,7 @@ class SmartContractMetric(BaseModel):
 
 
 class MetricsResponse(BaseModel):
+    block_timestamp: datetime = Field(..., description="Timestamp of the block")
     transaction_count_minute: int = Field(..., description="Number of transactions in the current minute")
     transaction_count_total: int = Field(..., description="Total transaction count")
     transaction_per_second: float = Field(..., description="Transactions per second")
@@ -90,6 +91,8 @@ def validate_stats_params(
     """
     if duration.total_seconds() % interval.total_seconds() != 0:
         raise HTTPException(status_code=400, detail="Duration must be evenly divisible by interval")
+    if latest_timestamp is not None:
+        latest_timestamp = latest_timestamp.replace(microsecond=0).replace(second=0)
     return duration, interval, latest_timestamp
 
 
@@ -130,11 +133,10 @@ async def get_latest_transaction_count_stats(
 async def get_latest_top_active_contracts(
     session: ReadSessionDep, params: Tuple[timedelta, timedelta, Optional[datetime]] = Depends(validate_stats_params)
 ):
-
     duration, interval, latest_timestamp = params
 
     if latest_timestamp is None:
-        latest_timestamp = datetime.utcnow().replace(microsecond=0)
+        latest_timestamp = datetime.utcnow().replace(microsecond=0).replace(second=0)
 
     start_time = latest_timestamp - duration
 
@@ -161,7 +163,7 @@ async def get_latest_top_active_contracts(
 
 @router.get("/v1/developer/stats/metrics", response_model=MetricsResponse)
 async def get_address_profile(session: ReadSessionDep):
-
+    block_timestamp = _get_last_block(session, columns="timestamp")
     transaction_count_minute = get_latest_txn_count(session, timedelta(minutes=1))
     transaction_count_total = get_total_txn_count(session)
     block_times = get_block_count(session, timedelta(minutes=1))
@@ -174,6 +176,7 @@ async def get_address_profile(session: ReadSessionDep):
         )
 
     return MetricsResponse(
+        block_timestamp=block_timestamp.replace(microsecond=0).replace(second=0) if block_timestamp else None,
         transaction_count_minute=transaction_count_minute,
         transaction_count_total=transaction_count_total,
         transaction_per_second=transaction_count_minute / 60.0,

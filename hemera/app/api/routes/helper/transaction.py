@@ -780,7 +780,7 @@ def get_gas_stats_list(
             return List[Tuple[datetime, GasStats]]()
     else:
         latest_time = latest_timestamp
-
+    latest_time = latest_time.replace(microsecond=0).replace(second=0)
     start_time = latest_time - duration
     interval_seconds = interval.total_seconds()
     start_epoch = start_time.timestamp()
@@ -846,7 +846,7 @@ def get_transaction_count_stats_list(
             return []
     else:
         latest_time = latest_timestamp
-
+    latest_time = latest_time.replace(microsecond=0).replace(second=0)
     start_time = latest_time - duration
     interval_seconds = interval.total_seconds()
     start_epoch = start_time.timestamp()
