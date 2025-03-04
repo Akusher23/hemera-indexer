@@ -28,7 +28,7 @@ class MetricsResponse(BaseModel):
     transaction_count_minute: int = Field(..., description="Number of transactions in the current minute")
     transaction_count_total: int = Field(..., description="Total transaction count")
     transaction_per_second: float = Field(..., description="Transactions per second")
-    block_per_second: int = Field(..., description="Blocks generated per second")
+    block_per_second: float = Field(..., description="Blocks generated per second")
     gas_stats: GasStats = Field(..., description="Statistics related to gas usage")
     top_active_contracts: List[SmartContractMetric] = Field(
         ..., description="Top active smart contracts based on the previous day's data"
@@ -52,7 +52,7 @@ async def get_address_profile(session: ReadSessionDep):
         transaction_count_minute=transaction_count_minute,
         transaction_count_total=transaction_count_total,
         transaction_per_second=transaction_count_minute / 60.0,
-        block_per_second=int(block_times / 60.0),
+        block_per_second=block_times / 60.0,
         gas_stats=gas_stats,
         top_active_contracts=top_active_contracts,
     )
