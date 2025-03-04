@@ -76,6 +76,7 @@ flake8 = "^3.9.2"
 ruff = "^0.0.235"
 pytest-cov = "*"
 pygments = "<2.14.0"
+packaging = "21.0"
 
 [tool.poetry.scripts]
 hemera = "hemera.cli:cli"
