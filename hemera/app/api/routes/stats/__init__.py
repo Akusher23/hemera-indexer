@@ -15,20 +15,18 @@ from hemera.app.api.deps import ReadSessionDep
 from hemera.app.api.routes.helper.block import _get_last_block, get_block_count
 from hemera.app.api.routes.helper.transaction import (
     GasStats,
+    SmartContractMetric,
     get_gas_stats,
     get_gas_stats_list,
     get_latest_txn_count,
+    get_recent_30_minutes_average_transactions,
+    get_top_contracts_transaction_count_list,
     get_total_txn_count,
     get_transaction_count_stats_list,
 )
 from hemera.common.models.stats.daily_boards_stats import DailyBoardsStats
 
 router = APIRouter(tags=["STATS"])
-
-
-class SmartContractMetric(BaseModel):
-    contract_address: str = Field(..., description="Smart contract address")
-    minute_transaction_count: int = Field(..., description="Transaction count per minute")
 
 
 class MetricsResponse(BaseModel):
@@ -132,47 +130,27 @@ async def get_latest_top_active_contracts(
     session: ReadSessionDep, params: Tuple[timedelta, timedelta, Optional[datetime]] = Depends(validate_stats_params)
 ):
     duration, interval, latest_timestamp = params
+    result = get_top_contracts_transaction_count_list(session, duration, interval, latest_timestamp)
 
-    if latest_timestamp is None:
-        latest_timestamp = datetime.utcnow().replace(microsecond=0).replace(second=0)
-
-    start_time = latest_timestamp - duration
-
-    interval_seconds = int(interval.total_seconds())
-    total_seconds = int(duration.total_seconds())
-    num_buckets = total_seconds // interval_seconds
-
-    buckets = []
-    for i in range(num_buckets):
-        bucket_time = start_time + timedelta(seconds=i * interval_seconds)
-
-        top_active_contracts = []
-        for j in range(20):
-            top_active_contracts.append(
-                SmartContractMetric(contract_address=f"0x{'{:040x}'.format(j)}", minute_transaction_count=15 + j)
+    return TopActiveContractListResponse(
+        metrics=[
+            TopActiveContractWithBlockTimestamp(
+                block_timestamp=block_timestamp, top_active_contracts=top_active_contracts
             )
-
-        buckets.append(
-            TopActiveContractWithBlockTimestamp(block_timestamp=bucket_time, top_active_contracts=top_active_contracts)
-        )
-
-    return TopActiveContractListResponse(metrics=buckets)
+            for (block_timestamp, top_active_contracts) in result
+        ]
+    )
 
 
 @router.get("/v1/developer/stats/metrics", response_model=MetricsResponse)
-async def get_address_profile(session: ReadSessionDep):
+async def get_stats_metrics(session: ReadSessionDep):
 
     block_timestamp = _get_last_block(session, columns="timestamp")
     transaction_count_minute = get_latest_txn_count(session, timedelta(minutes=1))
     transaction_count_total = get_total_txn_count(session)
     block_times = get_block_count(session, timedelta(minutes=1))
     gas_stats = get_gas_stats(session, timedelta(minutes=1))
-
-    top_active_contracts = []
-    for i in range(20):
-        top_active_contracts.append(
-            SmartContractMetric(contract_address=f"0x{'{:040x}'.format(i)}", minute_transaction_count=15 + i)
-        )
+    top_active_contracts = get_recent_30_minutes_average_transactions(session)
 
     return MetricsResponse(
         block_timestamp=block_timestamp.replace(microsecond=0).replace(second=0) if block_timestamp else None,
