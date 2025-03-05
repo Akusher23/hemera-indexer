@@ -203,16 +203,17 @@ class ECOBoardResponse(BaseModel):
 
 
 class WrappedECOBoardResponse(BaseModel):
-    total_count: int
+    total: int
     page: int
     page_size: int
-    data: List[ECOBoardResponse]
+    list: List[ECOBoardResponse]
 
 
 time_ranges = {
     "1d": lambda now: now - timedelta(days=1),
     "7d": lambda now: now - timedelta(days=7),
     "30d": lambda now: now - timedelta(days=30),
+    "1m": lambda now: now - timedelta(days=30),
     "6m": lambda now: now - timedelta(days=180),
     "YTD": lambda now: datetime(now.year, 1, 1),
     "1y": lambda now: now - timedelta(days=365),
@@ -266,9 +267,4 @@ async def get_board_data(board_id: str, time_range: str, session: ReadSessionDep
         for index, row in enumerate(result)
     ]
 
-    return {
-        "total_count": total_count,
-        "page": page,
-        "page_size": page_size,
-        "data": data,
-    }
+    return WrappedECOBoardResponse(total=total_count, page=page, page_size=page_size, list=data)
