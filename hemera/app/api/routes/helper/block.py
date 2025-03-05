@@ -10,7 +10,7 @@ from typing import Any, List, Optional, Union
 
 from psycopg2._psycopg import Column
 from pydantic import BaseModel
-from sqlmodel import Session, and_, func, select
+from sqlmodel import Session, and_, desc, func, select
 
 from hemera.app.api.routes.helper import process_columns
 from hemera.app.utils import ColumnType
@@ -145,7 +145,7 @@ def _get_last_block(session: Session, columns: ColumnType = "*") -> Optional[Blo
         When specific columns are selected, other attributes will raise AttributeError when accessed
     """
     statement = _process_columns(columns)
-    statement = statement.order_by(Blocks.number.desc())
+    statement = statement.order_by(desc(Blocks.number)).limit(1)
     return session.exec(statement).first()
 
 

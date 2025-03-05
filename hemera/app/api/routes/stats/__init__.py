@@ -8,8 +8,6 @@ from datetime import date, datetime, timedelta
 from typing import List, Optional, Tuple
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import desc, func
 
@@ -163,6 +161,7 @@ async def get_latest_top_active_contracts(
 
 @router.get("/v1/developer/stats/metrics", response_model=MetricsResponse)
 async def get_address_profile(session: ReadSessionDep):
+
     block_timestamp = _get_last_block(session, columns="timestamp")
     transaction_count_minute = get_latest_txn_count(session, timedelta(minutes=1))
     transaction_count_total = get_total_txn_count(session)
