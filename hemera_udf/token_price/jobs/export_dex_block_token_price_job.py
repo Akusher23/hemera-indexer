@@ -29,12 +29,7 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         self.max_price = 200000
         self.max_market_cap = 1880666183880
 
-        self.balance_limit_map = {
-            "WETH": 0.001,
-            "ETH": 0.001,
-            "WBNB": 0.01,
-            "BNB": 0.01
-        }
+        self.balance_limit_map = {"WETH": 0.001, "ETH": 0.001, "WBNB": 0.01, "BNB": 0.01}
 
     @staticmethod
     def dataclass_to_df(dataclass):
@@ -135,7 +130,7 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
                 continue
 
             decimals = token_dict.get("decimals")
-            record["amount"] = record.get("amount") / 10 ** decimals
+            record["amount"] = record.get("amount") / 10**decimals
 
             dex_block_token_price = DexBlockTokenPrice(**record, token_symbol=token_symbol, decimals=decimals)
 
@@ -168,7 +163,7 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         # get stable_balance_raw
         df["token_balance_raw"] = df.apply(
             lambda x: token_balance_dict.get((x.token0_address, x.pool_address, x.block_number))
-                      or token_balance_dict.get((x.token1_address, x.pool_address, x.block_number)),
+            or token_balance_dict.get((x.token1_address, x.pool_address, x.block_number)),
             axis=1,
         )
 
@@ -176,7 +171,7 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
 
         df["stable_balance"] = df.apply(
             lambda x: x.token_balance_raw
-                      / 10 ** (x.token1_decimals if x.stable_token_address_position else x.token0_decimals),
+            / 10 ** (x.token1_decimals if x.stable_token_address_position else x.token0_decimals),
             axis=1,
         )
 
