@@ -29,6 +29,8 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         self.max_price = 200000
         self.max_market_cap = 1880666183880
 
+        self.balance_limit_map = {"WETH": 0.001, "ETH": 0.001, "WBNB": 0.01, "BNB": 0.01}
+
     @staticmethod
     def dataclass_to_df(dataclass):
         dataclass_list = [dc.__dict__ for dc in dataclass]
@@ -156,7 +158,7 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
             lambda x: stable_tokens.get(x.token0_address) or stable_tokens.get(x.token1_address), axis=1
         )
 
-        df["stable_token_balance_limit"] = df.apply(lambda x: 0.001 if x.stable_token_symbol == "WETH" else 10, axis=1)
+        df["stable_token_balance_limit"] = df["stable_token_symbol"].map(self.balance_limit_map).fillna(10)
 
         # get stable_balance_raw
         df["token_balance_raw"] = df.apply(
