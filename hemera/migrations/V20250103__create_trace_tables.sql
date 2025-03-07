@@ -138,7 +138,7 @@ SELECT partman.create_parent(
 );
 
 -- contracts
-CREATE TABLE contracts
+CREATE TABLE IF NOT EXISTS contracts
 (
     address                          BYTEA NOT NULL
         PRIMARY KEY,

@@ -829,7 +829,7 @@ def get_gas_stats_list(
 
 def get_transaction_count_stats_list(
     session: Session, duration: timedelta, interval: timedelta, latest_timestamp: Optional[datetime] = None
-) -> List[Tuple[datetime, float]]:
+) -> List[Tuple[datetime, int]]:
     """
     Returns a list of tuples, each containing a bucket start datetime and the average transaction
     count per second for that bucket. The buckets are defined over the given duration and interval.
@@ -865,7 +865,7 @@ def get_transaction_count_stats_list(
     # Construct the SQL statement:
     # For each bucket, count the transactions and calculate the average per second (count / interval_seconds)
     stmt = (
-        select(bucket_expr, (func.count(Transactions.hash) / interval_seconds).label("tx_count_per_second"))
+        select(bucket_expr, (func.count(Transactions.hash)).label("tx_count"))
         .where(Transactions.block_timestamp >= start_time, Transactions.block_timestamp < latest_time)
         .group_by(bucket_expr)
         .order_by(bucket_expr)
@@ -874,13 +874,13 @@ def get_transaction_count_stats_list(
     results = session.exec(stmt).all()
 
     # Build a list of tuples (bucket timestamp, average transaction count per second)
-    stats_list: List[Tuple[datetime, float]] = [(row.bucket, row.tx_count_per_second) for row in results]
+    stats_list: List[Tuple[datetime, int]] = [(row.bucket, row.tx_count) for row in results]
     return stats_list
 
 
 class SmartContractMetric(BaseModel):
     contract_address: str = Field(..., description="Smart contract address")
-    minute_transaction_count: float = Field(..., description="Transaction count per minute")
+    minute_transaction_count: int = Field(..., description="Transaction count")
 
 
 def get_top_contracts_transaction_count_list(
@@ -902,17 +902,8 @@ def get_top_contracts_transaction_count_list(
     latest_time = latest_time.replace(microsecond=0).replace(second=0)
     start_time = latest_time - duration
     interval_seconds = interval.total_seconds()
-    start_epoch = start_time.timestamp()
 
-    # Build the bucket expression.
-    bucket_expr = func.to_timestamp(
-        func.floor((func.extract("epoch", AddressTransactions.block_timestamp) - start_epoch) / interval_seconds)
-        * interval_seconds
-        + start_epoch
-    ).label("bucket")
-
-    # Build subquery to select the top 20 contract addresses from DailyBoardsStats.
-    subq = (
+    top_20_addresses_stmt = (
         select(DailyBoardsStats.key)
         .where(
             DailyBoardsStats.board_id == "top_contract_transactions",
@@ -925,44 +916,48 @@ def get_top_contracts_transaction_count_list(
         )
         .order_by(desc(DailyBoardsStats.count))
         .limit(20)
-        .subquery()
     )
+    top_20_addresses = session.exec(top_20_addresses_stmt).all()
+    if not top_20_addresses:
+        return []
 
-    # Main query: Join subquery with AddressTransactions and compute per-minute transaction count.
     stmt = (
         select(
-            bucket_expr,
-            subq.c.key,
-            (func.count(AddressTransactions.transaction_hash) / interval_seconds * 60).label("tx_count_per_minute"),
+            func.date_trunc("minute", AddressTransactions.block_timestamp).label("bucket"),
+            AddressTransactions.address,
+            (func.count(AddressTransactions.transaction_hash)).label("tx_count_per_minute"),
         )
-        .join(subq, subq.c.key == func.concat("0x", func.encode(AddressTransactions.address, "hex")))
-        .where(AddressTransactions.block_timestamp >= start_time, AddressTransactions.block_timestamp < latest_time)
-        .group_by(bucket_expr, subq.c.key)
-        .order_by(bucket_expr)
+        .where(
+            AddressTransactions.block_timestamp >= start_time,
+            AddressTransactions.block_timestamp < latest_time,
+            AddressTransactions.address.in_([hex_str_to_bytes(addr) for addr in top_20_addresses]),
+        )
+        .group_by("bucket", AddressTransactions.address)
+        .order_by("bucket")
     )
 
     results = session.exec(stmt).all()
 
-    # Get the list of top 20 addresses.
-    top_20_addresses = session.exec(select(subq.c.key)).all()
+    all_buckets = [
+        start_time + timedelta(seconds=interval_seconds * i)
+        for i in range(int(duration.total_seconds() / interval_seconds))
+    ]
 
-    # Create a dictionary to store the results.
-    buckets: Dict[datetime, Dict[str, float]] = {}
+    buckets: Dict[datetime, Dict[str, float]] = {
+        bucket: {addr: 0.0 for addr in top_20_addresses} for bucket in all_buckets
+    }
+
     for row in results:
-        bucket = row.bucket
-        address = row.key
+        bucket_minute = row.bucket
+        address = bytes_to_hex_str(row.address)
         tx_count_per_minute = row.tx_count_per_minute
-        if bucket not in buckets:
-            buckets[bucket] = {}
-        buckets[bucket][address] = tx_count_per_minute
 
-    # Fill in missing addresses with 0.
-    for bucket in buckets:
-        for address in top_20_addresses:
-            if address not in buckets[bucket]:
-                buckets[bucket][address] = 0.0
+        for bucket in all_buckets:
+            if bucket <= bucket_minute < bucket + interval:
+                if address in buckets[bucket]:
+                    buckets[bucket][address] += tx_count_per_minute
+                break
 
-    # Convert the dictionary to a sorted list of tuples.
     stats_list: List[Tuple[datetime, List[SmartContractMetric]]] = []
     for bucket, address_counts in sorted(buckets.items(), key=lambda x: x[0]):
         metrics = [
@@ -974,7 +969,7 @@ def get_top_contracts_transaction_count_list(
     return stats_list
 
 
-def get_recent_30_minutes_average_transactions(
+def get_recent_1_minutes_average_transactions(
     session: Session, latest_timestamp: Optional[datetime] = None
 ) -> List[SmartContractMetric]:
     top_20_addresses_subquery = (
@@ -1005,12 +1000,12 @@ def get_recent_30_minutes_average_transactions(
             return []
 
     latest_timestamp = latest_timestamp.replace(microsecond=0, second=0)
-    start_time = latest_timestamp - timedelta(minutes=30)
+    start_time = latest_timestamp - timedelta(minutes=1)
 
     stmt = (
         select(
             func.concat("0x", func.encode(AddressTransactions.address, "hex")).label("address"),
-            (func.count(AddressTransactions.transaction_hash) / 30).label("avg_tx_per_minute"),
+            (func.count(AddressTransactions.transaction_hash)).label("avg_tx_per_minute"),
         )
         .where(
             AddressTransactions.block_timestamp >= start_time,

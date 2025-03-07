@@ -19,7 +19,7 @@ from hemera.app.api.routes.helper.transaction import (
     get_gas_stats,
     get_gas_stats_list,
     get_latest_txn_count,
-    get_recent_30_minutes_average_transactions,
+    get_recent_1_minutes_average_transactions,
     get_top_contracts_transaction_count_list,
     get_total_txn_count,
     get_transaction_count_stats_list,
@@ -48,7 +48,7 @@ class GasStatsWithBlockTimestamp(BaseModel):
 
 class TransactionCountWithBlockTimestamp(BaseModel):
     block_timestamp: datetime = Field(..., description="Timestamp of the block")
-    transaction_count: float = Field(..., description="Number of transactions in the current minute")
+    transaction_count: int = Field(..., description="Number of transactions in the current minute")
 
 
 class TopActiveContractWithBlockTimestamp(BaseModel):
@@ -75,8 +75,8 @@ class TopActiveContractListResponse(BaseModel):
 
 
 def validate_stats_params(
-    duration: timedelta = Query(default=timedelta(minutes=30), description="Duration for stats (e.g., 30 minutes)"),
-    interval: timedelta = Query(default=timedelta(minutes=2), description="Time bucket interval (e.g., 2 minutes)"),
+    duration: timedelta = Query(default=timedelta(minutes=15), description="Duration for stats (e.g., 30 minutes)"),
+    interval: timedelta = Query(default=timedelta(minutes=1), description="Time bucket interval (e.g., 2 minutes)"),
     latest_timestamp: Optional[datetime] = Query(
         default=None, description="Optional latest timestamp to override the database's latest timestamp"
     ),
@@ -150,7 +150,7 @@ async def get_stats_metrics(session: ReadSessionDep):
     transaction_count_total = get_total_txn_count(session)
     block_times = get_block_count(session, timedelta(minutes=1))
     gas_stats = get_gas_stats(session, timedelta(minutes=1))
-    top_active_contracts = get_recent_30_minutes_average_transactions(session)
+    top_active_contracts = get_recent_1_minutes_average_transactions(session)
 
     return MetricsResponse(
         block_timestamp=block_timestamp.replace(microsecond=0).replace(second=0) if block_timestamp else None,
