@@ -151,13 +151,13 @@ class ERC20TokenTransfersWithPrice(HemeraModel):
 
     block_number = Column(BIGINT)
     block_hash = Column(BYTEA, primary_key=True)
-    block_timestamp = Column(TIMESTAMP)
+    block_timestamp = Column(TIMESTAMP, primary_key=True)
 
     create_time = Column(TIMESTAMP, server_default=func.now())
     update_time = Column(TIMESTAMP, server_default=func.now())
     reorg = Column(BOOLEAN, server_default=text("false"))
 
-    __table_args__ = (PrimaryKeyConstraint("transaction_hash", "block_hash", "log_index"),)
+    __table_args__ = (PrimaryKeyConstraint("transaction_hash", "block_hash", "log_index", "block_timestamp"),)
     __query_order__ = [block_number, log_index]
 
     @staticmethod
