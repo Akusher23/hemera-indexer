@@ -165,7 +165,7 @@ class ERC20TokenTransfersWithPrice(HemeraModel):
         return [
             {
                 "domain": ERC20TokenTransferWithPriceD,
-                "conflict_do_update": False,
+                "conflict_do_update": True,
                 "update_strategy": None,
                 "converter": general_converter,
             }
