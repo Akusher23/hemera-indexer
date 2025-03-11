@@ -1,8 +1,8 @@
 import logging
 from collections import defaultdict
 
-from hemera.indexer.domains.token import Token
-from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
+import requests
+
 from hemera.indexer.jobs.base_job import ExtensionJob
 from hemera_udf.smart_money_signal.domains import SmartMoneySignalMetrics
 from hemera_udf.uniswap_v2 import UniswapV2SwapEvent
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExportSmartMoneySignal(ExtensionJob):
-    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent, ERC20TokenTransfer]
+    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent]
 
     output_types = [SmartMoneySignalMetrics]
     able_to_reorg = True
@@ -21,11 +21,14 @@ class ExportSmartMoneySignal(ExtensionJob):
         super().__init__(**kwargs)
         self._service = kwargs["config"].get("db_service")
         self.config = kwargs["config"].get("export_block_token_price_job", {})
+        self.url = kwargs["config"].get("SmartMoneySignalMetrics").get("url")
 
         # todo: replace with provided list
         self.smart_money_address_list = set()
 
     def _process(self, **kwargs):
+        smart_money_address_list = set(requests.get(self.url).json().get("data"))
+
         address_token_swap_dict = defaultdict(
             lambda: {
                 "swap_in_amount": 0,
@@ -34,12 +37,12 @@ class ExportSmartMoneySignal(ExtensionJob):
                 "swap_out_amount": 0,
                 "swap_out_amount_usd": 0,
                 "swap_out_count": 0,
-                "transfer_in_amount": 0,
-                "transfer_in_amount_usd": 0,
-                "transfer_in_count": 0,
-                "transfer_out_amount": 0,
-                "transfer_out_amount_usd": 0,
-                "transfer_out_count": 0,
+                # "transfer_in_amount": 0,
+                # "transfer_in_amount_usd": 0,
+                # "transfer_in_count": 0,
+                # "transfer_out_amount": 0,
+                # "transfer_out_amount_usd": 0,
+                # "transfer_out_count": 0,
             }
         )
 
@@ -63,45 +66,37 @@ class ExportSmartMoneySignal(ExtensionJob):
             address_token_swap_dict[out_key]["swap_out_amount_usd"] += swap_event.amount_usd or 0
             address_token_swap_dict[out_key]["swap_out_count"] += 1
 
-        token_transfers = self._data_buff.get(ERC20TokenTransfer.type())
-
-        for transfer in token_transfers:
-            block_timestamp = transfer.block_timestamp
-            block_number = transfer.block_number
-
-            token_address = transfer.token_address
-            decimals = self.tokens.get(token_address).get("decimals")
-
-            in_key = (block_timestamp, block_number, transfer.to_address, token_address)
-
-            address_token_swap_dict[in_key]["transfer_in_amount"] += transfer.value / 10**decimals
-            # address_token_swap_dict[in_key]['transfer_in_amount_usd'] += 0
-            address_token_swap_dict[in_key]["transfer_in_count"] += 1
-
-            out_key = (block_timestamp, block_number, transfer.from_address, token_address)
-
-            address_token_swap_dict[out_key]["transfer_out_amount"] += transfer.value / 10**decimals
-            # address_token_swap_dict[in_key]['transfer_out_amount_usd'] += 0
-            address_token_swap_dict[out_key]["transfer_out_count"] += 1
+        # token_transfers = self._data_buff.get(ERC20TokenTransfer.type())
+        #
+        # for transfer in token_transfers:
+        #     block_timestamp = transfer.block_timestamp
+        #     block_number = transfer.block_number
+        #
+        #     token_address = transfer.token_address
+        #     decimals = self.tokens.get(token_address).get("decimals")
+        #
+        #     in_key = (block_timestamp, block_number, transfer.to_address, token_address)
+        #
+        #     address_token_swap_dict[in_key]["transfer_in_amount"] += transfer.value / 10**decimals
+        #     # address_token_swap_dict[in_key]['transfer_in_amount_usd'] += 0
+        #     address_token_swap_dict[in_key]["transfer_in_count"] += 1
+        #
+        #     out_key = (block_timestamp, block_number, transfer.from_address, token_address)
+        #
+        #     address_token_swap_dict[out_key]["transfer_out_amount"] += transfer.value / 10**decimals
+        #     # address_token_swap_dict[in_key]['transfer_out_amount_usd'] += 0
+        #     address_token_swap_dict[out_key]["transfer_out_count"] += 1
 
         for k, v in address_token_swap_dict.items():
             block_timestamp, block_number, trader_id, token_address = k
             if not trader_id or not token_address:
                 continue
 
-            # if trader_id not in self.smart_money_address_list:
-            #     continue
+            if trader_id not in smart_money_address_list:
+                continue
 
             if token_address in self.config:
                 continue
-
-            if v["swap_in_amount"]:
-                v["transfer_in_amount_usd"] = v["swap_in_amount_usd"] / v["swap_in_amount"] * v["transfer_in_amount"]
-
-            if v["swap_out_amount"]:
-                v["transfer_out_amount_usd"] = (
-                    v["swap_out_amount_usd"] / v["swap_out_amount"] * v["transfer_out_amount"]
-                )
 
             address_swap_domain = SmartMoneySignalMetrics(
                 block_timestamp=block_timestamp,

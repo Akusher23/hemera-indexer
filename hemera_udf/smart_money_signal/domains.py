@@ -16,9 +16,9 @@ class SmartMoneySignalMetrics(Domain):
     swap_out_amount: float
     swap_out_amount_usd: float
     swap_out_count: int
-    transfer_in_amount: float
-    transfer_in_amount_usd: float
-    transfer_in_count: int
-    transfer_out_amount: float
-    transfer_out_amount_usd: float
-    transfer_out_count: int
+    # transfer_in_amount: float
+    # transfer_in_amount_usd: float
+    # transfer_in_count: int
+    # transfer_out_amount: float
+    # transfer_out_amount_usd: float
+    # transfer_out_count: int
