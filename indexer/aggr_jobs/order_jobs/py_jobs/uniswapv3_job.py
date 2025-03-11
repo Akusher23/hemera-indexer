@@ -109,7 +109,7 @@ SELECT
     pt.sqrt_price_x96,
     pd.token0_address,
     pd.token1_address,
-    t.shares/ c.total_supply as share_percent,
+    case when c.total_supply >0 then t.shares/ c.total_supply else 0 end as share_percent,
     t0.decimals AS token0_decimals,
     t0.symbol AS token0_symbol,
     t1.decimals AS token1_decimals,
