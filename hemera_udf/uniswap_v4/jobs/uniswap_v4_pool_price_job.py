@@ -93,48 +93,62 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                         self.pools_requested_by_rpc.add(pool_id)
                         
                         # Try to call contract method to get pool information
-                        # Note: This assumes pool_id can be used as an address, may need adjustment in actual use
+                        # In Uniswap V4, we need to use low-level storage access via extsload
+                        # The pool data is stored in the pools mapping
                         call_dict = {
-                            "target": log.address,  # Assumes log.address is the pool manager contract
-                            "function_name": "getPoolInfo",  # Assumed function name
-                            "function_signature": "function getPoolInfo(bytes32) view returns (address, address, uint24, int24)",
-                            "args": [pool_id],
-                            "returns": ["token0", "token1", "fee", "tickSpacing"],
+                            "target": log.address,  # PoolManager contract address
+                            "function_name": "extsload",  # Use extsload to directly access storage
+                            "function_signature": "function extsload(bytes32) view returns (bytes32)",
+                            "args": [pool_id],  # The pool ID is used as the slot key
+                            "block_number": log.block_number,
                         }
                         missing_pool_address_dict[pool_id] = call_dict
 
         # If there are missing pool information, try to get via RPC
-        if missing_pool_address_dict:
-            calls = []
-            for pool_id, call_dict in missing_pool_address_dict.items():
-                calls.append(
-                    Call(
-                        target=call_dict["target"],
-                        function=call_dict["function_name"],
-                        args=call_dict["args"],
-                        returns=call_dict["returns"],
-                    )
-                )
-            
-            # Execute batch calls
-            try:
-                results = self.multi_call_helper.aggregate(calls)
-                # Process results
-                for i, (pool_id, _) in enumerate(missing_pool_address_dict.items()):
-                    if results[i]:
-                        token0, token1, fee, tickSpacing = results[i]
-                        factory_address = log.address  # Assumes log.address is the factory contract
-                        position_token_address = self._address_manager.get_position_by_factory(factory_address)
-                        
-                        # Add new pool to known pools
-                        self._exist_pools[pool_id] = {
-                            "token0_address": token0,
-                            "token1_address": token1,
-                            "factory_address": factory_address,
-                            "position_token_address": position_token_address,
-                        }
-            except Exception as e:
-                logger.error(f"Failed to get pool info: {e}")
+        # if missing_pool_address_dict:
+        #     calls = []
+        #     for pool_id, call_dict in missing_pool_address_dict.items():
+        #         calls.append(
+        #             Call(
+        #                 target=call_dict["target"],
+        #                 function_abi=call_dict["function_name"],
+        #                 parameters=call_dict["args"],
+        #                 block_number=call_dict["block_number"],
+        #             )
+        #         )
+        #
+        #     # Execute batch calls
+        #     try:
+        #         results = self.multi_call_helper.aggregate(calls)
+        #         # Process results
+        #         for i, (pool_id, call_dict) in enumerate(missing_pool_address_dict.items()):
+        #             if results[i]:
+        #                 # The raw storage data will need to be decoded properly
+        #                 raw_pool_data = results[i]
+        #
+        #                 logger.info(f"Retrieved raw pool data for {pool_id}: {raw_pool_data}")
+        #
+        #                 # Without knowing the exact storage layout, it's difficult to decode properly
+        #                 # For now, we'll create a partial record with what we know
+        #                 factory_address = call_dict["target"]  # The PoolManager address
+        #                 position_token_address = self._address_manager.get_position_by_factory(factory_address)
+        #
+        #                 # Create a placeholder record until we can properly decode the storage
+        #                 self._exist_pools[pool_id] = {
+        #                     "token0_address": None,  # Need proper decoding
+        #                     "token1_address": None,  # Need proper decoding
+        #                     "fee": None,             # Need proper decoding
+        #                     "tick_spacing": None,    # Need proper decoding
+        #                     "hooks": None,           # Need proper decoding
+        #                     "factory_address": factory_address,
+        #                     "position_token_address": position_token_address,
+        #                 }
+        #
+        #                 # Alternative approach: query Initialize events to get pool creation data
+        #                 # This would be more reliable but requires access to event logs
+        #                 logger.info(f"Added placeholder for pool {pool_id}, consider querying Initialize events")
+        #     except Exception as e:
+        #         logger.error(f"Failed to get pool info: {e}")
 
     def _process(self, **kwargs):
         token_prices_dict = self.change_block_token_prices_to_dict()
@@ -154,7 +168,7 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                     pool_id = decoded_data["id"]
                     
                     # Check if this pool is in our known pools
-                    if pool_id in self._exist_pools:
+                    if pool_id in self._exist_pools and self._exist_pools[pool_id].get("token0_address"):
                         pool_data = self._exist_pools[pool_id].copy()
                         factory_address = pool_data.pop("factory_address")
                         key_data_dict = {
@@ -246,14 +260,15 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                                 factory_address=factory_address,
                                 token0_address=token0_address,
                                 token1_address=token1_address,
-                                fee=None,  # Fee information may not be available in swap event
-                                tick_spacing=None,  # Tick spacing may not be available in swap event
-                                hooks=None,  # Hook information may not be available in swap event
+                                fee=pool_data.get("fee"),
+                                tick_spacing=pool_data.get("tick_spacing"),
+                                hooks=pool_data.get("hooks"),
                                 block_number=log.block_number,
                                 block_timestamp=log.block_timestamp,
                             ),
                         )
                     else:
+                        pass
                         # Handle unknown pool_id
                         logger.info(f"Discovered new pool from swap event: {pool_id}")
                         
@@ -296,7 +311,7 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                                             token1_address=token1_address,
                                             fee=pool_data.get("fee"),
                                             tick_spacing=pool_data.get("tick_spacing"),
-                                            hooks=pool_data.get("hooks"),
+                                            hook_address=pool_data.get("hooks"),
                                             block_number=log.block_number,
                                             block_timestamp=log.block_timestamp,
                                         ),
@@ -420,9 +435,9 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                                 "token1_address": token1_address,
                                 "fee": fee,
                                 "tick_spacing": tick_spacing,
+                                "hooks": hook_address,
                                 "factory_address": factory_address,
                                 "position_token_address": position_token_address,
-                                "hooks": hook_address,
                             }
                             logger.info(f"Successfully retrieved pool info for {pool_id} via RPC")
                             return

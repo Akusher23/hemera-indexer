@@ -24,7 +24,7 @@ uniswap_v3_job:
 # Add Uniswap v4 configuration
 uniswap_v4_job:
   # empty means no filter. only work in price job
-  # pool_address:
+  pool_address:
   
   
   # WETH address for ETH swaps
