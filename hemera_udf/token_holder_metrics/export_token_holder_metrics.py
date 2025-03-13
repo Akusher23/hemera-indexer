@@ -85,6 +85,9 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             if not token:
                 logger.warning(f"Token {transfer.token_address} not found")
                 continue
+            if not token["decimals"]:
+                logger.warning(f"Token {transfer.token_address} has no decimals")
+                continue
 
             # Add both from and to addresses to the set
             address_token_pairs.add((transfer.from_address, transfer.token_address))
