@@ -72,89 +72,10 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
 
         return token_prices_dict
 
-    def get_missing_pools_by_rpc(self):
-        # This function needs to get pool information not in self._exist_pools
-        # In Uniswap v4, we may need to handle this differently
-        # because pool IDs are generated through hashing rather than simple addresses
-        missing_pool_address_dict = {}
-        transactions = self._data_buff["transaction"]
 
-        for transaction in transactions:
-            logs = transaction.receipt.logs
-            for log in logs:
-                if log.topic0 == uniswapv4_abi.SWAP_EVENT.get_signature() and log.address not in self._exist_pools:
-                    if log.address not in self.pools_requested_by_rpc:
-                        # Parse pool ID from SWAP_EVENT
-                        decoded_data = uniswapv4_abi.SWAP_EVENT.decode_log(log)
-                        pool_id = decoded_data["id"]
-                        
-                        # If this is a pool we don't know about, try to get its information
-                        # This is a simplified implementation, actual code may need a different approach
-                        self.pools_requested_by_rpc.add(pool_id)
-                        
-                        # Try to call contract method to get pool information
-                        # In Uniswap V4, we need to use low-level storage access via extsload
-                        # The pool data is stored in the pools mapping
-                        call_dict = {
-                            "target": log.address,  # PoolManager contract address
-                            "function_name": "extsload",  # Use extsload to directly access storage
-                            "function_signature": "function extsload(bytes32) view returns (bytes32)",
-                            "args": [pool_id],  # The pool ID is used as the slot key
-                            "block_number": log.block_number,
-                        }
-                        missing_pool_address_dict[pool_id] = call_dict
-
-        # If there are missing pool information, try to get via RPC
-        # if missing_pool_address_dict:
-        #     calls = []
-        #     for pool_id, call_dict in missing_pool_address_dict.items():
-        #         calls.append(
-        #             Call(
-        #                 target=call_dict["target"],
-        #                 function_abi=call_dict["function_name"],
-        #                 parameters=call_dict["args"],
-        #                 block_number=call_dict["block_number"],
-        #             )
-        #         )
-        #
-        #     # Execute batch calls
-        #     try:
-        #         results = self.multi_call_helper.aggregate(calls)
-        #         # Process results
-        #         for i, (pool_id, call_dict) in enumerate(missing_pool_address_dict.items()):
-        #             if results[i]:
-        #                 # The raw storage data will need to be decoded properly
-        #                 raw_pool_data = results[i]
-        #
-        #                 logger.info(f"Retrieved raw pool data for {pool_id}: {raw_pool_data}")
-        #
-        #                 # Without knowing the exact storage layout, it's difficult to decode properly
-        #                 # For now, we'll create a partial record with what we know
-        #                 factory_address = call_dict["target"]  # The PoolManager address
-        #                 position_token_address = self._address_manager.get_position_by_factory(factory_address)
-        #
-        #                 # Create a placeholder record until we can properly decode the storage
-        #                 self._exist_pools[pool_id] = {
-        #                     "token0_address": None,  # Need proper decoding
-        #                     "token1_address": None,  # Need proper decoding
-        #                     "fee": None,             # Need proper decoding
-        #                     "tick_spacing": None,    # Need proper decoding
-        #                     "hooks": None,           # Need proper decoding
-        #                     "factory_address": factory_address,
-        #                     "position_token_address": position_token_address,
-        #                 }
-        #
-        #                 # Alternative approach: query Initialize events to get pool creation data
-        #                 # This would be more reliable but requires access to event logs
-        #                 logger.info(f"Added placeholder for pool {pool_id}, consider querying Initialize events")
-        #     except Exception as e:
-        #         logger.error(f"Failed to get pool info: {e}")
 
     def _process(self, **kwargs):
         token_prices_dict = self.change_block_token_prices_to_dict()
-
-        if not self._pool_address:
-            self.get_missing_pools_by_rpc()
 
         transactions = self._data_buff["transaction"]
         current_price_dict = {}
@@ -163,160 +84,95 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
         for transaction in transactions:
             logs = transaction.receipt.logs
             for log in logs:
-                if log.topic0 == uniswapv4_abi.SWAP_EVENT.get_signature():
-                    decoded_data = uniswapv4_abi.SWAP_EVENT.decode_log(log)
-                    pool_id = decoded_data["id"]
+                if log.topic0 != uniswapv4_abi.SWAP_EVENT.get_signature():
+                    continue
+                decoded_data = uniswapv4_abi.SWAP_EVENT.decode_log(log)
+                pool_id = bytes_to_hex_str( decoded_data["id"]).lower()
+                
+                # Check if this pool is in our known pools
+                if pool_id in self._exist_pools:
+                    pool_data = self._exist_pools[pool_id].copy()
+                    factory_address = pool_data.pop("factory_address")
+                    key_data_dict = {
+                        "tick": decoded_data["tick"],
+                        "sqrt_price_x96": decoded_data["sqrtPriceX96"],
+                        "block_number": log.block_number,
+                        "block_timestamp": log.block_timestamp,
+                        "pool_address": pool_id,  # Use pool_id as identifier
+                    }
                     
-                    # Check if this pool is in our known pools
-                    if pool_id in self._exist_pools and self._exist_pools[pool_id].get("token0_address"):
-                        pool_data = self._exist_pools[pool_id].copy()
-                        factory_address = pool_data.pop("factory_address")
-                        key_data_dict = {
-                            "tick": decoded_data["tick"],
-                            "sqrt_price_x96": decoded_data["sqrtPriceX96"],
-                            "block_number": log.block_number,
-                            "block_timestamp": log.block_timestamp,
-                            "pool_address": pool_id,  # Use pool_id as identifier
-                        }
-                        
-                        token0_address = pool_data.get("token0_address")
-                        token1_address = pool_data.get("token1_address")
+                    token0_address = pool_data.get("token0_address")
+                    token1_address = pool_data.get("token1_address")
 
-                        # Check if this involves ETH/WETH
-                        involves_eth = False
-                        if token0_address.lower() == self.weth_address.lower() or token1_address.lower() == self.weth_address.lower():
-                            involves_eth = True
-                            # If using WETH, we can treat it as ETH
-                            if token0_address.lower() == self.weth_address.lower():
-                                token0_address = self.eth_address
-                            if token1_address.lower() == self.weth_address.lower():
-                                token1_address = self.eth_address
+                    # Check if this involves ETH/WETH
+                    involves_eth = False
+                    if token0_address.lower() == self.weth_address.lower() or token1_address.lower() == self.weth_address.lower():
+                        involves_eth = True
+                        # If using WETH, we can treat it as ETH
+                        if token0_address.lower() == self.weth_address.lower():
+                            token0_address = self.eth_address
+                        if token1_address.lower() == self.weth_address.lower():
+                            token1_address = self.eth_address
 
-                        tokens0 = self.tokens.get(token0_address)
-                        tokens1 = self.tokens.get(token1_address)
+                    tokens0 = self.tokens.get(token0_address)
+                    tokens1 = self.tokens.get(token1_address)
 
-                        decimals0 = tokens0.get("decimals") if tokens0 else None
-                        decimals1 = tokens1.get("decimals") if tokens1 else None
+                    decimals0 = tokens0.get("decimals") if tokens0 else None
+                    decimals1 = tokens1.get("decimals") if tokens1 else None
 
-                        amount0 = decoded_data["amount0"]
-                        amount1 = decoded_data["amount1"]
+                    amount0 = decoded_data["amount0"]
+                    amount1 = decoded_data["amount1"]
 
-                        amount0_abs = abs(amount0)
-                        amount1_abs = abs(amount1)
+                    amount0_abs = abs(amount0)
+                    amount1_abs = abs(amount1)
 
-                        decimals_conditions = decimals0 and decimals1
+                    decimals_conditions = decimals0 and decimals1
 
-                        # Price calculation logic, similar to v3
-                        if token0_address in self.stable_tokens and decimals_conditions:
-                            token0_price = token_prices_dict.get((token0_address, log.block_number))
-                            amount_usd = amount0_abs / 10**decimals0 * token0_price if token0_price else None
-                            token1_price = amount_usd / (amount1_abs / 10**decimals1) if amount1_abs > 0 and amount_usd else None
-                        elif token1_address in self.stable_tokens and decimals_conditions:
-                            token1_price = token_prices_dict.get((token1_address, log.block_number))
-                            amount_usd = amount1_abs / 10**decimals1 * token1_price if token1_price else None
-                            token0_price = amount_usd / (amount0_abs / 10**decimals0) if amount0_abs > 0 and amount_usd else None
-                        else:
-                            token0_price = None
-                            token1_price = None
-                            amount_usd = None
+                    # Price calculation logic, similar to v3
+                    if token0_address in self.stable_tokens and decimals_conditions:
+                        token0_price = token_prices_dict.get((token0_address, log.block_number))
+                        amount_usd = amount0_abs / 10**decimals0 * token0_price if token0_price else None
+                        token1_price = amount_usd / (amount1_abs / 10**decimals1) if amount1_abs > 0 and amount_usd else None
+                    elif token1_address in self.stable_tokens and decimals_conditions:
+                        token1_price = token_prices_dict.get((token1_address, log.block_number))
+                        amount_usd = amount1_abs / 10**decimals1 * token1_price if token1_price else None
+                        token0_price = amount_usd / (amount0_abs / 10**decimals0) if amount0_abs > 0 and amount_usd else None
+                    else:
+                        token0_price = None
+                        token1_price = None
+                        amount_usd = None
 
-                        # Create price record
-                        pool_price_item = UniswapV4PoolPrice(
+                    # Create price record
+                    pool_price_item = UniswapV4PoolPrice(
+                        **key_data_dict,
+                        factory_address=factory_address,
+                        token0_price=token0_price,
+                        token1_price=token1_price,
+                    )
+                    price_dict[pool_id, log.block_number] = pool_price_item
+                    current_price_dict[pool_id] = UniswapV4PoolCurrentPrice(**vars(pool_price_item))
+
+                    # Create swap event record
+                    self._collect_domain(
+                        UniswapV4SwapEvent(
+                            transaction_hash=log.transaction_hash,
+                            transaction_from_address=transaction.from_address,
+                            log_index=log.log_index,
+                            sender=decoded_data["sender"],
+                            recipient=None,  # v4 SWAP event doesn't include recipient
+                            amount0=amount0,
+                            amount1=amount1,
+                            liquidity=decoded_data["liquidity"],
                             **key_data_dict,
-                            factory_address=factory_address,
+                            **pool_data,
                             token0_price=token0_price,
                             token1_price=token1_price,
-                        )
-                        price_dict[pool_id, log.block_number] = pool_price_item
-                        current_price_dict[pool_id] = UniswapV4PoolCurrentPrice(**vars(pool_price_item))
-
-                        # Create swap event record
-                        self._collect_domain(
-                            UniswapV4SwapEvent(
-                                transaction_hash=log.transaction_hash,
-                                transaction_from_address=transaction.from_address,
-                                log_index=log.log_index,
-                                sender=decoded_data["sender"],
-                                recipient=None,  # v4 SWAP event doesn't include recipient
-                                amount0=amount0,
-                                amount1=amount1,
-                                liquidity=decoded_data["liquidity"],
-                                **key_data_dict,
-                                **pool_data,
-                                token0_price=token0_price,
-                                token1_price=token1_price,
-                                amount_usd=amount_usd,
-                                hook_data=None,  # May need to process hookData here
-                                is_eth_swap=involves_eth,  # Mark if involves ETH
-                            ),
-                        )
+                            amount_usd=amount_usd,
+                            hook_data=None,  # May need to process hookData here
+                            is_eth_swap=involves_eth,  # Mark if involves ETH
+                        ),
+                    )
                         
-                        # Also create and collect pool info from swap event
-                        # This ensures we capture pools discovered through swap events
-                        self._collect_domain(
-                            UniswapV4PoolFromSwapEvent(
-                                pool_address=pool_id,
-                                position_token_address=pool_data.get("position_token_address"),
-                                factory_address=factory_address,
-                                token0_address=token0_address,
-                                token1_address=token1_address,
-                                fee=pool_data.get("fee"),
-                                tick_spacing=pool_data.get("tick_spacing"),
-                                hooks=pool_data.get("hooks"),
-                                block_number=log.block_number,
-                                block_timestamp=log.block_timestamp,
-                            ),
-                        )
-                    else:
-                        pass
-                        # Handle unknown pool_id
-                        logger.info(f"Discovered new pool from swap event: {pool_id}")
-                        
-                        # Try to determine which factory this pool belongs to via RPC
-                        # We'll query each factory to find which one this pool belongs to
-                        self.get_pool_info_by_rpc(pool_id, log.block_number, log.block_timestamp, decoded_data)
-                        
-                        # After RPC query, check if we now have the pool information
-                        if pool_id in self._exist_pools:
-                            # Process the swap event again now that we have the pool info
-                            # This is a bit inefficient but ensures consistent processing
-                            logger.info(f"Pool {pool_id} added to known pools, processing swap event")
-                            if log.topic0 == uniswapv4_abi.SWAP_EVENT.get_signature():
-                                decoded_data = uniswapv4_abi.SWAP_EVENT.decode_log(log)
-                                pool_id = decoded_data["id"]
-                                
-                                if pool_id in self._exist_pools:
-                                    # Process pool data (now it exists)
-                                    # ... existing processing code for known pools ...
-                                    pool_data = self._exist_pools[pool_id].copy()
-                                    factory_address = pool_data.pop("factory_address")
-                                    key_data_dict = {
-                                        "tick": decoded_data["tick"],
-                                        "sqrt_price_x96": decoded_data["sqrtPriceX96"],
-                                        "block_number": log.block_number,
-                                        "block_timestamp": log.block_timestamp,
-                                        "pool_address": pool_id,
-                                    }
-                                    
-                                    token0_address = pool_data.get("token0_address")
-                                    token1_address = pool_data.get("token1_address")
-                                    
-                                    # Create pool info from swap event with complete data
-                                    self._collect_domain(
-                                        UniswapV4PoolFromSwapEvent(
-                                            pool_address=pool_id,
-                                            position_token_address=pool_data.get("position_token_address"),
-                                            factory_address=factory_address,
-                                            token0_address=token0_address,
-                                            token1_address=token1_address,
-                                            fee=pool_data.get("fee"),
-                                            tick_spacing=pool_data.get("tick_spacing"),
-                                            hook_address=pool_data.get("hooks"),
-                                            block_number=log.block_number,
-                                            block_timestamp=log.block_timestamp,
-                                        ),
-                                    )
-
         # Collect all price records
         self._collect_domains(price_dict.values())
         self._collect_domains(list(current_price_dict.values()))
@@ -326,7 +182,7 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
         try:
             pools_orm = session.query(UniswapV4Pools).all()
             existing_pools = {
-                bytes_to_hex_str(p.pool_address): {
+                bytes_to_hex_str(p.pool_address).lower(): {
                     "token0_address": bytes_to_hex_str(p.token0_address),
                     "token1_address": bytes_to_hex_str(p.token1_address),
                     "position_token_address": bytes_to_hex_str(p.position_token_address),
