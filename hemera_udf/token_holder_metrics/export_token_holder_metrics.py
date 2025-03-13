@@ -103,10 +103,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 continue
 
             token = self.tokens[transfer.token_address]
-            if not token["decimals"]:
-                logger.warning(f"Token {transfer.token_address} has no decimals")
-                continue
-            amount_usd = transfer.value * transfer.price / 10 ** token["decimals"]
+            amount_usd = transfer.value * transfer.price / 10 ** (token["decimals"] or 0)
 
             # Process "from" address
             self._update_holder_metrics(
