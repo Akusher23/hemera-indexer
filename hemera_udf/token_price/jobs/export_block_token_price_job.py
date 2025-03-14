@@ -93,23 +93,18 @@ class ExportBlockTokenPriceJob(ExtensionJob):
         existing_symbols = {r.symbol for r in result_fetchall}
         missing_symbols = self.symbols - existing_symbols
 
-        if missing_symbols:
-            latest_symbol_sql = text(
-                """
-                WITH ranked_prices AS (
-                    SELECT *,
-                           ROW_NUMBER() OVER (PARTITION BY symbol ORDER BY timestamp DESC) AS row_num
-                    FROM token_prices
-                    WHERE symbol IN :symbols and timestamp < :end_block_timestamp
-                )
-                SELECT *
-                FROM ranked_prices
-                WHERE row_num = 1;
+        latest_symbol_sql = text(
             """
-            )
+            SELECT *
+                FROM token_prices
+                WHERE symbol = :symbols and timestamp < :end_block_timestamp
+            order by timestamp desc limit 1
+        """
+        )
 
+        for symbol in missing_symbols:
             latest_symbol_result = session.execute(
-                latest_symbol_sql, {"symbols": tuple(missing_symbols), "end_block_timestamp": end_block_timestamp}
+                latest_symbol_sql, {"symbols": symbol, "end_block_timestamp": end_block_timestamp}
             )
 
             latest_symbol_result_fetchall = latest_symbol_result.fetchall()
