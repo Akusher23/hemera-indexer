@@ -338,7 +338,7 @@ class ACIEnsAddress(Resource):
 
         result = (
             db.session.query(ENSRecord.name)
-            .join(ENSAddress, ENSAddress.name == ENSRecord.name)
+            .join(ENSAddress, (ENSAddress.name == ENSRecord.name) & (ENSRecord.address == ENSAddress.address))
             .filter(ENSAddress.address == hex_str_to_bytes(address), ENSRecord.expires >= current_time)
             .one_or_none()
         )
@@ -410,7 +410,7 @@ class ACIEnsBatchAddress(Resource):
 
         results = (
             db.session.query(ENSAddress.address, ENSRecord.name)
-            .join(ENSRecord, ENSAddress.name == ENSRecord.name)
+            .join(ENSRecord, (ENSAddress.name == ENSRecord.name) & (ENSRecord.address == ENSAddress.address))
             .filter(ENSAddress.address.in_(addresses), ENSRecord.expires >= current_time)
             .all()
         )
