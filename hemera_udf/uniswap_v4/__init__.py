@@ -23,11 +23,6 @@ DynamicEntityTypeRegistry.register_output_types(
         UniswapV4PoolPrice,
         UniswapV4PoolCurrentPrice,
         UniswapV4SwapEvent,
-        UniswapV4PoolFromSwapEvent,
-        UniswapV4Token,
-        UniswapV4TokenDetail,
-        UniswapV4TokenCurrentStatus,
-        UniswapV4PoolFromToken,
         UniswapV4Hook,
     },
-) 
+)

@@ -6,7 +6,7 @@ from hemera.common.utils.format_utils import bytes_to_hex_str
 from hemera.indexer.domains.log import Log
 from hemera.indexer.jobs import FilterTransactionDataJob
 from hemera.indexer.specification.specification import TopicSpecification, TransactionFilterByLogs
-from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import UniswapV4Pool, UniswapV4Hook
+from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import UniswapV4Hook, UniswapV4Pool
 from hemera_udf.uniswap_v4.models.feature_uniswap_v4_pools import UniswapV4Pools
 from hemera_udf.uniswap_v4.util import AddressManager
 
@@ -59,15 +59,15 @@ class ExportUniSwapV4PoolJob(FilterTransactionDataJob):
                 fee = decoded_data["fee"]
                 tick_spacing = decoded_data["tickSpacing"]
                 hook_address = decoded_data["hooks"]
-                
+
                 # In Uniswap v4, we don't have a direct pool address but we can use the pool_id
                 # as a substitute for identification purposes
-                
+
                 position_token_address = self._address_manager.get_position_by_factory(log.address)
                 if not position_token_address:
                     logger.warning(f"Position token address not found for factory {log.address}")
                     continue
-                
+
                 # Convert hook address to a JSON array for compatibility with our model
                 pool_dict.update(
                     {
@@ -83,14 +83,12 @@ class ExportUniSwapV4PoolJob(FilterTransactionDataJob):
                         "block_timestamp": log.block_timestamp,
                     }
                 )
-                
+
                 # Process hook if present
                 if hook_address and hook_address != "0x0000000000000000000000000000000000000000":
                     hook_type = self.determine_hook_type(hook_address)
-                    hook_data = json.dumps({
-                        "permissions": hook_type
-                    })
-            
+                    hook_data = json.dumps({"permissions": hook_type})
+
                     hook_dict = {
                         "hook_address": hook_address,
                         "factory_address": log.address,
@@ -122,32 +120,42 @@ class ExportUniSwapV4PoolJob(FilterTransactionDataJob):
         finally:
             session.close()
 
-        return existing_pools 
+        return existing_pools
 
     def determine_hook_type(self, hook_address):
-       # Convert hook address to integer
-       addr_int = int(hook_address, 16)
-       
-       # Extract permissions from lowest bits
-       permissions = []
-       
-       # Check each permission flag
-       if addr_int & (1 << 13): permissions.append("before_initialize")
-       if addr_int & (1 << 12): permissions.append("after_initialize")
-       if addr_int & (1 << 11): permissions.append("before_add_liquidity")
-       if addr_int & (1 << 10): permissions.append("after_add_liquidity")
-       if addr_int & (1 << 9): permissions.append("before_remove_liquidity")
-       if addr_int & (1 << 8): permissions.append("after_remove_liquidity")
-       if addr_int & (1 << 7): permissions.append("before_swap")
-       if addr_int & (1 << 6): permissions.append("after_swap")
-       if addr_int & (1 << 5): permissions.append("before_donate")
-       if addr_int & (1 << 4): permissions.append("after_donate")
-       
-       # Common hook types based on permissions
-       if "before_swap" in permissions and "after_swap" in permissions:
-           if addr_int & (1 << 3):  # beforeSwapReturnsDelta flag
-               return "fee_hook"
-           
-       # Add more hook type detection logic
-       
-       return "unknown"
+        # Convert hook address to integer
+        addr_int = int(hook_address, 16)
+
+        # Extract permissions from lowest bits
+        permissions = []
+
+        # Check each permission flag
+        if addr_int & (1 << 13):
+            permissions.append("before_initialize")
+        if addr_int & (1 << 12):
+            permissions.append("after_initialize")
+        if addr_int & (1 << 11):
+            permissions.append("before_add_liquidity")
+        if addr_int & (1 << 10):
+            permissions.append("after_add_liquidity")
+        if addr_int & (1 << 9):
+            permissions.append("before_remove_liquidity")
+        if addr_int & (1 << 8):
+            permissions.append("after_remove_liquidity")
+        if addr_int & (1 << 7):
+            permissions.append("before_swap")
+        if addr_int & (1 << 6):
+            permissions.append("after_swap")
+        if addr_int & (1 << 5):
+            permissions.append("before_donate")
+        if addr_int & (1 << 4):
+            permissions.append("after_donate")
+
+        # Common hook types based on permissions
+        if "before_swap" in permissions and "after_swap" in permissions:
+            if addr_int & (1 << 3):  # beforeSwapReturnsDelta flag
+                return "fee_hook"
+
+        # Add more hook type detection logic
+
+        return "unknown"

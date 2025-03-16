@@ -11,4 +11,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial implementation of Uniswap v4 indexer
 - Support for hooks in Uniswap v4
 - Pool creation and hook event tracking
-- Database models for Uniswap v4 entities 
+- Database models for Uniswap v4 entities

@@ -306,4 +306,4 @@ HOOK_CALLED_EVENT = Event(
         "name": "HookCalled",
         "type": "event",
     }
-) 
+)

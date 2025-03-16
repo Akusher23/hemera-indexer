@@ -1,12 +1,12 @@
 from sqlalchemy import Column, PrimaryKeyConstraint, func
-from sqlalchemy.dialects.postgresql import BIGINT, BYTEA, NUMERIC, TIMESTAMP, TEXT
+from sqlalchemy.dialects.postgresql import BIGINT, BYTEA, NUMERIC, TEXT, TIMESTAMP
 
 from hemera.common.models import HemeraModel, general_converter
 from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import UniswapV4SwapEvent
 
 
 class UniswapV4SwapRecords(HemeraModel):
-    __tablename__ = "af_uniswap_v4_swap_records"
+    __tablename__ = "af_uniswap_v4_swap_hist"
     pool_address = Column(BYTEA, primary_key=True)
     transaction_hash = Column(BYTEA, primary_key=True)
     log_index = Column(BIGINT, primary_key=True)
@@ -47,4 +47,4 @@ class UniswapV4SwapRecords(HemeraModel):
                 "update_strategy": None,
                 "converter": general_converter,
             },
-        ] 
+        ]

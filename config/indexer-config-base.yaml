@@ -25,14 +25,14 @@ uniswap_v3_job:
 uniswap_v4_job:
   # empty means no filter. only work in price job
   pool_address:
-  
-  
+
+
   # WETH address for ETH swaps
   weth_address: '0x4200000000000000000000000000000000000006'
-  
+
   # WETH hook addresses for tracking ETH swaps
   weth_hook_addresses: []
-  
+
   # works in price\token job
   jobs:
     - type: uniswapv4
@@ -72,4 +72,5 @@ export_block_token_price_job:
   '0x50c5725949a6f0c72e6c4a641f24049a917db0cb': 'DAI'
   '0xfde4c96c8593536e31f229ea8f37b2ada2699bb2': 'USDT'
   '0x4200000000000000000000000000000000000006': 'WETH'
+  '0x0000000000000000000000000000000000000000': 'ETH'
 

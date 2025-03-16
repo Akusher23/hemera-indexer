@@ -42,7 +42,7 @@ class AddressManager:
             position_token_address = job.get("position_token_address").lower()
             hook_addresses = job.get("hook_addresses", [])
             state_view_address = job.get("state_view_address", "").lower() if job.get("state_view_address") else None
-            
+
             if hook_addresses:
                 for hook_address in hook_addresses:
                     if hook_address.lower() not in self.hook_address_list:
@@ -90,7 +90,7 @@ class AddressManager:
     def get_factory_by_position(self, position_token_address):
         entry = self.position_to_factory.get(position_token_address)
         return entry.get("factory_address") if entry else None
-        
+
     def get_factory_by_hook(self, hook_address):
         return self.hook_to_factory.get(hook_address)
 
@@ -109,11 +109,11 @@ class AddressManager:
     def get_type_str_by_position(self, position_token_address):
         entry = self.position_to_factory.get(position_token_address)
         return entry.get("type") if entry else None
-        
+
     def get_state_view_address(self, factory_address):
         """
         Get the StateView contract address for a factory.
         The StateView contract provides utility functions to query pool state.
         """
         entry = self.factory_to_position.get(factory_address)
-        return entry.get("state_view_address") if entry else None 
+        return entry.get("state_view_address") if entry else None

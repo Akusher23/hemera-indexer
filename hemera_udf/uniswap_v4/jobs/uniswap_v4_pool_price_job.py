@@ -11,7 +11,6 @@ from hemera.indexer.utils.multicall_hemera.multi_call_helper import MultiCallHel
 from hemera_udf.token_price.domains import BlockTokenPrice
 from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import (
     UniswapV4PoolCurrentPrice,
-    UniswapV4PoolFromSwapEvent,
     UniswapV4PoolPrice,
     UniswapV4SwapEvent,
 )
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
     dependency_types = [Transaction, BlockTokenPrice]
-    output_types = [UniswapV4PoolPrice, UniswapV4PoolCurrentPrice, UniswapV4SwapEvent, UniswapV4PoolFromSwapEvent]
+    output_types = [UniswapV4PoolPrice, UniswapV4PoolCurrentPrice, UniswapV4SwapEvent]
     able_to_reorg = True
 
     def __init__(self, **kwargs):
@@ -32,7 +31,7 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
         jobs = config.get("jobs", [])
         self._pool_address = config.get("pool_address")
         self._address_manager = AddressManager(jobs)
-        
+
         # WETH address and native ETH address
         self.weth_address = config.get("weth_address", "").lower()
         self.eth_address = uniswapv4_abi.ETH_ADDRESS
@@ -44,8 +43,10 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
         stable_tokens_config = kwargs["config"].get("export_block_token_price_job", {})
 
         self.stable_tokens = stable_tokens_config
-        self._exist_pools = self.get_existing_pools()
-        self.tokens = {}  # This needs to be populated in real applications, containing token address to decimals mapping
+        self._exist_pools = (
+            self.get_existing_pools()
+        )  # This needs to be populated in real applications, containing token address to decimals mapping
+        self.tokens[uniswapv4_abi.ETH_ADDRESS] = {**self.tokens.get(self.weth_address, {}), "symbol": "ETH"}
 
     def get_filter(self):
         address_list = self._pool_address if self._pool_address else []
@@ -72,8 +73,6 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
 
         return token_prices_dict
 
-
-
     def _process(self, **kwargs):
         token_prices_dict = self.change_block_token_prices_to_dict()
 
@@ -87,8 +86,8 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                 if log.topic0 != uniswapv4_abi.SWAP_EVENT.get_signature():
                     continue
                 decoded_data = uniswapv4_abi.SWAP_EVENT.decode_log(log)
-                pool_id = bytes_to_hex_str( decoded_data["id"]).lower()
-                
+                pool_id = bytes_to_hex_str(decoded_data["id"]).lower()
+
                 # Check if this pool is in our known pools
                 if pool_id in self._exist_pools:
                     pool_data = self._exist_pools[pool_id].copy()
@@ -100,13 +99,16 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                         "block_timestamp": log.block_timestamp,
                         "pool_address": pool_id,  # Use pool_id as identifier
                     }
-                    
+
                     token0_address = pool_data.get("token0_address")
                     token1_address = pool_data.get("token1_address")
 
                     # Check if this involves ETH/WETH
                     involves_eth = False
-                    if token0_address.lower() == self.weth_address.lower() or token1_address.lower() == self.weth_address.lower():
+                    if (
+                        token0_address.lower() == self.weth_address.lower()
+                        or token1_address.lower() == self.weth_address.lower()
+                    ):
                         involves_eth = True
                         # If using WETH, we can treat it as ETH
                         if token0_address.lower() == self.weth_address.lower():
@@ -132,11 +134,15 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                     if token0_address in self.stable_tokens and decimals_conditions:
                         token0_price = token_prices_dict.get((token0_address, log.block_number))
                         amount_usd = amount0_abs / 10**decimals0 * token0_price if token0_price else None
-                        token1_price = amount_usd / (amount1_abs / 10**decimals1) if amount1_abs > 0 and amount_usd else None
+                        token1_price = (
+                            amount_usd / (amount1_abs / 10**decimals1) if amount1_abs > 0 and amount_usd else None
+                        )
                     elif token1_address in self.stable_tokens and decimals_conditions:
                         token1_price = token_prices_dict.get((token1_address, log.block_number))
                         amount_usd = amount1_abs / 10**decimals1 * token1_price if token1_price else None
-                        token0_price = amount_usd / (amount0_abs / 10**decimals0) if amount0_abs > 0 and amount_usd else None
+                        token0_price = (
+                            amount_usd / (amount0_abs / 10**decimals0) if amount0_abs > 0 and amount_usd else None
+                        )
                     else:
                         token0_price = None
                         token1_price = None
@@ -172,7 +178,7 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                             is_eth_swap=involves_eth,  # Mark if involves ETH
                         ),
                     )
-                        
+
         # Collect all price records
         self._collect_domains(price_dict.values())
         self._collect_domains(list(current_price_dict.values()))
@@ -196,124 +202,4 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
         finally:
             session.close()
 
-        return existing_pools 
-
-    def get_pool_info_by_rpc(self, pool_id, block_number, block_timestamp, decoded_data=None):
-        """
-        Fetch pool information using RPC calls for unknown pool IDs
-        Similar to get_pool_id_by_rpc in UniswapV4TokenJob, but works in reverse:
-        Here we have the pool ID and need to find token0, token1, fee, etc.
-        """
-        # We need to query additional information for this pool
-        call_list = []
-        
-        # Try with each known factory
-        for factory_address in self._address_manager.factory_address_list:
-            position_token_address = self._address_manager.get_position_by_factory(factory_address)
-            if not position_token_address:
-                continue
-                
-            abi_module = self._address_manager.get_abi_by_factory(factory_address)
-            if not abi_module:
-                continue
-            
-            # Get StateView contract address if available
-            state_view_address = self._address_manager.get_state_view_address(factory_address)
-            if state_view_address:
-                # Using StateView contract to query pool information
-                # We need to define the StateView function ABI
-                # For this example, we'll assume there's a function that can get pool key from pool ID
-                try:
-                    # Build call to get pool key information
-                    getPoolKey_abi = {
-                        "inputs": [{"internalType": "bytes32", "name": "poolId", "type": "bytes32"}],
-                        "name": "getPoolKey",
-                        "outputs": [
-                            {"internalType": "address", "name": "currency0", "type": "address"},
-                            {"internalType": "address", "name": "currency1", "type": "address"},
-                            {"internalType": "uint24", "name": "fee", "type": "uint24"},
-                            {"internalType": "int24", "name": "tickSpacing", "type": "int24"},
-                            {"internalType": "address", "name": "hooks", "type": "address"}
-                        ],
-                        "stateMutability": "view",
-                        "type": "function"
-                    }
-                    
-                    from hemera.common.utils.abi_code_utils import Function
-                    getPoolKey_function = Function(getPoolKey_abi)
-                    
-                    # Create call to StateView contract
-                    call = Call(
-                        target=state_view_address,
-                        parameters=[pool_id],
-                        function_abi=getPoolKey_function,
-                        block_number=block_number,
-                        user_defined_k=block_timestamp,
-                    )
-                    call_list.append(call)
-                    
-                except Exception as e:
-                    logger.error(f"Failed to create RPC call for pool {pool_id}: {e}")
-                    continue
-        
-        # Execute the calls
-        if call_list:
-            try:
-                self.multi_call_helper.execute_calls(call_list)
-                
-                # Process results
-                for call in call_list:
-                    returns = call.returns
-                    if returns:
-                        # Extract pool information from returns
-                        token0_address = returns.get("currency0")
-                        token1_address = returns.get("currency1")
-                        fee = returns.get("fee")
-                        tick_spacing = returns.get("tickSpacing")
-                        hook_address = returns.get("hooks")
-                        
-                        # Get factory and position token info
-                        state_view_address = call.target.lower()
-                        factory_address = None
-                        position_token_address = None
-                        
-                        # Find which factory this state view belongs to
-                        for f_addr in self._address_manager.factory_address_list:
-                            if self._address_manager.get_state_view_address(f_addr) == state_view_address:
-                                factory_address = f_addr
-                                position_token_address = self._address_manager.get_position_by_factory(f_addr)
-                                break
-                        
-                        if factory_address and position_token_address:
-                            # Store the pool information
-                            self._exist_pools[pool_id] = {
-                                "token0_address": token0_address,
-                                "token1_address": token1_address,
-                                "fee": fee,
-                                "tick_spacing": tick_spacing,
-                                "hooks": hook_address,
-                                "factory_address": factory_address,
-                                "position_token_address": position_token_address,
-                            }
-                            logger.info(f"Successfully retrieved pool info for {pool_id} via RPC")
-                            return
-            except Exception as e:
-                logger.error(f"Failed to execute RPC calls for pool {pool_id}: {e}")
-        
-        # If we couldn't get complete information, create a partial record with what we know
-        if decoded_data and "tick" in decoded_data and "sqrtPriceX96" in decoded_data:
-            for factory_address in self._address_manager.factory_address_list:
-                position_token_address = self._address_manager.get_position_by_factory(factory_address)
-                if position_token_address:
-                    # Create pool info with partial data
-                    self._exist_pools[pool_id] = {
-                        "factory_address": factory_address,
-                        "position_token_address": position_token_address,
-                        "token0_address": None,  # Unknown
-                        "token1_address": None,  # Unknown
-                        "fee": None,  # Unknown
-                        "tick_spacing": None,  # Unknown
-                        "hooks": None,  # Unknown
-                    }
-                    logger.info(f"Added partial pool data for {pool_id} to known pools (factory: {factory_address})")
-                    return 
+        return existing_pools

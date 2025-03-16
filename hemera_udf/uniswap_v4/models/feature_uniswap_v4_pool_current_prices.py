@@ -34,4 +34,4 @@ class UniswapV4PoolCurrentPrices(HemeraModel):
                 "update_strategy": None,
                 "converter": general_converter,
             },
-        ] 
+        ]

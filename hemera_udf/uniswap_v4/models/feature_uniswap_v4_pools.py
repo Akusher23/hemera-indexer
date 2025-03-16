@@ -1,12 +1,8 @@
 from sqlalchemy import Column, PrimaryKeyConstraint, func
-from sqlalchemy.dialects.postgresql import BIGINT, BYTEA, NUMERIC, TIMESTAMP, TEXT
+from sqlalchemy.dialects.postgresql import BIGINT, BYTEA, NUMERIC, TEXT, TIMESTAMP
 
 from hemera.common.models import HemeraModel, general_converter
-from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import (
-    UniswapV4Pool,
-    UniswapV4PoolFromSwapEvent,
-    UniswapV4PoolFromToken,
-)
+from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import UniswapV4Pool
 
 
 class UniswapV4Pools(HemeraModel):
@@ -21,7 +17,7 @@ class UniswapV4Pools(HemeraModel):
     fee = Column(NUMERIC(100))
 
     tick_spacing = Column(NUMERIC(100))
-    hook_address = Column(BYTEA)  
+    hook_address = Column(BYTEA)
 
     block_number = Column(BIGINT)
     block_timestamp = Column(TIMESTAMP)
@@ -40,16 +36,4 @@ class UniswapV4Pools(HemeraModel):
                 "update_strategy": None,
                 "converter": general_converter,
             },
-            {
-                "domain": UniswapV4PoolFromSwapEvent,
-                "conflict_do_update": True,
-                "update_strategy": None,
-                "converter": general_converter,
-            },
-            {
-                "domain": UniswapV4PoolFromToken,
-                "conflict_do_update": True,
-                "update_strategy": None,
-                "converter": general_converter,
-            },
-        ] 
+        ]
