@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExportDexBlockTokenPriceJob(ExtensionJob):
-    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent, TokenBalance]
+    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent,UniswapV4SwapEvent, TokenBalance]
 
     output_types = [DexBlockTokenPrice, DexBlockTokenPriceCurrent]
     able_to_reorg = True
