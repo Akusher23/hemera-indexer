@@ -6,7 +6,6 @@ from hemera.common.utils.format_utils import bytes_to_hex_str
 from hemera.indexer.domains.transaction import Transaction
 from hemera.indexer.jobs import FilterTransactionDataJob
 from hemera.indexer.specification.specification import TopicSpecification, TransactionFilterByLogs
-from hemera.indexer.utils.multicall_hemera import Call
 from hemera.indexer.utils.multicall_hemera.multi_call_helper import MultiCallHelper
 from hemera_udf.token_price.domains import BlockTokenPrice
 from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import (
@@ -15,13 +14,14 @@ from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import (
     UniswapV4SwapEvent,
 )
 from hemera_udf.uniswap_v4.models.feature_uniswap_v4_pools import UniswapV4Pools
+from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import UniswapV4Pool
 from hemera_udf.uniswap_v4.util import AddressManager
 
 logger = logging.getLogger(__name__)
 
 
 class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
-    dependency_types = [Transaction, BlockTokenPrice]
+    dependency_types = [Transaction, BlockTokenPrice, UniswapV4Pool]
     output_types = [UniswapV4PoolPrice, UniswapV4PoolCurrentPrice, UniswapV4SwapEvent]
     able_to_reorg = True
 
@@ -46,7 +46,7 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
         self._exist_pools = (
             self.get_existing_pools()
         )  # This needs to be populated in real applications, containing token address to decimals mapping
-        self.tokens[uniswapv4_abi.ETH_ADDRESS] = {**self.tokens.get(self.weth_address, {}), "symbol": "ETH"}
+        self.tokens[self.eth_address] = {**self.tokens.get(self.weth_address, {}), "symbol": "ETH"}
 
     def get_filter(self):
         address_list = self._pool_address if self._pool_address else []
@@ -76,6 +76,16 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
     def _process(self, **kwargs):
         token_prices_dict = self.change_block_token_prices_to_dict()
 
+        pools = self._data_buff[UniswapV4Pool.type()]
+        for pool in pools:
+            self._exist_pools[pool.pool_address.lower()] = {
+                "factory_address": pool.factory_address,
+                "token0_address": pool.token0_address,
+                "token1_address": pool.token1_address,
+                "position_token_address": pool.position_token_address,
+            }
+
+
         transactions = self._data_buff["transaction"]
         current_price_dict = {}
         price_dict = {}
@@ -102,19 +112,6 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
 
                     token0_address = pool_data.get("token0_address")
                     token1_address = pool_data.get("token1_address")
-
-                    # Check if this involves ETH/WETH
-                    involves_eth = False
-                    if (
-                        token0_address.lower() == self.weth_address.lower()
-                        or token1_address.lower() == self.weth_address.lower()
-                    ):
-                        involves_eth = True
-                        # If using WETH, we can treat it as ETH
-                        if token0_address.lower() == self.weth_address.lower():
-                            token0_address = self.eth_address
-                        if token1_address.lower() == self.weth_address.lower():
-                            token1_address = self.eth_address
 
                     tokens0 = self.tokens.get(token0_address)
                     tokens1 = self.tokens.get(token1_address)
@@ -175,7 +172,6 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                             token1_price=token1_price,
                             amount_usd=amount_usd,
                             hook_data=None,  # May need to process hookData here
-                            is_eth_swap=involves_eth,  # Mark if involves ETH
                         ),
                     )
 

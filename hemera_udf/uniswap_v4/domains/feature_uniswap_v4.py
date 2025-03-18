@@ -63,7 +63,6 @@ class UniswapV4SwapEvent(Domain):
     block_number: int
     block_timestamp: int
     hook_data: str = None  # JSON string of hook-related data
-    is_eth_swap: bool = False  # Whether this swap involves native ETH
 
 
 @dataclass
