@@ -9,12 +9,12 @@ from hemera.indexer.specification.specification import TopicSpecification, Trans
 from hemera.indexer.utils.multicall_hemera.multi_call_helper import MultiCallHelper
 from hemera_udf.token_price.domains import BlockTokenPrice
 from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import (
+    UniswapV4Pool,
     UniswapV4PoolCurrentPrice,
     UniswapV4PoolPrice,
     UniswapV4SwapEvent,
 )
 from hemera_udf.uniswap_v4.models.feature_uniswap_v4_pools import UniswapV4Pools
-from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import UniswapV4Pool
 from hemera_udf.uniswap_v4.util import AddressManager
 
 logger = logging.getLogger(__name__)
@@ -84,7 +84,6 @@ class ExportUniSwapV4PoolPriceJob(FilterTransactionDataJob):
                 "token1_address": pool.token1_address,
                 "position_token_address": pool.position_token_address,
             }
-
 
         transactions = self._data_buff["transaction"]
         current_price_dict = {}

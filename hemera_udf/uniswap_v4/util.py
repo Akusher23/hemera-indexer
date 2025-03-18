@@ -44,7 +44,7 @@ class AddressManager:
                 "abi_module": abi_module,
                 "state_view_address": state_view_address,
             }
-            
+
             self.factory_to_position[factory_address] = entry
             self.position_to_factory[position_token_address] = entry
 
