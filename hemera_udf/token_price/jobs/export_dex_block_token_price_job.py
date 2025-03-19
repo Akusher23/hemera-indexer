@@ -31,7 +31,6 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         self.max_market_cap = 1880666183880
 
         self.balance_limit_map = {"WETH": 0.001, "ETH": 0.001, "WBNB": 0.01, "BNB": 0.01}
-        self.balance_limit_map = {}
 
     @staticmethod
     def dataclass_to_df(dataclass):
