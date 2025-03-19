@@ -24,13 +24,14 @@ from hemera.common.models import db as postgres_db
 from hemera.common.models.contracts import Contracts
 from hemera.common.utils.exception_control import APIError
 from hemera.common.utils.format_utils import as_dict, hex_str_to_bytes
-from hemera.common.utils.web3_utils import ZERO_ADDRESS
+from hemera.common.utils.web3_utils import ZERO_ADDRESS, is_eth_address
 
 
 @contract_namespace.route("/v1/explorer/verify_contract/verify")
 @contract_namespace.route("/v2/explorer/verify_contract/verify")
 class ExplorerVerifyContract(Resource):
     def post(_):
+        wallet_address = "0x8f72840be9414436da8a76ff08a1f6924f0efb83"
         request_form = flask.request.form
         address = request_form.get("address", "").lower()
         compiler_type = request_form.get("compiler_type")
@@ -49,12 +50,11 @@ class ExplorerVerifyContract(Resource):
 
         contracts = get_contract_by_address(address)
         check_contract_verification_status(contracts)
-
         creation_code, deployed_code = get_creation_or_deployed_code(contracts)
 
         payload = {
             "address": address,
-            "wallet_address": ZERO_ADDRESS,
+            "wallet_address": wallet_address,
             "compiler_type": compiler_type,
             "compiler_version": compiler_version,
             "evm_version": evm_version,
@@ -171,7 +171,7 @@ class ExplorerVerifyContract(Resource):
     def post(self):
         request_body = flask.request.json
         proxy_contract_address = request_body.get("proxy_contract_address")
-        if not proxy_contract_address:
+        if not proxy_contract_address or not is_eth_address(proxy_contract_address):
             raise APIError("Please sent correct proxy contract address")
 
         implementation_address = get_implementation_contract(proxy_contract_address)
@@ -204,11 +204,17 @@ class ExplorerVerifyContract(Resource):
         proxy_contract_address = request_body.get("proxy_contract_address")
         implementation_contract_address = request_body.get("implementation_contract_address")
 
-        if not proxy_contract_address or not implementation_contract_address:
+        if (
+            not proxy_contract_address
+            or not implementation_contract_address
+            or not is_eth_address(proxy_contract_address)
+            or not is_eth_address(implementation_contract_address)
+        ):
             raise APIError("Not such proxy contract address", code=400)
 
-        contract = Contracts.query.filter(Contracts.address == proxy_contract_address.lower()).first()
-        contract.verified_implementation_contract = implementation_contract_address.lower()
+        contract = Contracts.query.filter(Contracts.address == hex_str_to_bytes(proxy_contract_address.lower())).first()
+        contract.verified_implementation_contract = hex_str_to_bytes(implementation_contract_address.lower())
+        contract.is_verified = True
 
         postgres_db.session.add(contract)
         postgres_db.session.commit()
@@ -226,6 +232,7 @@ class ExplorerContractCommandApi(Resource):
 
     @limiter.limit("10 per minute")
     def post(self):
+        wallet_address = "0x8f72840be9414436da8a76ff08a1f6924f0efb83"
         request_form = flask.request.form
         action = request_form.get("action")
         module = request_form.get("module")
@@ -257,7 +264,6 @@ class ExplorerContractCommandApi(Resource):
         contracts = get_contract_by_address(address)
         if contracts.is_verified:
             return {"message": "This contract is verified", "status": "0"}, 200
-
         creation_code, deployed_code = get_creation_or_deployed_code(contracts)
         payload = {
             "address": address,
@@ -269,6 +275,7 @@ class ExplorerContractCommandApi(Resource):
             "optimization_runs": optimization_runs,
             "input_str": input_str,
             "constructor_arguments": constructor_arguments,
+            "wallet_address": wallet_address,
             "creation_code": creation_code,
             "deployed_code": deployed_code,
         }

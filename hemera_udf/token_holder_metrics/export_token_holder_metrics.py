@@ -16,6 +16,7 @@ from hemera_udf.token_holder_metrics.models.metrics import TokenHolderMetricsCur
 logger = logging.getLogger(__name__)
 
 MAX_SAFE_VALUE = 2**255
+MIN_BALANCE_THRESHOLD = 1e-4
 
 
 class ExportTokenHolderMetricsJob(ExtensionJob):
@@ -52,6 +53,24 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         )
         logger.info(f"Filtered non-meme tokens in {time.time() - t2:.2f}s")
 
+        self._block_address_token_values = {}
+        self._block_address_token_balances = {}
+        for transfer in transfers:
+            block_number = transfer.block_number
+            from_key = (block_number, transfer.from_address, transfer.token_address)
+            to_key = (block_number, transfer.to_address, transfer.token_address)
+
+            if from_key not in self._block_address_token_values:
+                self._block_address_token_values[from_key] = 0
+            self._block_address_token_values[from_key] -= transfer.value
+
+            if to_key not in self._block_address_token_values:
+                self._block_address_token_values[to_key] = 0
+            self._block_address_token_values[to_key] += transfer.value
+            
+            self._block_address_token_balances[from_key] = transfer.from_address_balance
+            self._block_address_token_balances[to_key] = transfer.to_address_balance
+
         t3 = time.time()
         address_token_pairs = set()
         for transfer in transfers:
@@ -84,7 +103,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 continue
 
             token = self.tokens[transfer.token_address]
-            amount_usd = transfer.value * transfer.price / 10 ** token["decimals"]
+            amount_usd = transfer.value * transfer.price / 10 ** (token["decimals"] or 0)
 
             # Process "from" address
             self._update_holder_metrics(
@@ -109,8 +128,12 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 transfer.price,
                 token,
             )
-
+        
+        for metrics in current_metrics.values():
+            metrics.current_balance = self._block_address_token_balances.get((metrics.block_number, metrics.holder_address, metrics.token_address), 0)
+            
         logger.info(f"Metrics update completed in {time.time() - t6:.2f}s")
+        
 
         self._collect_items(TokenHolderMetricsCurrentD.type(), list(current_metrics.values()))
         history_metrics = [TokenHolderMetricsHistoryD(**asdict(metrics)) for metrics in current_metrics.values()]
@@ -149,7 +172,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 query = text(
                     f"""
                     SELECT *
-                    FROM af_token_holder_metrics_current_all_p{partition_idx}
+                    FROM af_token_holder_metrics_current_p{partition_idx}
                     WHERE (holder_address, token_address) IN :pairs
                 """
                 )
@@ -212,6 +235,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                             realized_pnl=float(metrics.realized_pnl or 0),
                             sell_pnl=float(metrics.sell_pnl or 0),
                             win_rate=float(metrics.win_rate or 0),
+                            pnl_valid=bool(metrics.pnl_valid or False),
                         )
 
         session.close()
@@ -239,6 +263,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 first_block_timestamp=transfer.block_timestamp,
                 last_swap_timestamp=transfer.block_timestamp,
                 last_transfer_timestamp=transfer.block_timestamp,
+                pnl_valid=False,
             )
 
         metrics = current_metrics[key]
@@ -248,12 +273,24 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         metrics.block_number = transfer.block_number
         metrics.block_timestamp = transfer.block_timestamp
 
+        set_pnl_valid_block_number = 0
+
+        new_current_balance = self._block_address_token_balances.get((transfer.block_number, holder_address, token_address), 0) or 0
+
+        if not metrics.pnl_valid:
+            block_key = (transfer.block_number, holder_address, token_address)
+            total_value = self._block_address_token_values.get(block_key, 0)
+
+            if abs(total_value - new_current_balance) < MIN_BALANCE_THRESHOLD or new_current_balance < MIN_BALANCE_THRESHOLD:
+                metrics.pnl_valid = True
+                set_pnl_valid_block_number = transfer.block_number
+
         # buy
         # update balance
         # update total buy count, amount, usd
         # update current average buy price
         # sell
-        # set average buy price to 0 when balance is less than 0.00001
+        # set average buy price to 0 when balance is less than MIN_BALANCE_THRESHOLD
         # calculate pnl
         # update balance
         # update total sell count, amount, usd
@@ -263,7 +300,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
         # update win rate
         if transfer_action == "in":
             new_balance = metrics.current_balance + transfer.value
-            if new_balance / 10 ** token["decimals"] > 0.00001:
+            if new_balance / 10 ** token["decimals"] > MIN_BALANCE_THRESHOLD:
                 new_average_buy_price = (
                     amount_usd + metrics.current_balance * metrics.current_average_buy_price / 10 ** token["decimals"]
                 ) / ((transfer.value + metrics.current_balance) / 10 ** token["decimals"])
@@ -298,7 +335,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                     metrics.win_rate = metrics.success_sell_count / total_sells
 
             metrics.current_balance -= sell_amount
-            if metrics.current_balance / 10 ** token["decimals"] < 0.00001:
+            if metrics.current_balance / 10 ** token["decimals"] < MIN_BALANCE_THRESHOLD:
                 metrics.current_average_buy_price = 0
 
             metrics.total_sell_count += 1
@@ -317,6 +354,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             metrics.sell_50_timestamp = metrics.block_timestamp
 
         metrics.last_transfer_timestamp = metrics.block_timestamp
+        metrics.last_price = token_price
         if transfer.is_swap:
             metrics.last_swap_timestamp = metrics.block_timestamp
 
@@ -328,3 +366,14 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 metrics.swap_sell_count += 1
                 metrics.swap_sell_amount += transfer.value
                 metrics.swap_sell_usd += amount_usd
+
+        if not metrics.pnl_valid or metrics.block_number == set_pnl_valid_block_number:
+            metrics.sell_pnl = 0
+            metrics.realized_pnl = 0
+            metrics.success_sell_count = 0
+            metrics.fail_sell_count = 0
+            metrics.win_rate = 0
+            metrics.current_average_buy_price = 0
+            if metrics.block_number == set_pnl_valid_block_number and new_current_balance > MIN_BALANCE_THRESHOLD:
+                metrics.current_average_buy_price = token_price
+            
