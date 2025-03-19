@@ -6,10 +6,10 @@ from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from kafka import KafkaProducer
+from kafka.errors import KafkaError
 
 from hemera.indexer.domains import Domain
 from hemera.indexer.domains.current_token_balance import CurrentTokenBalance
-from hemera.indexer.domains.log import Log
 from hemera.indexer.domains.token_balance import TokenBalance
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
 from hemera.indexer.exporters.base_exporter import BaseExporter
@@ -19,21 +19,51 @@ from hemera_udf.uniswap_v2 import UniswapV2SwapEvent
 from hemera_udf.uniswap_v3 import UniswapV3SwapEvent
 
 logger = logging.getLogger(__name__)
+import os
+
+chain_name = os.environ.get("CHAIN_NAME", "default")
 
 
 class KafkaItemExporter(BaseExporter):
-    def __init__(self, output):
+    def __init__(self, output, max_retries=5, ack_mode="all", timeout=30):
+        """
+        Initialize Kafka exporter with reliable delivery settings.
+
+        Args:
+            output: Kafka connection URL
+            max_retries: Number of retry attempts for message delivery
+            ack_mode: Acknowledgment mode ("all" for strongest guarantee)
+            timeout: Timeout in seconds for message delivery confirmation
+        """
         self.connection_url = self.get_connection_url(output)
-        self.producer = KafkaProducer(
-            bootstrap_servers=self.connection_url,
-            security_protocol="SASL_SSL" if self.protocol == "kafka+ssl" else "SASL_PLAINTEXT",
-            sasl_mechanism="PLAIN",
-            sasl_plain_username=self.username,
-            sasl_plain_password=self.password,
-            ssl_cafile=None,
-        )
+        self.max_retries = max_retries
+        self.timeout = timeout
+        self.producer = None
+        self._create_producer(ack_mode)
+
+    def _create_producer(self, ack_mode):
+        """Create Kafka producer with reliability settings."""
+        try:
+            self.producer = KafkaProducer(
+                bootstrap_servers=self.connection_url,
+                security_protocol="SASL_SSL" if self.protocol == "kafka+ssl" else "SASL_PLAINTEXT",
+                sasl_mechanism="PLAIN",
+                sasl_plain_username=self.username,
+                sasl_plain_password=self.password,
+                ssl_cafile=None,
+                # Reliability settings
+                acks=ack_mode,  # Wait for all replicas to acknowledge
+                retries=self.max_retries,  # Number of retries
+                retry_backoff_ms=500,  # Backoff time between retries
+                enable_idempotence=True,  # Prevent duplicate messages
+            )
+            logger.info("Kafka producer initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Kafka producer: {e}")
+            raise
 
     def get_connection_url(self, output):
+        """Parse and validate Kafka connection URL."""
         try:
             parsed_url = urlparse(output)
             if parsed_url.scheme not in ["kafka", "kafka+ssl"]:
@@ -48,27 +78,90 @@ class KafkaItemExporter(BaseExporter):
             raise ValueError(f"Invalid kafka output param: {output}. Error: {e}")
 
     def open(self):
-        pass
+        """Open the exporter connection."""
+        if self.producer is None:
+            self._create_producer("all")
+        logger.info("Kafka exporter opened")
 
     def export_items(self, items, **kwargs):
+        """Export multiple items to Kafka with delivery guarantees."""
+        success_count = 0
+        fail_count = 0
+
         for item in items:
-            self.export_item(item)
+            try:
+                result = self.export_item(item)
+                if result:
+                    success_count += 1
+                else:
+                    fail_count += 1
+            except Exception as e:
+                logger.error(f"Failed to export item: {e}")
+                fail_count += 1
+
+        logger.info(f"Exported {success_count} items successfully, {fail_count} failed")
+        return success_count, fail_count
 
     def export_item(self, item: Domain, **kwargs):
+        """
+        Export a single item to Kafka with guaranteed delivery.
+
+        Returns:
+            bool: True if successful, False otherwise
+        """
+        if not self.producer:
+            logger.error("Kafka producer not initialized")
+            return False
+
         item = self.domain_mapping(item)
         if item is None:
-            return
-        data = {key: value for key, value in asdict(item).items() if value is not None}
-        utc_now = datetime.now(timezone.utc)
-        utc_timestamp = int(utc_now.timestamp())
-        data["update_time"] = utc_timestamp
-        data = json.dumps(data).encode("utf-8")
-        self.producer.send(item.type(), value=data)
+            return False
+
+        try:
+            # Prepare the data
+            data = {key: value for key, value in asdict(item).items() if value is not None}
+            utc_now = datetime.now(timezone.utc)
+            utc_timestamp = int(utc_now.timestamp())
+            data["update_time"] = utc_timestamp
+            encoded_data = json.dumps(data).encode("utf-8")
+
+            # Send the message and wait for confirmation
+            topic = item.type()
+            if chain_name != "default":
+                topic = f"{chain_name}_{topic}"
+
+            future = self.producer.send(topic, value=encoded_data)
+
+            # Block until the message is sent (or timeout)
+            record_metadata = future.get(timeout=self.timeout)
+
+            logger.debug(
+                f"Message sent successfully to {topic} "
+                f"[partition={record_metadata.partition}, offset={record_metadata.offset}]"
+            )
+            return True
+
+        except KafkaError as ke:
+            logger.error(f"Kafka error while exporting item: {ke}")
+            return False
+        except Exception as e:
+            logger.error(f"Unexpected error while exporting item: {e}")
+            return False
 
     def close(self):
-        pass
+        """Ensure all messages are delivered and close the connection."""
+        if self.producer:
+            try:
+                # Flush ensures all messages are sent before closing
+                self.producer.flush(timeout=self.timeout)
+                logger.info("All pending messages have been delivered")
+                self.producer.close(timeout=self.timeout)
+                logger.info("Kafka producer closed successfully")
+            except Exception as e:
+                logger.error(f"Error while closing Kafka producer: {e}")
 
     def domain_mapping(self, item):
+        """Map domain objects for Kafka compatibility."""
         data = deepcopy(item)
 
         if isinstance(data, (TokenBalance, CurrentTokenBalance)):
