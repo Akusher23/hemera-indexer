@@ -67,7 +67,7 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             if to_key not in self._block_address_token_values:
                 self._block_address_token_values[to_key] = 0
             self._block_address_token_values[to_key] += transfer.value
-            
+
             self._block_address_token_balances[from_key] = transfer.from_address_balance
             self._block_address_token_balances[to_key] = transfer.to_address_balance
 
@@ -128,12 +128,13 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
                 transfer.price,
                 token,
             )
-        
+
         for metrics in current_metrics.values():
-            metrics.current_balance = self._block_address_token_balances.get((metrics.block_number, metrics.holder_address, metrics.token_address), 0)
-            
+            metrics.current_balance = self._block_address_token_balances.get(
+                (metrics.block_number, metrics.holder_address, metrics.token_address), 0
+            )
+
         logger.info(f"Metrics update completed in {time.time() - t6:.2f}s")
-        
 
         self._collect_items(TokenHolderMetricsCurrentD.type(), list(current_metrics.values()))
         history_metrics = [TokenHolderMetricsHistoryD(**asdict(metrics)) for metrics in current_metrics.values()]
@@ -275,13 +276,18 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
 
         set_pnl_valid_block_number = 0
 
-        new_current_balance = self._block_address_token_balances.get((transfer.block_number, holder_address, token_address), 0) or 0
+        new_current_balance = (
+            self._block_address_token_balances.get((transfer.block_number, holder_address, token_address), 0) or 0
+        )
 
         if not metrics.pnl_valid:
             block_key = (transfer.block_number, holder_address, token_address)
             total_value = self._block_address_token_values.get(block_key, 0)
 
-            if abs(total_value - new_current_balance) < MIN_BALANCE_THRESHOLD or new_current_balance < MIN_BALANCE_THRESHOLD:
+            if (
+                abs(total_value - new_current_balance) < MIN_BALANCE_THRESHOLD
+                or new_current_balance < MIN_BALANCE_THRESHOLD
+            ):
                 metrics.pnl_valid = True
                 set_pnl_valid_block_number = transfer.block_number
 
@@ -376,4 +382,3 @@ class ExportTokenHolderMetricsJob(ExtensionJob):
             metrics.current_average_buy_price = 0
             if metrics.block_number == set_pnl_valid_block_number and new_current_balance > MIN_BALANCE_THRESHOLD:
                 metrics.current_average_buy_price = token_price
-            
