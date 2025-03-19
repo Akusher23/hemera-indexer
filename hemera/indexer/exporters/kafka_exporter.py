@@ -77,10 +77,7 @@ class KafkaItemExporter(BaseExporter):
             raise ValueError(f"Invalid kafka output param: {output}. Error: {e}")
 
     def open(self):
-        """Open the exporter connection."""
-        if self.producer is None:
-            self._create_producer("all")
-        logger.info("Kafka exporter opened")
+        pass
 
     def export_items(self, items, **kwargs):
         """Export multiple items to Kafka with delivery guarantees."""
@@ -126,7 +123,7 @@ class KafkaItemExporter(BaseExporter):
 
             # Send the message and wait for confirmation
             topic = item.type()
-            if chain_name != "default":
+            if chain_name != "base":
                 topic = f"{chain_name}_{topic}"
 
             future = self.producer.send(topic, value=encoded_data)
@@ -148,16 +145,7 @@ class KafkaItemExporter(BaseExporter):
             return False
 
     def close(self):
-        """Ensure all messages are delivered and close the connection."""
-        if self.producer:
-            try:
-                # Flush ensures all messages are sent before closing
-                self.producer.flush(timeout=self.timeout)
-                logger.info("All pending messages have been delivered")
-                self.producer.close(timeout=self.timeout)
-                logger.info("Kafka producer closed successfully")
-            except Exception as e:
-                logger.error(f"Error while closing Kafka producer: {e}")
+        pass
 
     def domain_mapping(self, item):
         """Map domain objects for Kafka compatibility."""
