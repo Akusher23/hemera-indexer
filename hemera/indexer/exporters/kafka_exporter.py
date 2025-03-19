@@ -55,7 +55,6 @@ class KafkaItemExporter(BaseExporter):
                 acks=ack_mode,  # Wait for all replicas to acknowledge
                 retries=self.max_retries,  # Number of retries
                 retry_backoff_ms=500,  # Backoff time between retries
-                enable_idempotence=True,  # Prevent duplicate messages
             )
             logger.info("Kafka producer initialized successfully")
         except Exception as e:
