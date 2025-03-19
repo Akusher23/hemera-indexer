@@ -9,6 +9,7 @@ class UniswapV4PoolPrices(HemeraModel):
     __tablename__ = "af_uniswap_v4_pool_prices"
     pool_address = Column(BYTEA, primary_key=True)
     block_number = Column(BIGINT, primary_key=True)
+    block_timestamp = Column(TIMESTAMP, primary_key=True)
 
     factory_address = Column(BYTEA)
 
@@ -18,12 +19,12 @@ class UniswapV4PoolPrices(HemeraModel):
     token0_price = Column(NUMERIC(100))
     token1_price = Column(NUMERIC(100))
 
-    block_timestamp = Column(TIMESTAMP)
+
 
     create_time = Column(TIMESTAMP, server_default=func.now())
     update_time = Column(TIMESTAMP, server_default=func.now())
 
-    __table_args__ = (PrimaryKeyConstraint("pool_address", "block_number"),)
+    __table_args__ = (PrimaryKeyConstraint("pool_address", "block_number", "block_timestamp"),)
 
     @staticmethod
     def model_domain_mapping():
