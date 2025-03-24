@@ -10,6 +10,7 @@ class SmartMoneySignalMetricsModel(HemeraModel):
 
     trader_id = Column(BYTEA, primary_key=True)
     token_address = Column(BYTEA, primary_key=True)
+    pool_address = Column(BYTEA, primary_key=True)
     block_number = Column(BIGINT, primary_key=True)
     block_timestamp = Column(TIMESTAMP, primary_key=True)
     transaction_hash = Column(BYTEA, primary_key=True)
