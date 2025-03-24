@@ -4,7 +4,7 @@ from collections import defaultdict
 import requests
 
 from hemera.indexer.jobs.base_job import ExtensionJob
-from hemera_udf.smart_money_signal.domains import SmartMoneySignalMetrics
+from hemera_udf.smart_money_signal.domains import SmartMoneySignalTrade
 from hemera_udf.uniswap_v2 import UniswapV2SwapEvent
 from hemera_udf.uniswap_v3 import UniswapV3SwapEvent
 
@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class ExportSmartMoneySignal(ExtensionJob):
     dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent]
 
-    output_types = [SmartMoneySignalMetrics]
+    output_types = [SmartMoneySignalTrade]
     able_to_reorg = True
 
     def __init__(self, **kwargs):
@@ -29,82 +29,83 @@ class ExportSmartMoneySignal(ExtensionJob):
     def _process(self, **kwargs):
         smart_money_address_list = set(requests.get(self.url).json().get("data"))
 
-        address_token_swap_dict = defaultdict(
-            lambda: {
-                "swap_in_amount": 0,
-                "swap_in_amount_usd": 0,
-                "swap_in_count": 0,
-                "swap_out_amount": 0,
-                "swap_out_amount_usd": 0,
-                "swap_out_count": 0,
-                # "transfer_in_amount": 0,
-                # "transfer_in_amount_usd": 0,
-                # "transfer_in_count": 0,
-                # "transfer_out_amount": 0,
-                # "transfer_out_amount_usd": 0,
-                # "transfer_out_count": 0,
-            }
-        )
-
         uniswap_v2_list = self._data_buff.get(UniswapV2SwapEvent.type())
         uniswap_v3_list = self._data_buff.get(UniswapV3SwapEvent.type())
 
         for swap_event in uniswap_v2_list + uniswap_v3_list:
-            block_timestamp = swap_event.block_timestamp
-            block_number = swap_event.block_number
-            trader_id = swap_event.transaction_from_address
-
-            in_key = (block_timestamp, block_number, trader_id, swap_event.token0_address)
-
-            address_token_swap_dict[in_key]["swap_in_amount"] += abs(swap_event.amount0)
-            address_token_swap_dict[in_key]["swap_in_amount_usd"] += swap_event.amount_usd or 0
-            address_token_swap_dict[in_key]["swap_in_count"] += 1
-
-            out_key = (block_timestamp, block_number, trader_id, swap_event.token1_address)
-
-            address_token_swap_dict[out_key]["swap_out_amount"] += abs(swap_event.amount1)
-            address_token_swap_dict[out_key]["swap_out_amount_usd"] += swap_event.amount_usd or 0
-            address_token_swap_dict[out_key]["swap_out_count"] += 1
-
-        # token_transfers = self._data_buff.get(ERC20TokenTransfer.type())
-        #
-        # for transfer in token_transfers:
-        #     block_timestamp = transfer.block_timestamp
-        #     block_number = transfer.block_number
-        #
-        #     token_address = transfer.token_address
-        #     decimals = self.tokens.get(token_address).get("decimals")
-        #
-        #     in_key = (block_timestamp, block_number, transfer.to_address, token_address)
-        #
-        #     address_token_swap_dict[in_key]["transfer_in_amount"] += transfer.value / 10**decimals
-        #     # address_token_swap_dict[in_key]['transfer_in_amount_usd'] += 0
-        #     address_token_swap_dict[in_key]["transfer_in_count"] += 1
-        #
-        #     out_key = (block_timestamp, block_number, transfer.from_address, token_address)
-        #
-        #     address_token_swap_dict[out_key]["transfer_out_amount"] += transfer.value / 10**decimals
-        #     # address_token_swap_dict[in_key]['transfer_out_amount_usd'] += 0
-        #     address_token_swap_dict[out_key]["transfer_out_count"] += 1
-
-        for k, v in address_token_swap_dict.items():
-            block_timestamp, block_number, trader_id, token_address = k
-            if not trader_id or not token_address:
+            trade_id = swap_event.transaction_from_address
+            if trade_id not in smart_money_address_list:
                 continue
 
-            if trader_id not in smart_money_address_list:
-                continue
+            if swap_event.token0_address not in self.config:
+                token_address = swap_event.token0_address
+                token_price = swap_event.token0_price
 
-            if token_address in self.config:
-                continue
+                if swap_event.amount0 > 0:
+                    swap_in_amount = swap_event.amount0
+                    swap_in_amount_usd = swap_event.amount_usd
 
-            address_swap_domain = SmartMoneySignalMetrics(
-                block_timestamp=block_timestamp,
-                block_number=block_number,
-                trader_id=trader_id,
-                token_address=token_address,
-                **v,
-            )
+                    swap_out_amount = 0
+                    swap_out_amount_usd = 0
 
-            if address_swap_domain.token_address and address_swap_domain.trader_id:
-                self._collect_domain(address_swap_domain)
+                else:
+
+                    swap_in_amount = 0
+                    swap_in_amount_usd = 0
+
+                    swap_out_amount = abs(swap_event.amount0)
+                    swap_out_amount_usd = swap_event.amount_usd
+
+                domain = SmartMoneySignalTrade(
+                    block_number=swap_event.block_number,
+                    block_timestamp=swap_event.block_timestamp,
+                    trader_id=trade_id,
+                    token_address=token_address,
+                    pool_address=swap_event.pool_address,
+                    transaction_hash=swap_event.transaction_hash,
+                    log_index=swap_event.log_index,
+                    swap_in_amount=swap_in_amount,
+                    swap_in_amount_usd=swap_in_amount_usd,
+                    swap_out_amount=swap_out_amount,
+                    swap_out_amount_usd=swap_out_amount_usd,
+                    token_price=token_price,
+                )
+
+                if domain.token_address and domain.trader_id:
+                    self._collect_domain(domain)
+
+            # 处理 token1
+            if swap_event.token1_address not in self.config:
+                token_address = swap_event.token1_address
+                token_price = swap_event.token1_price
+
+                if swap_event.amount1 > 0:
+                    swap_in_amount = swap_event.amount1
+                    swap_in_amount_usd = swap_event.amount_usd
+
+                    swap_out_amount = 0
+                    swap_out_amount_usd = 0
+                else:
+                    swap_in_amount = 0
+                    swap_in_amount_usd = 0
+
+                    swap_out_amount = abs(swap_event.amount1)
+                    swap_out_amount_usd = swap_event.amount_usd
+
+                domain = SmartMoneySignalTrade(
+                    block_number=swap_event.block_number,
+                    block_timestamp=swap_event.block_timestamp,
+                    trader_id=trade_id,
+                    token_address=token_address,
+                    pool_address=swap_event.pool_address,
+                    transaction_hash=swap_event.transaction_hash,
+                    log_index=swap_event.log_index,
+                    swap_in_amount=swap_in_amount,
+                    swap_in_amount_usd=swap_in_amount_usd,
+                    swap_out_amount=swap_out_amount,
+                    swap_out_amount_usd=swap_out_amount_usd,
+                    token_price=token_price,
+                )
+
+                if domain.token_address and domain.trader_id:
+                    self._collect_domain(domain)

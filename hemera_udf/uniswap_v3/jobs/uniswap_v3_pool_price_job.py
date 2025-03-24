@@ -4,6 +4,7 @@ import hemera_udf.uniswap_v3.abi.agni_abi as agni_abi
 import hemera_udf.uniswap_v3.abi.swapsicle_abi as swapsicle_abi
 import hemera_udf.uniswap_v3.abi.uniswapv3_abi as uniswapv3_abi
 from hemera.common.utils.format_utils import bytes_to_hex_str
+from hemera.indexer.domains.token import Token
 from hemera.indexer.domains.transaction import Transaction
 from hemera.indexer.jobs import FilterTransactionDataJob
 from hemera.indexer.specification.specification import TopicSpecification, TransactionFilterByLogs
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
-    dependency_types = [Transaction, BlockTokenPrice]
+    dependency_types = [Transaction, BlockTokenPrice, Token]
     output_types = [UniswapV3PoolPrice, UniswapV3PoolCurrentPrice, UniswapV3SwapEvent, UniswapV3PoolFromSwapEvent]
     able_to_reorg = True
 

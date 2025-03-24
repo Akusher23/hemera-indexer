@@ -2,6 +2,7 @@ import logging
 
 from hemera.common.utils.format_utils import bytes_to_hex_str
 from hemera.indexer.domains.log import Log
+from hemera.indexer.domains.token import Token
 from hemera.indexer.domains.transaction import Transaction
 from hemera.indexer.jobs import FilterTransactionDataJob
 from hemera.indexer.specification.specification import TopicSpecification, TransactionFilterByLogs
@@ -18,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExportUniSwapV2SwapEventJob(FilterTransactionDataJob):
-    dependency_types = [Transaction, BlockTokenPrice]
+    dependency_types = [Transaction, BlockTokenPrice, Token]
     output_types = [UniswapV2SwapEvent, UniswapV2PoolFromSwapEvent]
 
     def __init__(self, **kwargs):
