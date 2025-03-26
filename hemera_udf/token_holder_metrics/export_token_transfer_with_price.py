@@ -28,6 +28,7 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
     def _collect(self, **kwargs):
         pass
 
+    @calculate_execution_time
     def _process(self, **kwargs):
         self._init_history_token_prices(kwargs["start_block"])
         self._init_token_dex_prices_batch(kwargs["start_block"], kwargs["end_block"])
@@ -53,6 +54,7 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
         self._collect_items(ERC20TokenTransferWithPriceD.type(), to_export)
         self._update_history_token_prices()
 
+    @calculate_execution_time
     def _init_history_token_prices(self, start_block: int):
         if self.history_token_prices is not None:
             return
@@ -75,6 +77,7 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
         session.close()
         self.history_token_prices = {bytes_to_hex_str(row[0]): float(row[2]) for row in token_blocks}
 
+    @calculate_execution_time
     def _init_token_dex_prices_batch(self, start_block: int, end_block: int):
 
         price_sql = text(
@@ -122,6 +125,7 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
         else:
             return price_map[keys[idx - 1]]
 
+    @calculate_execution_time
     def _update_history_token_prices(self):
         for token_addr, price_map in self.token_price_maps.items():
             if not price_map:
