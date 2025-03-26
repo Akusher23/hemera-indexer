@@ -1,9 +1,10 @@
 import logging
+import time
 from dataclasses import asdict
 
 from sortedcontainers import SortedDict
 from sqlalchemy import text
-import time
+
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
 from hemera.indexer.jobs.base_job import ExtensionJob
@@ -149,16 +150,16 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
     def _update_history_token_prices(self):
         start_time = time.time()
         logger.info("Starting _update_history_token_prices")
-        
+
         for token_addr, price_map in self.token_price_maps.items():
             if not price_map:
                 continue
             latest_block = price_map.keys()[-1]
             latest_price = price_map[latest_block]
-            
+
             # Clear all data and keep only the latest price
             price_map.clear()
             price_map[0] = latest_price
-            
+
         total_time = time.time() - start_time
         logger.info(f"_update_history_token_prices took {total_time:.2f} seconds")
