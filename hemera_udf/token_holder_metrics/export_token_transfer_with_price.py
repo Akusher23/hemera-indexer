@@ -91,6 +91,8 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
 
     @calculate_execution_time
     def _init_token_dex_prices_batch(self, start_block: int, end_block: int):
+        start_time = time.time()
+        logger.info(f"Starting _init_token_dex_prices_batch for blocks {start_block} to {end_block}")
 
         price_sql = text(
             """
@@ -102,14 +104,20 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
         )
 
         session = self._service.get_service_session()
+        db_start_time = time.time()
         prices = session.execute(price_sql, {"min_block": start_block, "max_block": end_block}).fetchall()
+        db_time = time.time() - db_start_time
+        logger.info(f"init_token_dex_prices_batch: Database query took {db_time:.2f} seconds")
         session.close()
 
+        init_map_start_time = time.time()
         token_price_maps = {token: SortedDict() for token in self.history_token_prices}
-
         for token in self.history_token_prices:
             token_price_maps[token][0] = self.history_token_prices[token]
+        init_map_time = time.time() - init_map_start_time
+        logger.info(f"init_token_dex_prices_batch: Initializing price maps took {init_map_time:.2f} seconds")
 
+        process_prices_start_time = time.time()
         for price_row in prices:
             token_addr = bytes_to_hex_str(price_row[0])
             if token_addr not in token_price_maps:
@@ -117,8 +125,12 @@ class ExportTokenTransferWithPriceJob(ExtensionJob):
             block_num = price_row[1]
             price = float(price_row[2])
             token_price_maps[token_addr][block_num] = price
+        process_prices_time = time.time() - process_prices_start_time
+        logger.info(f"init_token_dex_prices_batch: Processing price rows took {process_prices_time:.2f} seconds")
 
         self.token_price_maps = token_price_maps
+        total_time = time.time() - start_time
+        logger.info(f"init_token_dex_prices_batch: Total execution took {total_time:.2f} seconds")
 
     def _get_token_dex_price(self, token_addr: str, block_num: int):
         price_map = self.token_price_maps.get(token_addr)
