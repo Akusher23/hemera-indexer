@@ -3,7 +3,7 @@ from dataclasses import asdict
 
 from sortedcontainers import SortedDict
 from sqlalchemy import text
-
+import time
 from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
 from hemera.indexer.jobs.base_job import ExtensionJob
@@ -13,6 +13,18 @@ from hemera_udf.uniswap_v2.domains import UniswapV2SwapEvent
 from hemera_udf.uniswap_v3.domains.feature_uniswap_v3 import UniswapV3SwapEvent
 
 logger = logging.getLogger(__name__)
+
+
+def calculate_execution_time(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        end_time = time.time()
+        execution_time = end_time - start_time
+        print(f"function {func.__name__} time: {execution_time:.6f} s")
+        return result
+
+    return wrapper
 
 
 class ExportTokenTransferWithPriceJob(ExtensionJob):
