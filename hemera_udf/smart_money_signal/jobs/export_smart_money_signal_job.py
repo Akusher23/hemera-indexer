@@ -41,8 +41,8 @@ class ExportSmartMoneySignal(ExtensionJob):
                 token_address = swap_event.token0_address
                 token_price = swap_event.token0_price
 
-                if swap_event.amount0 > 0:
-                    swap_in_amount = swap_event.amount0
+                if swap_event.amount0 < 0:
+                    swap_in_amount = abs(swap_event.amount0)
                     swap_in_amount_usd = swap_event.amount_usd
 
                     swap_out_amount = 0
@@ -79,8 +79,8 @@ class ExportSmartMoneySignal(ExtensionJob):
                 token_address = swap_event.token1_address
                 token_price = swap_event.token1_price
 
-                if swap_event.amount1 > 0:
-                    swap_in_amount = swap_event.amount1
+                if swap_event.amount1 < 0:
+                    swap_in_amount = abs(swap_event.amount1)
                     swap_in_amount_usd = swap_event.amount_usd
 
                     swap_out_amount = 0
