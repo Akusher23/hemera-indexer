@@ -43,6 +43,8 @@ class KafkaItemExporter(BaseExporter):
         self.max_retries = max_retries
         self.timeout = timeout
         self.producer = None
+        if os.environ.get("KAFKA_ACK_MODE", None):
+            ack_mode = os.environ.get("KAFKA_ACK_MODE")
         self._create_producer(ack_mode)
 
     def _create_producer(self, ack_mode):
