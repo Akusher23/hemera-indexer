@@ -34,5 +34,8 @@ FBTC:
     - eigenlayer
 
 cmETH:
+  py_jobs:
+    - staked
+
   generator_wallet_table:
     true

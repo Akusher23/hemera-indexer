@@ -323,6 +323,18 @@ class PeriodWalletProtocolJsonProcessCmeth:
         orm_result = stmt.fetchall()
         return orm_result
 
+    def get_staked_json_eth(self):
+        protocol_id = 'staked'
+        if protocol_id in self.job_list:
+            # all tokens are cmeth
+            orm_list = self.get_staked_detail_orm_list()
+
+            # need to filter the only token in some cases
+            results = get_token_data_for_lendle_au_init_capital(orm_list, self.token_address, self.price_dict)
+
+            self.insert_protocol_json(protocol_id, results)
+            self.get_token_aggr_by_protocol(orm_list, self.price)
+
     def get_staked_json(self):
         protocol_id = 'staked'
         if protocol_id in self.job_list:
@@ -594,6 +606,9 @@ class PeriodWalletProtocolJsonProcessCmeth:
             timed_call_(self.get_merchantmoe_json)
             timed_call_(self.get_init_capital_json)
             timed_call_(self.get_teahouse_protocol_json)
+
+        elif self.chain_name == 'eth':
+            timed_call_(self.get_staked_json_eth)
 
     def run(self):
         self.process_middle_json()
