@@ -134,8 +134,8 @@ class JobScheduler:
 
         self.resolved_job_classes = self.resolve_dependencies(self.required_job_classes)
         token_dict_from_db = defaultdict()
-        if self.pg_service is not None:
-            token_dict_from_db = get_tokens_from_db(self.pg_service)
+        # if self.pg_service is not None:
+        #     token_dict_from_db = get_tokens_from_db(self.pg_service)
         if cache is None or cache == "memory":
             BaseJob.init_token_cache(token_dict_from_db)
         else:
