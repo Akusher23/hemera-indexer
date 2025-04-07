@@ -6,7 +6,7 @@ from hemera_udf.staking_fbtc.domains import AfStakedTransferredBalanceHistDomain
 
 
 class AfStakedTransferredBalanceHist(HemeraModel):
-    __tablename__ = "af_staked_transferred_balance_hist"
+    __tablename__ = "feature_staked_transfer_detail_records"
     contract_address = Column(BYTEA, primary_key=True)
     token_address = Column(BYTEA, primary_key=True)
     wallet_address = Column(BYTEA, primary_key=True)

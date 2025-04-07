@@ -40,3 +40,18 @@ export_block_token_price_job:
   '0x6b175474e89094c44da98b954eedeac495271d0f': 'DAI'
   '0xdac17f958d2ee523a2206206994597c13d831ec7': 'USDT'
   '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': 'ETH'
+
+
+export_staked_transferred_balance_job:
+  TRANSFERRED_CONTRACTS_DICT:
+    mizu:
+      - "0x9e3c0d2d70e9a4bf4f9d5f0a6e4930ce76fed09e"
+
+  token_address:
+      # cmeth
+    - "0xe6829d9a7ee3040e1276fa75293bde931859e8fa"
+
+export_tokens_and_transfers_job:
+  filter_token_address:
+      # cmeth
+    - "0xe6829d9a7ee3040e1276fa75293bde931859e8fa"
