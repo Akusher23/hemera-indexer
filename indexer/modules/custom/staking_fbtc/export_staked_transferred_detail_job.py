@@ -50,7 +50,7 @@ class ExportTransferredFBTCDetailJob(FilterTransactionDataJob):
             self._transferred_protocol_dict.update({'0x82fde5086784e348aed03eb7b19ded97652db7a8': 'woofi',
                                                     '0x5b27576159d201697feb73e7cbe5dafcfdc9b0dc': 'circuit',
                                                     '0x3c7c0ebfcd5786ef48df5ed127cddeb806db976c': 'apex',
-                                                    '0xdee7cb1d08ec5e35c4792856f86dd0584db29cfe': 'thetanuts',
+                                                    # '0xdee7cb1d08ec5e35c4792856f86dd0584db29cfe': 'thetanuts',
                                                     })
 
             self._staked_address_list = config.get(str(chain_id), "STAKED_BTC_ADDRESS").split(
