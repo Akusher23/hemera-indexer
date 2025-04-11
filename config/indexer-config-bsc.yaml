@@ -55,3 +55,7 @@ export_tokens_and_transfers_job:
     - "0xf9c4ff105803a77ecb5dae300871ad76c2794fa4"
     # uniBTC
     - "0x6b2a01a5f79deb4c2f3c0eda7b01df456fbd726a"
+
+export_four_meme_job:
+  token_manager2_addresses:
+    - "0x5c952063c7fc8610FFDB798152D69F0B9550762b"
