@@ -12,13 +12,14 @@ from hemera_udf.meme_agent.domains.fourmeme import (
     FourMemeTokenTradeD,
 )
 from hemera_udf.meme_agent.models.fourmeme import FourMemeTokenCreate, FourMemeTokenTrade
+from hemera_udf.token_price.domains import BlockTokenPrice
 
 logger = logging.getLogger(__name__)
 
 
 class ExportFourMemeJob(FilterTransactionDataJob):
     """Job for exporting FourMeme protocol events"""
-    dependency_types = [Log]
+    dependency_types = [Log, BlockTokenPrice]
     output_types = [FourMemeTokenCreateD, FourMemeTokenTradeD]
     able_to_reorg = True
 
@@ -45,11 +46,24 @@ class ExportFourMemeJob(FilterTransactionDataJob):
             ]
         )
 
+    def get_wbnb_prices_dict(self):
+        wbnb_prices_dict = {}
+        
+        block_token_prices = self._data_buff[BlockTokenPrice.type()]
+        for token_price in block_token_prices:
+            if token_price.token_symbol == "WBNB":
+                block_number = token_price.block_number
+                wbnb_prices_dict[block_number] = token_price.token_price
+                
+        self.wbnb_prices_dict = wbnb_prices_dict
+
     def _collect(self, **kwargs):
         pass
 
     def _process(self, **kwargs):
         """Process log events"""
+        self.get_wbnb_prices_dict()
+        
         logs: List[Log] = self._data_buff.get(Log.type(), [])
         for log in logs:
             if log.topic0 == token_create_event.get_signature():
@@ -77,6 +91,7 @@ class ExportFourMemeJob(FilterTransactionDataJob):
                 launch_fee=log_data["launchFee"],
                 block_number=log.block_number,
                 block_timestamp=log.block_timestamp,
+                transaction_hash=log.transaction_hash,
             )
         )
 
@@ -86,11 +101,17 @@ class ExportFourMemeJob(FilterTransactionDataJob):
         if not log_data:
             return
 
+        wbnb_usd_price = self.wbnb_prices_dict.get(log.block_number, 0)
+        
+        price_usd = float(log_data["price"]) * float(wbnb_usd_price) / 10.0**18
+        
         self._collect_domain(
             FourMemeTokenTradeD(
                 token=log_data["token"],
                 account=log_data["account"],
+                log_index=log.log_index,
                 price=log_data["price"],
+                price_usd=price_usd,
                 amount=log_data["amount"],
                 cost=log_data["cost"],
                 fee=log_data["fee"],
@@ -98,7 +119,8 @@ class ExportFourMemeJob(FilterTransactionDataJob):
                 funds=log_data["funds"],
                 block_number=log.block_number,
                 block_timestamp=log.block_timestamp,
-                trade_type="buy"
+                trade_type="buy",
+                transaction_hash=log.transaction_hash,
             )
         )
 
@@ -107,12 +129,18 @@ class ExportFourMemeJob(FilterTransactionDataJob):
         log_data = token_sale_event.decode_log(log)
         if not log_data:
             return
+            
+        wbnb_usd_price = self.wbnb_prices_dict.get(log.block_number, 0)
+        
+        price_usd = float(log_data["price"]) * float(wbnb_usd_price) / 10.0**18
 
         self._collect_domain(
             FourMemeTokenTradeD(
                 token=log_data["token"],
                 account=log_data["account"],
+                log_index=log.log_index,
                 price=log_data["price"],
+                price_usd=price_usd,
                 amount=log_data["amount"],
                 cost=log_data["cost"],
                 fee=log_data["fee"],
@@ -120,6 +148,7 @@ class ExportFourMemeJob(FilterTransactionDataJob):
                 funds=log_data["funds"],
                 block_number=log.block_number,
                 block_timestamp=log.block_timestamp,
-                trade_type="sell"
+                trade_type="sell",
+                transaction_hash=log.transaction_hash,
             )
         )

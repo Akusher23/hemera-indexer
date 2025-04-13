@@ -19,7 +19,7 @@ class FourMemeTokenCreate(HemeraModel):
     launch_fee = Column(NUMERIC(100))
     block_number = Column(BIGINT)
     block_timestamp = Column(TIMESTAMP)
-
+    transaction_hash = Column(BYTEA)
     create_time = Column(TIMESTAMP, server_default=func.now())
     update_time = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
@@ -43,16 +43,19 @@ class FourMemeTokenTrade(HemeraModel):
     token = Column(BYTEA, primary_key=True)
     account = Column(BYTEA, primary_key=True)
     block_number = Column(BIGINT, primary_key=True)
+    log_index = Column(INTEGER, primary_key=True)
     trade_type = Column(VARCHAR, primary_key=True)  # 'buy' or 'sell'
     
     price = Column(NUMERIC(100))
+    price_usd = Column(NUMERIC)
     amount = Column(NUMERIC(100))
     cost = Column(NUMERIC(100))
     fee = Column(NUMERIC(100))
     offers = Column(NUMERIC(100))
     funds = Column(NUMERIC(100))
     block_timestamp = Column(TIMESTAMP)
-
+    transaction_hash = Column(BYTEA)
+    
     create_time = Column(TIMESTAMP, server_default=func.now())
     update_time = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 

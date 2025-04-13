@@ -16,20 +16,23 @@ class FourMemeTokenCreateD(Domain):
     launch_fee: int
     block_number: int
     block_timestamp: int
-
+    transaction_hash: str
 
 @dataclass
 class FourMemeTokenTradeD(Domain):
     """Token trading event (buy/sell) from FourMeme"""
     token: str
     account: str
+    log_index: int
     price: int
+    price_usd: float
     amount: int
     cost: int
     fee: int
     offers: int
     funds: int
     block_number: int
+    transaction_hash: str
     block_timestamp: int
     # Type of trade: 'buy' or 'sell'
     trade_type: str 
