@@ -1,6 +1,5 @@
 from hemera.common.utils.abi_code_utils import Event
 
-# FourMeme代币创建事件
 token_create_event = Event(
     {
         "anonymous": False,
@@ -19,7 +18,6 @@ token_create_event = Event(
     }
 )
 
-# FourMeme代币购买事件
 token_purchase_event = Event(
     {
         "anonymous": False,
@@ -38,7 +36,6 @@ token_purchase_event = Event(
     }
 )
 
-# FourMeme代币出售事件
 token_sale_event = Event(
     {
         "anonymous": False,
