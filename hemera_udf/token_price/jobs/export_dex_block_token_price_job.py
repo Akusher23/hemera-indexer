@@ -65,7 +65,7 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         
         # Calculate amount_usd as amount * token_price 
         # Normalize amount based on decimals if needed
-        result_df["amount_usd"] = result_df["amount"] * result_df["token_price"]
+        result_df["amount_usd"] = result_df["amount"] * result_df["token_price"] / 10**18
         
         return result_df
 
