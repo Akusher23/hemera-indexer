@@ -45,6 +45,20 @@ class KafkaItemExporter(BaseExporter):
         self.producer = None
         if os.environ.get("KAFKA_ACK_MODE", None):
             ack_mode = os.environ.get("KAFKA_ACK_MODE")
+            # Convert string ack_mode to appropriate format
+            if ack_mode is not None:
+                if ack_mode.lower() == "all":
+                    ack_mode = -1
+                else:
+                    try:
+                        ack_mode = int(ack_mode)
+                    except ValueError:
+                        # Handle invalid values (not a number or "all")
+                        logger.warning(f"Invalid KAFKA_ACK_MODE: {ack_mode}, defaulting to 1")
+                        ack_mode = 1
+            else:
+                # Default value if not set
+                ack_mode = 1  # Or whatever default you prefer
         self._create_producer(ack_mode)
 
     def _create_producer(self, ack_mode):
