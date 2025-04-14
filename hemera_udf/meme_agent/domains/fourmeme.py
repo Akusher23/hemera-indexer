@@ -6,6 +6,7 @@ from hemera.indexer.domains import Domain
 @dataclass
 class FourMemeTokenCreateD(Domain):
     """Token creation event from FourMeme"""
+
     creator: str
     token: str
     request_id: int
@@ -18,9 +19,11 @@ class FourMemeTokenCreateD(Domain):
     block_timestamp: int
     transaction_hash: str
 
+
 @dataclass
 class FourMemeTokenTradeD(Domain):
     """Token trading event (buy/sell) from FourMeme"""
+
     token: str
     account: str
     log_index: int
@@ -35,4 +38,4 @@ class FourMemeTokenTradeD(Domain):
     transaction_hash: str
     block_timestamp: int
     # Type of trade: 'buy' or 'sell'
-    trade_type: str 
+    trade_type: str

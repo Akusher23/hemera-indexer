@@ -7,10 +7,10 @@ from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.indexer.domains.token_balance import TokenBalance
 from hemera.indexer.jobs.base_job import ExtensionJob
 from hemera.indexer.utils.collection_utils import distinct_collections_by_group
+from hemera_udf.meme_agent.domains.fourmeme import FourMemeTokenTradeD
 from hemera_udf.token_price.domains import DexBlockTokenPrice, DexBlockTokenPriceCurrent
 from hemera_udf.uniswap_v2 import UniswapV2SwapEvent
 from hemera_udf.uniswap_v3 import UniswapV3SwapEvent
-from hemera_udf.meme_agent.domains.fourmeme import FourMemeTokenTradeD
 
 logger = logging.getLogger(__name__)
 
@@ -57,16 +57,16 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         if df.empty:
             columns = ["block_number", "block_timestamp", "token_address", "token_price", "amount", "amount_usd"]
             return pd.DataFrame(columns=columns)
-        
+
         # Convert token to token_address for consistency with other sources
         result_df = df[["block_number", "block_timestamp", "token", "price_usd", "amount"]].rename(
             columns={"token": "token_address", "price_usd": "token_price"}
         )
-        
-        # Calculate amount_usd as amount * token_price 
+
+        # Calculate amount_usd as amount * token_price
         # Normalize amount based on decimals if needed
         result_df["amount_usd"] = result_df["amount"] * result_df["token_price"] / 10**18
-        
+
         return result_df
 
     @staticmethod

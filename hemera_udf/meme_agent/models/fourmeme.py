@@ -7,6 +7,7 @@ from hemera_udf.meme_agent.domains.fourmeme import FourMemeTokenCreateD, FourMem
 
 class FourMemeTokenCreate(HemeraModel):
     """Database model for FourMeme token creation events"""
+
     __tablename__ = "af_fourmeme_token_create"
 
     token = Column(BYTEA, primary_key=True)
@@ -37,6 +38,7 @@ class FourMemeTokenCreate(HemeraModel):
 
 class FourMemeTokenTrade(HemeraModel):
     """Database model for FourMeme token trading events (buy/sell)"""
+
     __tablename__ = "af_fourmeme_token_trade"
 
     # Using token + account + block_number + trade_type as composite primary key
@@ -45,7 +47,7 @@ class FourMemeTokenTrade(HemeraModel):
     block_number = Column(BIGINT, primary_key=True)
     log_index = Column(INTEGER, primary_key=True)
     trade_type = Column(VARCHAR, primary_key=True)  # 'buy' or 'sell'
-    
+
     price = Column(NUMERIC(100))
     price_usd = Column(NUMERIC)
     amount = Column(NUMERIC(100))
@@ -55,7 +57,7 @@ class FourMemeTokenTrade(HemeraModel):
     funds = Column(NUMERIC(100))
     block_timestamp = Column(TIMESTAMP)
     transaction_hash = Column(BYTEA)
-    
+
     create_time = Column(TIMESTAMP, server_default=func.now())
     update_time = Column(TIMESTAMP, server_default=func.now(), onupdate=func.now())
 
@@ -68,4 +70,4 @@ class FourMemeTokenTrade(HemeraModel):
                 "update_strategy": None,
                 "converter": general_converter,
             }
-        ] 
+        ]

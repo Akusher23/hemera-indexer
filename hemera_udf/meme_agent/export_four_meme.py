@@ -5,12 +5,8 @@ from hemera.indexer.domains.log import Log
 from hemera.indexer.domains.transaction import Transaction
 from hemera.indexer.jobs import FilterTransactionDataJob
 from hemera.indexer.specification.specification import TopicSpecification, TransactionFilterByLogs
-
 from hemera_udf.meme_agent.abi.fourmeme_event import token_create_event, token_purchase_event, token_sale_event
-from hemera_udf.meme_agent.domains.fourmeme import (
-    FourMemeTokenCreateD,
-    FourMemeTokenTradeD,
-)
+from hemera_udf.meme_agent.domains.fourmeme import FourMemeTokenCreateD, FourMemeTokenTradeD
 from hemera_udf.meme_agent.models.fourmeme import FourMemeTokenCreate, FourMemeTokenTrade
 from hemera_udf.token_price.domains import BlockTokenPrice
 
@@ -19,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class ExportFourMemeJob(FilterTransactionDataJob):
     """Job for exporting FourMeme protocol events"""
+
     dependency_types = [Log, BlockTokenPrice]
     output_types = [FourMemeTokenCreateD, FourMemeTokenTradeD]
     able_to_reorg = True
@@ -28,7 +25,7 @@ class ExportFourMemeJob(FilterTransactionDataJob):
         self.events = {
             token_create_event.get_signature(): token_create_event,
             token_purchase_event.get_signature(): token_purchase_event,
-            token_sale_event.get_signature(): token_sale_event
+            token_sale_event.get_signature(): token_sale_event,
         }
 
     def get_filter(self):
@@ -40,21 +37,21 @@ class ExportFourMemeJob(FilterTransactionDataJob):
                     topics=[
                         token_create_event.get_signature(),
                         token_purchase_event.get_signature(),
-                        token_sale_event.get_signature()
-                    ]
+                        token_sale_event.get_signature(),
+                    ],
                 )
             ]
         )
 
     def get_wbnb_prices_dict(self):
         wbnb_prices_dict = {}
-        
+
         block_token_prices = self._data_buff[BlockTokenPrice.type()]
         for token_price in block_token_prices:
             if token_price.token_symbol == "WBNB":
                 block_number = token_price.block_number
                 wbnb_prices_dict[block_number] = token_price.token_price
-                
+
         self.wbnb_prices_dict = wbnb_prices_dict
 
     def _collect(self, **kwargs):
@@ -63,7 +60,7 @@ class ExportFourMemeJob(FilterTransactionDataJob):
     def _process(self, **kwargs):
         """Process log events"""
         self.get_wbnb_prices_dict()
-        
+
         logs: List[Log] = self._data_buff.get(Log.type(), [])
         for log in logs:
             if log.topic0 == token_create_event.get_signature():
@@ -102,9 +99,9 @@ class ExportFourMemeJob(FilterTransactionDataJob):
             return
 
         wbnb_usd_price = self.wbnb_prices_dict.get(log.block_number, 0)
-        
+
         price_usd = float(log_data["price"]) * float(wbnb_usd_price) / 10.0**18
-        
+
         self._collect_domain(
             FourMemeTokenTradeD(
                 token=log_data["token"],
@@ -129,9 +126,9 @@ class ExportFourMemeJob(FilterTransactionDataJob):
         log_data = token_sale_event.decode_log(log)
         if not log_data:
             return
-            
+
         wbnb_usd_price = self.wbnb_prices_dict.get(log.block_number, 0)
-        
+
         price_usd = float(log_data["price"]) * float(wbnb_usd_price) / 10.0**18
 
         self._collect_domain(

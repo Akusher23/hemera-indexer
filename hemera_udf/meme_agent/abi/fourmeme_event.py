@@ -12,10 +12,10 @@ token_create_event = Event(
             {"indexed": False, "internalType": "string", "name": "symbol", "type": "string"},
             {"indexed": False, "internalType": "uint256", "name": "totalSupply", "type": "uint256"},
             {"indexed": False, "internalType": "uint256", "name": "launchTime", "type": "uint256"},
-            {"indexed": False, "internalType": "uint256", "name": "launchFee", "type": "uint256"}
+            {"indexed": False, "internalType": "uint256", "name": "launchFee", "type": "uint256"},
         ],
         "name": "TokenCreate",
-        "type": "event"
+        "type": "event",
     }
 )
 
@@ -31,10 +31,10 @@ token_purchase_event = Event(
             {"indexed": False, "internalType": "uint256", "name": "cost", "type": "uint256"},
             {"indexed": False, "internalType": "uint256", "name": "fee", "type": "uint256"},
             {"indexed": False, "internalType": "uint256", "name": "offers", "type": "uint256"},
-            {"indexed": False, "internalType": "uint256", "name": "funds", "type": "uint256"}
+            {"indexed": False, "internalType": "uint256", "name": "funds", "type": "uint256"},
         ],
         "name": "TokenPurchase",
-        "type": "event"
+        "type": "event",
     }
 )
 
@@ -50,9 +50,9 @@ token_sale_event = Event(
             {"indexed": False, "internalType": "uint256", "name": "cost", "type": "uint256"},
             {"indexed": False, "internalType": "uint256", "name": "fee", "type": "uint256"},
             {"indexed": False, "internalType": "uint256", "name": "offers", "type": "uint256"},
-            {"indexed": False, "internalType": "uint256", "name": "funds", "type": "uint256"}
+            {"indexed": False, "internalType": "uint256", "name": "funds", "type": "uint256"},
         ],
         "name": "TokenSale",
-        "type": "event"
+        "type": "event",
     }
-) 
+)
