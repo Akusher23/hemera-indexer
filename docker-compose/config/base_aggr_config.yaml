@@ -5,7 +5,7 @@ FBTC:
 
   daily_sqls:
     address_token_balance:
-      - daily_address_token_balances
+      - daily_address_token_balances_fbtc
 
   period_sqls:
     address_token_balance:
