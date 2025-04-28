@@ -537,7 +537,6 @@ def calculate_token_id(bin_step, active_id, rate):
     token_id = active_id + math.log(rate) / math.log(factor)
     return int(token_id)
 
-
 def timed_call(method, method_name):
     start_time = time.time()
     result = method()
