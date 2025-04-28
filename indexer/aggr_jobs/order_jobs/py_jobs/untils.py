@@ -535,7 +535,7 @@ def calculate_merchant_moe_range_data(records, bin_step_active_id):
 def calculate_token_id(bin_step, active_id, rate):
     factor = 1 + (bin_step / 10000)
     token_id = active_id + math.log(rate) / math.log(factor)
-    return token_id
+    return int(token_id)
 
 
 def timed_call(method, method_name):
