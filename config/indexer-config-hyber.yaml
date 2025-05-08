@@ -1,0 +1,5 @@
+chain_id: 999
+
+export_tokens_and_transfers_job:
+  filter_token_address:
+    - "0xe6829d9a7ee3040e1276fa75293bde931859e8fa"
