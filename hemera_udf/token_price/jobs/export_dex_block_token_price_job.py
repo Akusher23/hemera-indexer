@@ -7,6 +7,7 @@ from hemera.common.utils.format_utils import bytes_to_hex_str, hex_str_to_bytes
 from hemera.indexer.domains.token_balance import TokenBalance
 from hemera.indexer.jobs.base_job import ExtensionJob
 from hemera.indexer.utils.collection_utils import distinct_collections_by_group
+from hemera_udf.meme_agent.domains.fourmeme import FourMemeTokenTradeD
 from hemera_udf.token_price.domains import DexBlockTokenPrice, DexBlockTokenPriceCurrent
 from hemera_udf.uniswap_v2 import UniswapV2SwapEvent
 from hemera_udf.uniswap_v3 import UniswapV3SwapEvent
@@ -16,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExportDexBlockTokenPriceJob(ExtensionJob):
-    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent,UniswapV4SwapEvent, TokenBalance]
+    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent, TokenBalance, UniswapV4SwapEvent, FourMemeTokenTradeD]
 
     output_types = [DexBlockTokenPrice, DexBlockTokenPriceCurrent]
     able_to_reorg = True
@@ -51,6 +52,23 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
             ["block_number", "block_timestamp", "token1_address", "token1_price", "amount1", "amount_usd"]
         ].rename(columns={"token1_address": "token_address", "token1_price": "token_price", "amount1": "amount"})
         return pd.concat([token0_df, token1_df], ignore_index=True)
+
+    @staticmethod
+    def process_fourmeme_df(df):
+        if df.empty:
+            columns = ["block_number", "block_timestamp", "token_address", "token_price", "amount", "amount_usd"]
+            return pd.DataFrame(columns=columns)
+
+        # Convert token to token_address for consistency with other sources
+        result_df = df[["block_number", "block_timestamp", "token", "price_usd", "amount"]].rename(
+            columns={"token": "token_address", "price_usd": "token_price"}
+        )
+
+        # Calculate amount_usd as amount * token_price
+        # Normalize amount based on decimals if needed
+        result_df["amount_usd"] = result_df["amount"] * result_df["token_price"] / 10**18
+
+        return result_df
 
     @staticmethod
     def extract_current_status(records, current_status_domain, keys):
@@ -104,6 +122,13 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
                 uniswapv3_df_, token_balance_dict, self.stable_tokens, self.max_price, self.process_token
             )
 
+        # Process FourMeme trade data
+        fourmeme_df_ = self.dataclass_to_df(self._data_buff[FourMemeTokenTradeD.type()])
+        if fourmeme_df_.empty:
+            fourmeme_df = fourmeme_df_
+        else:
+            fourmeme_df = self.process_fourmeme_df(fourmeme_df_)
+
         uniswapv4_df_ = self.dataclass_to_df(self._data_buff[UniswapV4SwapEvent.type()])
         if uniswapv4_df_.empty:
             uniswapv4_df = uniswapv4_df_
@@ -121,7 +146,8 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         processed_v3 = self.process_swap_df(uniswapv3_df)
         processed_v4 = self.process_swap_df(uniswapv4_df)
 
-        combined_df = pd.concat([processed_v2, processed_v3, processed_v4], ignore_index=True)
+        # Combine all data sources
+        combined_df = pd.concat([processed_v2, processed_v3, processed_v4, fourmeme_df], ignore_index=True)
 
         df_results = (
             combined_df.groupby(["token_address", "block_number", "block_timestamp"])
