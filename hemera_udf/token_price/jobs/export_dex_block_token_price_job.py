@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class ExportDexBlockTokenPriceJob(ExtensionJob):
-    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent, TokenBalance, FourMemeTokenTradeD,UniswapV4SwapEvent]
+    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent, TokenBalance, UniswapV4SwapEvent, FourMemeTokenTradeD]
 
     output_types = [DexBlockTokenPrice, DexBlockTokenPriceCurrent]
     able_to_reorg = True
@@ -147,8 +147,7 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         processed_v4 = self.process_swap_df(uniswapv4_df)
 
         # Combine all data sources
-        combined_df = pd.concat([processed_v2, processed_v3, fourmeme_df], ignore_index=True)
-        combined_df = pd.concat([processed_v2, processed_v3, processed_v4], ignore_index=True)
+        combined_df = pd.concat([processed_v2, processed_v3, processed_v4, fourmeme_df], ignore_index=True)
 
         df_results = (
             combined_df.groupby(["token_address", "block_number", "block_timestamp"])
