@@ -10,12 +10,13 @@ from hemera.indexer.utils.collection_utils import distinct_collections_by_group
 from hemera_udf.token_price.domains import DexBlockTokenPrice, DexBlockTokenPriceCurrent
 from hemera_udf.uniswap_v2 import UniswapV2SwapEvent
 from hemera_udf.uniswap_v3 import UniswapV3SwapEvent
+from hemera_udf.uniswap_v4.domains.feature_uniswap_v4 import UniswapV4SwapEvent
 
 logger = logging.getLogger(__name__)
 
 
 class ExportDexBlockTokenPriceJob(ExtensionJob):
-    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent, TokenBalance]
+    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent,UniswapV4SwapEvent, TokenBalance]
 
     output_types = [DexBlockTokenPrice, DexBlockTokenPriceCurrent]
     able_to_reorg = True
@@ -93,7 +94,7 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
             uniswapv2_df = uniswapv2_df_
         else:
             uniswapv2_df = self.process_uniswap_data(
-                uniswapv2_df_, token_balance_dict, self.stable_tokens, self.max_price, self.process_token
+                uniswapv2_df_, token_balance_dict, self.stable_tokens, self.max_price, self.process_token, True
             )
         uniswapv3_df_ = self.dataclass_to_df(self._data_buff[UniswapV3SwapEvent.type()])
         if uniswapv3_df_.empty:
@@ -103,10 +104,24 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
                 uniswapv3_df_, token_balance_dict, self.stable_tokens, self.max_price, self.process_token
             )
 
+        uniswapv4_df_ = self.dataclass_to_df(self._data_buff[UniswapV4SwapEvent.type()])
+        if uniswapv4_df_.empty:
+            uniswapv4_df = uniswapv4_df_
+        else:
+            uniswapv4_df = self.process_uniswap_data(
+                uniswapv4_df_,
+                token_balance_dict,
+                self.stable_tokens,
+                self.max_price,
+                self.process_token,
+                skip_balance_check=True,
+            )
+
         processed_v2 = self.process_swap_df(uniswapv2_df)
         processed_v3 = self.process_swap_df(uniswapv3_df)
+        processed_v4 = self.process_swap_df(uniswapv4_df)
 
-        combined_df = pd.concat([processed_v2, processed_v3], ignore_index=True)
+        combined_df = pd.concat([processed_v2, processed_v3, processed_v4], ignore_index=True)
 
         df_results = (
             combined_df.groupby(["token_address", "block_number", "block_timestamp"])
@@ -144,7 +159,9 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
         self._collect_domains(current_results)
         pass
 
-    def process_uniswap_data(self, df, token_balance_dict, stable_tokens, max_price, process_token_fn):
+    def process_uniswap_data(
+        self, df, token_balance_dict, stable_tokens, max_price, process_token_fn, skip_balance_check=False
+    ):
         df = df.dropna(subset=["token0_price"])
         df = df[df["token0_price"] < max_price]
         df = df[df["token1_price"] < max_price]
@@ -160,22 +177,22 @@ class ExportDexBlockTokenPriceJob(ExtensionJob):
 
         df["stable_token_balance_limit"] = df["stable_token_symbol"].map(self.balance_limit_map).fillna(10)
 
-        # get stable_balance_raw
-        df["token_balance_raw"] = df.apply(
-            lambda x: token_balance_dict.get((x.token0_address, x.pool_address, x.block_number))
-            or token_balance_dict.get((x.token1_address, x.pool_address, x.block_number)),
-            axis=1,
-        )
+        if not skip_balance_check:
+            df["token_balance_raw"] = df.apply(
+                lambda x: token_balance_dict.get((x.token0_address, x.pool_address, x.block_number))
+                or token_balance_dict.get((x.token1_address, x.pool_address, x.block_number)),
+                axis=1,
+            )
 
-        df = df.dropna(subset=["token_balance_raw"])
+            df = df.dropna(subset=["token_balance_raw"])
 
-        df["stable_balance"] = df.apply(
-            lambda x: x.token_balance_raw
-            / 10 ** (x.token1_decimals if x.stable_token_address_position else x.token0_decimals),
-            axis=1,
-        )
+            df["stable_balance"] = df.apply(
+                lambda x: x.token_balance_raw
+                / 10 ** (x.token1_decimals if x.stable_token_address_position else x.token0_decimals),
+                axis=1,
+            )
 
-        df = df[df["stable_balance"] > df["stable_token_balance_limit"]]
+            df = df[df["stable_balance"] > df["stable_token_balance_limit"]]
 
         return df
 
