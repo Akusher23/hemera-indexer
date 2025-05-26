@@ -2,7 +2,12 @@ from sqlalchemy import Column, PrimaryKeyConstraint, func, text
 from sqlalchemy.dialects.postgresql import BIGINT, BOOLEAN, BYTEA, INTEGER, NUMERIC, TIMESTAMP, VARCHAR
 
 from hemera.common.models import HemeraModel, general_converter
-from hemera_udf.swap.domains.swap_event_domain import UniswapV2SwapEvent, UniswapV3SwapEvent
+from hemera_udf.swap.domains.swap_event_domain import (
+    FourMemeSwapEvent,
+    UniswapV2SwapEvent,
+    UniswapV3SwapEvent,
+    UniswapV4SwapEvent,
+)
 
 
 class SwapEventModel(HemeraModel):
@@ -60,6 +65,18 @@ class SwapEventModel(HemeraModel):
             },
             {
                 "domain": UniswapV3SwapEvent,
+                "conflict_do_update": True,
+                "update_strategy": None,
+                "converter": general_converter,
+            },
+            {
+                "domain": UniswapV4SwapEvent,
+                "conflict_do_update": True,
+                "update_strategy": None,
+                "converter": general_converter,
+            },
+            {
+                "domain": FourMemeSwapEvent,
                 "conflict_do_update": True,
                 "update_strategy": None,
                 "converter": general_converter,
