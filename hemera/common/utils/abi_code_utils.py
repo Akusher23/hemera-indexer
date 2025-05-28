@@ -162,7 +162,7 @@ def decode_log(
         decoded_data = decode_data(get_types_from_abi_type_list(data_types), log.get_bytes_data())
         data = named_tree(data_types, decoded_data)
     except Exception as e:
-        # logging.warning(f"Failed to decode log: {e}, log: {log}")
+        logging.warning(f"Failed to decode log: {e}, log: {log}")
         return None
 
     return {**indexed, **data}
@@ -462,7 +462,7 @@ def decode_data(decode_type: Union[Sequence[str], List[str], str], data: bytes) 
         try:
             data = abi_codec.decode(decode_type, data)
         except Exception as e:
-            # logging.warning(f"Failed to decode data: {e}")
+            logging.warning(f"Failed to decode data: {e}")
             return None
     else:
         raise ValueError(f"Invalid decode_type: {decode_type}, it should be str or list[str]")
