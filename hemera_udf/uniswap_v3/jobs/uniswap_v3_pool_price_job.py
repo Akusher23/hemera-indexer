@@ -50,7 +50,9 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
             [
                 TopicSpecification(
                     topics=[
-                        abi_module.SWAP_EVENT.get_signature() for abi_module in self._address_manager.abi_modules_list
+                        uniswapv3_abi.SWAP_EVENT.get_signature(),
+                        swapsicle_abi.SWAP_EVENT.get_signature(),
+                        agni_abi.SWAP_EVENT.get_signature()
                     ],
                     addresses=address_list,
                 ),
