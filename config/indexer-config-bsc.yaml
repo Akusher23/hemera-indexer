@@ -53,18 +53,18 @@ export_staked_transferred_balance_job:
     - "0x6b2a01a5f79deb4c2f3c0eda7b01df456fbd726a"
 
 
-export_tokens_and_transfers_job:
-  filter_token_address:
-    #      gamma_pool_address
-    - '0xfcecab790751c2bf65bcf7bce6ff3555dc12e40b'
-    # fbtc
-    - "0xc96de26018a54d51c097160568752c4e3bd6c364"
-    # pump btc
-    - "0xf9c4ff105803a77ecb5dae300871ad76c2794fa4"
-    # uniBTC
-    - "0x6b2a01a5f79deb4c2f3c0eda7b01df456fbd726a"
-    # WBNB
-    - "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
+#export_tokens_and_transfers_job:
+#  filter_token_address:
+#    #      gamma_pool_address
+#    - '0xfcecab790751c2bf65bcf7bce6ff3555dc12e40b'
+#    # fbtc
+#    - "0xc96de26018a54d51c097160568752c4e3bd6c364"
+#    # pump btc
+#    - "0xf9c4ff105803a77ecb5dae300871ad76c2794fa4"
+#    # uniBTC
+#    - "0x6b2a01a5f79deb4c2f3c0eda7b01df456fbd726a"
+#    # WBNB
+#    - "0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c"
 
 export_four_meme_job:
   token_manager2_addresses: "0x5c952063c7fc8610FFDB798152D69F0B9550762b"
