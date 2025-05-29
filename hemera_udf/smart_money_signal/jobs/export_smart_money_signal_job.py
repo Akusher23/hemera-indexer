@@ -44,7 +44,7 @@ class ExportSmartMoneySignal(ExtensionJob):
             if trade_id not in smart_money_address_list:
                 continue
 
-            if not swap_event.amount0 or not swap_event.amount1:
+            if swap_event.amount0 is None or swap_event.amount1 is None:
                 continue
 
             if swap_event.token0_address not in self.config:
