@@ -206,11 +206,11 @@ class ExportFourMemeJob(FilterTransactionDataJob):
             if swap_event.trade_type == "buy":
                 # buy, meme token is decreased for pool, stable token is increased for pool
                 swap_event.amount0 = -amount0 if amount0 is not None else None
-                swap_event.amount1 = amount1 if amount1 else None
+                swap_event.amount1 = amount1 if amount1 is not None else None
             else:
                 # sell, meme token is increased for pool, stable token is decreased for pool
                 swap_event.amount0 = amount0 if amount0 is not None else None
-                swap_event.amount1 = -amount1 if amount1 else None
+                swap_event.amount1 = -amount1 if amount1 is not None else None
             self._collect_domain(swap_event)
 
             pass
