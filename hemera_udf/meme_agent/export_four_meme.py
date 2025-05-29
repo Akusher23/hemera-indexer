@@ -45,16 +45,23 @@ class ExportFourMemeJob(FilterTransactionDataJob):
         }
 
     def get_filter(self):
-        """Get event filter specification"""
+        if self._chain_id == 56:
+            """Get event filter specification"""
+            addresses = [self.user_defined_config.get("token_manager2_addresses")]
+            topics = [
+                token_create_event.get_signature(),
+                token_purchase_event.get_signature(),
+                token_sale_event.get_signature(),
+            ]
+        else:
+            addresses = []
+            topics =[]
+
         return TransactionFilterByLogs(
             [
                 TopicSpecification(
-                    addresses=[self.user_defined_config.get("token_manager2_addresses")],
-                    topics=[
-                        token_create_event.get_signature(),
-                        token_purchase_event.get_signature(),
-                        token_sale_event.get_signature(),
-                    ],
+                    addresses=addresses,
+                    topics=topics,
                 )
             ]
         )
@@ -88,6 +95,9 @@ class ExportFourMemeJob(FilterTransactionDataJob):
         return token_prices_dict
 
     def _process(self, **kwargs):
+        if self._chain_id != 56:
+            return
+
         missing_quote_token_dict = {}
 
         """Process log events"""
