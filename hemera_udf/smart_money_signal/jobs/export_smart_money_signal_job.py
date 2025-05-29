@@ -1,18 +1,21 @@
 import logging
-from collections import defaultdict
 
 import requests
 
 from hemera.indexer.jobs.base_job import ExtensionJob
 from hemera_udf.smart_money_signal.domains import SmartMoneySignalTrade
-from hemera_udf.uniswap_v2 import UniswapV2SwapEvent
-from hemera_udf.uniswap_v3 import UniswapV3SwapEvent
+from hemera_udf.swap.domains.swap_event_domain import (
+    FourMemeSwapEvent,
+    UniswapV2SwapEvent,
+    UniswapV3SwapEvent,
+    UniswapV4SwapEvent,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class ExportSmartMoneySignal(ExtensionJob):
-    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent]
+    dependency_types = [UniswapV2SwapEvent, UniswapV3SwapEvent, UniswapV4SwapEvent, FourMemeSwapEvent]
 
     output_types = [SmartMoneySignalTrade]
     able_to_reorg = True
@@ -31,8 +34,12 @@ class ExportSmartMoneySignal(ExtensionJob):
 
         uniswap_v2_list = self._data_buff.get(UniswapV2SwapEvent.type())
         uniswap_v3_list = self._data_buff.get(UniswapV3SwapEvent.type())
+        uniswap_v4_list = self._data_buff.get(UniswapV4SwapEvent.type())
+        fourmeme_list = self._data_buff.get(FourMemeSwapEvent.type())
 
-        for swap_event in uniswap_v2_list + uniswap_v3_list:
+        all_swap_events = uniswap_v2_list + uniswap_v3_list + uniswap_v4_list + fourmeme_list
+
+        for swap_event in all_swap_events:
             trade_id = swap_event.transaction_from_address
             if trade_id not in smart_money_address_list:
                 continue
