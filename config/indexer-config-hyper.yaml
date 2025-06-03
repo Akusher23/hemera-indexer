@@ -12,6 +12,7 @@ export_transactions_and_logs_job:
 uniswap_v3_job:
   # empty means no filter. only work in price job
   pool_address:
+    - '0x765975e3f795ce8607497818b72493569faec961'
 
   # works in price\token job
   jobs:
@@ -19,3 +20,11 @@ uniswap_v3_job:
       factory_address: '0xb1c0fa0b789320044a6f623cfe5ebda9562602e3'
       position_token_address: '0x6eda206207c09e5428f281761ddc0d300851fbc8'
 
+
+export_staked_transferred_balance_job:
+  TRANSFERRED_CONTRACTS_DICT:
+    hypurr:
+      - "0x64df7b4da81a26a59417857f508b39370138d95e"
+  token_address:
+    # cmeth
+    - "0xe6829d9a7ee3040e1276fa75293bde931859e8fa"
