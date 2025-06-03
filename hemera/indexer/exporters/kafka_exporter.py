@@ -13,8 +13,12 @@ from hemera.indexer.domains.current_token_balance import CurrentTokenBalance
 from hemera.indexer.domains.token_balance import TokenBalance
 from hemera.indexer.domains.token_transfer import ERC20TokenTransfer
 from hemera.indexer.exporters.base_exporter import BaseExporter
-from hemera_udf.swap.domains.swap_event_domain import FourMemeSwapEvent, UniswapV4SwapEvent, UniswapV2SwapEvent, \
-    UniswapV3SwapEvent
+from hemera_udf.swap.domains.swap_event_domain import (
+    FourMemeSwapEvent,
+    UniswapV2SwapEvent,
+    UniswapV3SwapEvent,
+    UniswapV4SwapEvent,
+)
 from hemera_udf.token_holder_metrics.domains.metrics import TokenHolderMetricsCurrentD, TokenHolderMetricsHistoryD
 from hemera_udf.token_price.domains import DexBlockTokenPrice
 

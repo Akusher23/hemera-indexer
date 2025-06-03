@@ -55,7 +55,7 @@ class ExportFourMemeJob(FilterTransactionDataJob):
             ]
         else:
             addresses = []
-            topics =[]
+            topics = []
 
         return TransactionFilterByLogs(
             [

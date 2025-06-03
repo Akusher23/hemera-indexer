@@ -52,7 +52,7 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
                     topics=[
                         uniswapv3_abi.SWAP_EVENT.get_signature(),
                         swapsicle_abi.SWAP_EVENT.get_signature(),
-                        agni_abi.SWAP_EVENT.get_signature()
+                        agni_abi.SWAP_EVENT.get_signature(),
                     ],
                     addresses=address_list,
                 ),
