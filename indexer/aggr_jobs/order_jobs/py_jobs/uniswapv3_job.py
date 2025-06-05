@@ -23,7 +23,8 @@ address_mapping = {
     "0xfc3861c04c5ce0883d9f79308e5a65402141df85": "teahouse",
     "0x4ddd37f662871fb49ebbc88a58897961e2c12a60": "teahouse",
     "0xa51adb08cbe6ae398046a23bec013979816b77ab": "thena",
-    "0x827922686190790b37229fd06084350e74485b72": "aerodrome"
+    "0x827922686190790b37229fd06084350e74485b72": "aerodrome",
+    "0x6eda206207c09e5428f281761ddc0d300851fbc8": "hyperswap",
 }
 
 

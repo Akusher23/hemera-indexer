@@ -10,6 +10,8 @@ from indexer.aggr_jobs.order_jobs.models.period_address_token_balances import Pe
 from indexer.aggr_jobs.order_jobs.models.period_feature_defi_cmeth_aggregates import PeriodFeatureDefiCmethAggregates
 from indexer.aggr_jobs.order_jobs.models.period_feature_defi_wallet_cmeth_detail import \
     PeriodFeatureDefiWalletCmethDetail
+from indexer.aggr_jobs.order_jobs.models.period_feature_holding_balance_staked_fbtc_detail import \
+    PeriodFeatureHoldingBalanceStakedFbtcDetail
 from indexer.aggr_jobs.order_jobs.models.period_wallet_protocol_json_cmeth import PeriodWalletProtocolJsonCmeth
 from indexer.aggr_jobs.order_jobs.models.period_feature_holding_balance_init_capital import \
     PeriodFeatureHoldingBalanceInitCapital
@@ -19,7 +21,8 @@ from indexer.aggr_jobs.order_jobs.models.period_feature_holding_balance_merchant
 from indexer.aggr_jobs.order_jobs.models.period_feature_holding_balance_uniswap_v3 import \
     PeriodFeatureHoldingBalanceUniswapV3Cmeth
 from indexer.aggr_jobs.order_jobs.py_jobs.uniswapv3_job import get_detail_df, calculate_liquidity, change_df_to_obj, \
-    get_uniswap_v3_orms_from_old_mantle, get_uniswap_v3_orms_from_new_mantle, get_teahouse_from_new_mantle
+    get_uniswap_v3_orms_from_old_mantle, get_uniswap_v3_orms_from_new_mantle, get_teahouse_from_new_mantle, \
+    uniswapv3_detail_sql_with_new_schema
 from indexer.aggr_jobs.order_jobs.py_jobs.untils import format_value_for_json, get_new_uniswap_v3_orms, \
     get_token_data_for_lendle_au_init_capital, get_filter_start_date_orm, \
     get_pool_token_pair_data_with_lp, timed_call, get_last_block_number_before_end_date, timed_call_
@@ -598,6 +601,59 @@ class PeriodWalletProtocolJsonProcessCmeth:
 
         return result_orm_list
 
+    # def get_filter_start_date_orm(self, orm_class):
+    #     session = self.db_service.Session()
+    #     orm_list = session.query(orm_class).filter(
+    #         orm_class.period_date == self.start_date).all()
+    #     session.close()
+    #     return orm_list
+    #
+    # def get_staked_json_hyper(self):
+    #     orm_list = self.get_filter_start_date_orm(PeriodFeatureHoldingBalanceStakedFbtcDetail)
+    #     # exclude init_capital
+    #     filter_orm_list = []
+    #     for orm in orm_list:
+    #         filter_orm_list.append(orm)
+    #     results = self.get_token_data_for_lendle_au_init_capital(filter_orm_list)
+    #
+    #     return results
+
+    def get_staked_json_hyper(self):
+        protocol_id = 'staked'
+        if protocol_id in self.job_list:
+            # all tokens
+            orm_list = get_filter_start_date_orm(PeriodFeatureHoldingBalanceStakedFbtcDetail, self.db_service,
+                                                 self.start_date)
+
+            r_list = []
+            for orm in orm_list:
+                # if orm.token_address == self.token_address:
+                orm.token_symbol = self.token_symbol
+                r_list.append(orm)
+
+            results = get_token_data_for_lendle_au_init_capital(r_list, self.token_address, self.price_dict)
+            self.insert_protocol_json(protocol_id, results)
+
+            cmeth_orm_list = [r for r in orm_list if r.token_address.hex() == self.token_address[2:]]
+            self.get_token_aggr_by_protocol(cmeth_orm_list, self.price)
+
+    def get_uniswapv3_hyper(self):
+        protocol_id = 'uniswapv3'
+        if protocol_id not in self.job_list:
+            return
+
+        sql = uniswapv3_detail_sql_with_new_schema(self.start_date, '0x6eda206207c09e5428f281761ddc0d300851fbc8')
+        session = self.db_service.Session()
+        result = session.execute(text(sql))
+        df = get_detail_df(result)
+        liquidity_df = calculate_liquidity(df, self.token_symbol)
+        results2 = change_df_to_obj(liquidity_df)
+        results = get_pool_token_pair_data_with_lp(results2, self.token_symbol, self.db_service, self.end_date,
+                                                   self.price_dict,
+                                                   'uniswapv3')
+        self.insert_protocol_json(protocol_id, results)
+        self.get_pool_token_pair_aggr_by_protocol(results2, self.price)
+
     def process_middle_json(self):
         if self.chain_name == 'mantle':
             timed_call_(self.get_staked_json)
@@ -609,6 +665,11 @@ class PeriodWalletProtocolJsonProcessCmeth:
 
         elif self.chain_name == 'eth':
             timed_call_(self.get_staked_json_eth)
+
+        elif self.chain_name == 'hyper':
+            timed_call_(self.get_staked_json_hyper)
+            timed_call_(self.get_uniswapv3_hyper)
+
 
     def run(self):
         self.process_middle_json()
