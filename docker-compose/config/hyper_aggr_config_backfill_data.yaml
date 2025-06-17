@@ -1,0 +1,27 @@
+chain_name: hyper
+if_init_balance:
+  true
+
+cmETH:
+  generator_wallet_table:
+    true
+
+  daily_sqls:
+    address_token_balance:
+      - daily_address_token_balances
+
+
+  period_sqls:
+    address_token_balance:
+      - period_address_token_balances
+    uniswapv3:
+      - n_period_feature_holding_balance_uniswap_v3_detail
+
+    staked:
+      - n_cmeth_period_feature_holding_balance_staked_transferred_fbtc_detail
+
+
+  py_jobs:
+    - address_token_balance
+    - uniswapv3
+    - staked
