@@ -46,6 +46,7 @@ export_staked_transferred_balance_job:
   TRANSFERRED_CONTRACTS_DICT:
     mizu:
       - "0x9e3c0d2d70e9a4bf4f9d5f0a6e4930ce76fed09e"
+      - "0x8950989ccde103cb018c1dd16240ea472cccb2ae"
 
   token_address:
       # cmeth
