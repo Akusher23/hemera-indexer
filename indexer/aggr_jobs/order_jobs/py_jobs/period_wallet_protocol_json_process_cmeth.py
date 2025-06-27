@@ -335,11 +335,26 @@ class PeriodWalletProtocolJsonProcessCmeth:
             # all tokens are cmeth
             orm_list = self.get_staked_detail_orm_list()
 
+            grouped = defaultdict(list)
+
+            # Step 1: 按组合键分组收集 row
+            for row in orm_list:
+                key = (row[0], row[1], row[2], row[3])  # (period_date, protocol_id, contract_address)
+                grouped[key].append(row)
+
+            # Step 2: 对每组求 balance 汇总，过滤掉总和 ≤ 0 的组
+            filtered_rows = []
+
+            for key, rows in grouped.items():
+                total_balance = sum(r[6] for r in rows)  # r[6] 是 balance
+                if total_balance > 0:
+                    filtered_rows.extend(rows)  # 保留整个组所有 row
+
             # need to filter the only token in some cases
-            results = get_token_data_for_lendle_au_init_capital(orm_list, self.token_address, self.price_dict)
+            results = get_token_data_for_lendle_au_init_capital(filtered_rows, self.token_address, self.price_dict)
 
             self.insert_protocol_json(protocol_id, results)
-            self.get_token_aggr_by_protocol(orm_list, self.price)
+            self.get_token_aggr_by_protocol(filtered_rows, self.price)
 
     def get_staked_json(self):
         protocol_id = 'staked'
