@@ -303,7 +303,10 @@ class PeriodWalletProtocolJsonProcessCmeth:
         sql = f"""  select 
                             date('{self.start_date}') as period_date,
                             protocol_id,
-                           contract_address,
+                           case
+           when contract_address = decode('8950989ccde103cb018c1dd16240ea472cccb2ae', 'hex') then
+               decode('9e3c0d2d70e9a4bf4f9d5f0a6e4930ce76fed09e', 'hex')
+           else contract_address end as contract_address,
                            wallet_address,
                            token_address,
                            token_symbol,
