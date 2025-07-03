@@ -306,6 +306,8 @@ class PeriodWalletProtocolJsonProcessCmeth:
                            case
            when contract_address = decode('8950989ccde103cb018c1dd16240ea472cccb2ae', 'hex') then
                decode('9e3c0d2d70e9a4bf4f9d5f0a6e4930ce76fed09e', 'hex')
+            when contract_address = decode('1741432f0bcfa42e03c6ca3b748271b6c2b78a14', 'hex') then
+               decode('9e3c0d2d70e9a4bf4f9d5f0a6e4930ce76fed09e', 'hex')
            else contract_address end as contract_address,
                            wallet_address,
                            token_address,
