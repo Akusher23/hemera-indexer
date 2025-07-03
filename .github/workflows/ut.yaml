@@ -1,0 +1,44 @@
+name: Python application unit test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  test:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install poetry==1.6.1
+          poetry update
+          poetry install -v
+
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=\$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
+
+      - name: Verify PYTHONPATH
+        run: echo $PYTHONPATH
+
+      - name: Unit Test with pytest
+        env:
+          ETHEREUM_PUBLIC_NODE_DEBUG_RPC_URL: '${{ secrets.ETHEREUM_PUBLIC_NODE_DEBUG_RPC_URL }}'
+          ETHEREUM_PUBLIC_NODE_RPC_URL: '${{ secrets.ETHEREUM_PUBLIC_NODE_RPC_URL }}'
+          LINEA_PUBLIC_NODE_DEBUG_RPC_URL: '${{ secrets.LINEA_PUBLIC_NODE_DEBUG_RPC_URL }}'
+          LINEA_PUBLIC_NODE_RPC_URL: '${{ secrets.LINEA_PUBLIC_NODE_RPC_URL }}'
+          MANTLE_PUBLIC_NODE_RPC_URL: '${{ secrets.MANTLE_PUBLIC_NODE_RPC_URL }}'
+          MANTLE_PUBLIC_NODE_DEBUG_RPC_URL: '${{ secrets.MANTLE_PUBLIC_NODE_DEBUG_RPC_URL }}'
+        run: |
+          export PYTHONPATH=$(pwd)
+          poetry run pytest -vv -m indexer

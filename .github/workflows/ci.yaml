@@ -1,0 +1,70 @@
+name: Hemera Indexer Continuous Integration
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: hemera
+          POSTGRES_PASSWORD: password
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    env:
+      ETHEREUM_PUBLIC_NODE_DEBUG_RPC_URL: '${{ secrets.ETHEREUM_PUBLIC_NODE_DEBUG_RPC_URL }}'
+      ETHEREUM_PUBLIC_NODE_RPC_URL: '${{ secrets.ETHEREUM_PUBLIC_NODE_RPC_URL }}'
+      LINEA_PUBLIC_NODE_DEBUG_RPC_URL: '${{ secrets.LINEA_PUBLIC_NODE_DEBUG_RPC_URL }}'
+      LINEA_PUBLIC_NODE_RPC_URL: '${{ secrets.LINEA_PUBLIC_NODE_RPC_URL }}'
+      MANTLE_PUBLIC_NODE_RPC_URL: '${{ secrets.MANTLE_PUBLIC_NODE_RPC_URL }}'
+      MANTLE_PUBLIC_NODE_DEBUG_RPC_URL: '${{ secrets.MANTLE_PUBLIC_NODE_DEBUG_RPC_URL }}'
+      POSTGRES_USER: hemera
+      POSTGRES_PASSWORD: password
+      POSTGRES_URL: postgresql://hemera:password@localhost:5432/hemera
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install poetry==1.6.1
+          poetry update
+          poetry install -v
+          poetry show
+
+      - name: Set PYTHONPATH
+        run: echo "PYTHONPATH=\$PYTHONPATH:$(pwd)" >> $GITHUB_ENV
+
+      - name: Verify PYTHONPATH
+        run: echo $PYTHONPATH
+
+      - name: Init database
+        run: |
+          export PYTHONPATH=$(pwd)
+          make init_db
+
+      - name: Pipeline Test with pytest
+        run: |
+          export PYTHONPATH=$(pwd)
+          poetry run pytest -vv -m indexer --cov --cov-report=xml
+
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
