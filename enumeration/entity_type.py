@@ -59,7 +59,8 @@ from indexer.modules.custom.uniswap_v3.domain.feature_uniswap_v3 import (
     UniswapV3PoolPrice,
     UniswapV3Token,
     UniswapV3TokenCurrentStatus,
-    UniswapV3TokenDetail,
+    UniswapV3TokenDetail, FusionxPool, FusionxPoolPrice, FusionxPoolCurrentPrice, FusionxToken, FusionxTokenDetail,
+    FusionxTokenCurrentStatus,
 )
 from indexer.modules.user_ops.domain.user_operations import UserOperationsResult
 
@@ -318,6 +319,13 @@ def generate_output_types(entity_types):
         yield AgniV3PoolCurrentPrice
         yield TransferredStakedDetail
         yield FilterDomain
+        yield FusionxPool
+        yield FusionxPoolPrice
+        yield FusionxPoolCurrentPrice
+        yield FusionxToken
+        yield FusionxTokenDetail
+        yield FusionxTokenCurrentStatus
+
 
     if entity_types & EntityType.FBTC_20:
         yield Token
