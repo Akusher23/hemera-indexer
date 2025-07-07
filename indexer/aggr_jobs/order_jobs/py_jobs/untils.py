@@ -71,14 +71,16 @@ limit 1;
 
 
 def get_engine(link_name):
-    current_dir = os.path.dirname(os.path.abspath(__file__))
+    # current_dir = os.path.dirname(os.path.abspath(__file__))
+    #
+    # config_file_path = os.path.join(current_dir, 'config.ini')
+    #
+    # config = configparser.ConfigParser()
+    # config.read(config_file_path)
+    #
+    # POSTGRES_URL = config['database'][link_name]
 
-    config_file_path = os.path.join(current_dir, 'config.ini')
-
-    config = configparser.ConfigParser()
-    config.read(config_file_path)
-
-    POSTGRES_URL = config['database'][link_name]
+    POSTGRES_URL = os.getenv(link_name)
 
     engine = create_engine(POSTGRES_URL)
 
