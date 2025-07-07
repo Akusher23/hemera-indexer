@@ -57,7 +57,7 @@ def schedule(chain_name: str, postgres_url: str, dblink_url: str, config_file) -
     job_args = (chain_name, postgres_url, dblink_url, config_file)
     scheduler.add_job(aggregates_yesterday_job, 'cron', hour=hour, minute=minute, args=job_args)
 
-    current_crontab_time = "0 6,12,18 * * *"
+    current_crontab_time = "10 5,11,17 * * *"
 
     trigger = CronTrigger.from_crontab(current_crontab_time)
     scheduler.add_job(func=aggregates_current_date_job, trigger=trigger, args=job_args)
