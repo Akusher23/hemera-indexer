@@ -108,7 +108,8 @@ class ExportTokenBalancesJob(BaseExportJob):
                 token_balance_list = [token_balance.balance for token_balance in value]
                 token_balance_of_block_number = reduce(lambda x, y: x or y, token_balance_list)
                 if token_balance_of_block_number is None:
-                    raise Exception("Token balance of block number is None, {}".format(key))
+                    # raise Exception("Token balance of block number is None, {}".format(key))
+                    self.logger.error("Token balance of block number is None, {}".format(key))
 
             self._data_buff[CurrentTokenBalance.type()] = distinct_collections_by_group(
                 [
