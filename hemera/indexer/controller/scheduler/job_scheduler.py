@@ -348,9 +348,15 @@ class JobScheduler:
 
     def job_with_retires(self, job, start_block, end_block):
         for retry in range(JOB_RETRIES + 1):
+            if retry >0:
+                retry_sleep_time = retry * 5
+                self.logger.info(f"sleep {retry_sleep_time}s")
+                time.sleep(retry_sleep_time)
             try:
                 self.logger.info(f"Task run {job.__class__.__name__}")
                 job.run(start_block=start_block, end_block=end_block)
+                self.logger.info(f"sleep 0.2s")
+                time.sleep(0.2)
 
                 if self.metrics and retry > 0:
                     self.metrics.update_job_processing_retry(job_name=job.__class__.__name__, retry=retry)
