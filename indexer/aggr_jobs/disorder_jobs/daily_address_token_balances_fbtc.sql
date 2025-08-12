@@ -9,7 +9,7 @@ insert into public.daily_address_token_balances (address, block_date, token_addr
 select address,
        date(block_timestamp) as block_date,
        token_address,
-       token_id,
+       null as token_id,
        token_type,
        balance
 from (select *,
