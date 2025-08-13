@@ -25,7 +25,7 @@ from indexer.aggr_jobs.order_jobs.py_jobs.uniswapv3_job import get_detail_df, ca
     uniswapv3_detail_sql_with_new_schema
 from indexer.aggr_jobs.order_jobs.py_jobs.untils import format_value_for_json, get_new_uniswap_v3_orms, \
     get_token_data_for_lendle_au_init_capital, get_filter_start_date_orm, \
-    get_pool_token_pair_data_with_lp, timed_call, get_last_block_number_before_end_date, timed_call_
+    get_pool_token_pair_data_with_lp, timed_call, get_last_block_number_before_end_date, timed_call_, get_engine
 
 warnings.filterwarnings('ignore', category=FutureWarning)
 
@@ -354,6 +354,49 @@ class PeriodWalletProtocolJsonProcessCmeth:
 
             # need to filter the only token in some cases
             results = get_token_data_for_lendle_au_init_capital(filtered_rows, self.token_address, self.price_dict)
+
+            Session = get_engine("HYPER_POSTGRES_URL")
+            session = Session()
+            hyper_sql = f"""
+            select total_cmeth_balance from period_feature_defi_wallet_cmeth_detail
+            where period_date = '{self.start_date}' and
+                wallet_address = '0x81729653f6e3f081cabeec4da4deeb777b8c2e6e'
+            """
+            cursor = session.execute(text(hyper_sql))
+            hyper_result = cursor.fetchone()
+
+            whole_cmeth_balance = format_value_for_json(hyper_result[0])
+
+            sql = f"""
+                select address,
+           sum(balance) / sum(sum(balance)) over () as ratio
+                from period_address_token_balances
+            where token_address in (decode('8E2C2C9dEF45efB9Bd3C448945830Ddb254154BE', 'hex'),  decode('9E3C0D2D70e9A4BF4f9d5F0A6E4930ce76Fed09e', 'hex'))                  and balance > 0
+                group by address
+            """
+            session = self.db_service.Session()
+            stmt = session.execute(text(sql))
+            address_ratio_lst = stmt.fetchall()
+            address_ratio_dict = {format_value_for_json(ar[0]): format_value_for_json(ar[1]) for ar in
+                                  address_ratio_lst}
+
+            session.close()
+
+            for k, v in results.items():
+                try:
+                    _, address = k
+                    contract_json = v.get('contract_json')
+                    for pool_data in contract_json:
+                        if pool_data.get('protocol_id') == 'mizu':
+                            ratio = address_ratio_dict.get(address)
+                            if ratio:
+                                cmeth2_balance = whole_cmeth_balance * ratio
+                                cmeth2_dict = {'token_symbol': 'cmETH2',
+                                               'token_address': '0xe6829d9a7ee3040e1276fa75293bde931859e8fa',
+                                               'token_balance': cmeth2_balance, 'token_balance_usd': 0.0}
+                                pool_data.get('pool_data')[0].get('token_data').append(cmeth2_dict)
+                except Exception as e:
+                    print(e)
 
             self.insert_protocol_json(protocol_id, results)
             self.get_token_aggr_by_protocol(filtered_rows, self.price)
@@ -689,7 +732,6 @@ class PeriodWalletProtocolJsonProcessCmeth:
         elif self.chain_name == 'hyper':
             timed_call_(self.get_staked_json_hyper)
             timed_call_(self.get_uniswapv3_hyper)
-
 
     def run(self):
         self.process_middle_json()

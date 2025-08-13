@@ -34,33 +34,43 @@ class FilterJob(FilterTransactionDataJob):
         self._max_worker = kwargs["max_workers"]
         self._chain_id = common_utils.get_chain_id(self._web3)
         self._service = kwargs["config"].get("db_service")
-        self.address_list = self._get_lv_tokens()
-
-        # Thetanuts
-        # 0xdee7cb1d08ec5e35c4792856f86dd0584db29cfe
-        # woofi
-        # 0x872b6ff825Da431C941d12630754036278AD7049
-        # hourglass
-        # 0x326b1129a3ec2ad5c4016d2bb4b912687890ae6c
-        # Mitosis
-        # 0x6ff000453a9c14f7d3bf381925c8cde565dbce55
-
-        token_list = [
+        if self._chain_id == 5000:
+            print('load lv tokens')
+            self.address_list = self._get_lv_tokens()
             # Thetanuts
-            '0xdee7cb1d08ec5e35c4792856f86dd0584db29cfe',
+            # 0xdee7cb1d08ec5e35c4792856f86dd0584db29cfe
             # woofi
-            '0x872b6ff825da431c941d12630754036278ad7049',
+            # 0x872b6ff825Da431C941d12630754036278AD7049
             # hourglass
-            '0x326b1129a3ec2ad5c4016d2bb4b912687890ae6c',
+            # 0x326b1129a3ec2ad5c4016d2bb4b912687890ae6c
             # Mitosis
-            '0x6ff000453a9c14f7d3bf381925c8cde565dbce55',
-            # circuit
-            '0x59e641de941cc794cdf6152eda0ef51210373d95',
-        ]
-        self.address_list.extend(token_list)
+            # 0x6ff000453a9c14f7d3bf381925c8cde565dbce55
 
-        # self.address_list = ['0x59e641de941cc794cdf6152eda0ef51210373d95']
+            token_list = [
+                # Thetanuts
+                '0xdee7cb1d08ec5e35c4792856f86dd0584db29cfe',
+                # woofi
+                '0x872b6ff825da431c941d12630754036278ad7049',
+                # hourglass
+                '0x326b1129a3ec2ad5c4016d2bb4b912687890ae6c',
+                # Mitosis
+                '0x6ff000453a9c14f7d3bf381925c8cde565dbce55',
+                # circuit
+                '0x59e641de941cc794cdf6152eda0ef51210373d95',
 
+            ]
+            self.address_list.extend(token_list)
+
+        elif self._chain_id == 1:
+            self.address_list = [  # hyperETH
+                '0x9e3c0d2d70e9a4bf4f9d5f0a6e4930ce76fed09e',
+                '0x8e2c2c9def45efb9bd3c448945830ddb254154be']
+
+        else:
+            self.address_list = []
+
+        # self.address_list = ['0x9e3c0d2d70e9a4bf4f9d5f0a6e4930ce76fed09e',
+        #                      '0x8e2c2c9def45efb9bd3c448945830ddb254154be']
 
     def _get_lv_tokens(self):
         session = self._service.get_service_session()
