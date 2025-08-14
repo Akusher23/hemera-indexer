@@ -37,7 +37,7 @@ with moe_pools_table as (select d0.*,
                                               inner join
                                           (select *
                                            from period_address_token_balances
-                                           where token_type = 'ERC1155') d1
+                                           where token_type = 'ERC1155' and balance> 0) d1
                                           on d0.token_address = d1.token_address),
 
      detail_table as (select d1.address
