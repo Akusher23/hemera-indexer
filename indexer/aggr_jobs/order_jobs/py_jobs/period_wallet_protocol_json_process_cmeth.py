@@ -364,9 +364,10 @@ class PeriodWalletProtocolJsonProcessCmeth:
             """
             cursor = session.execute(text(hyper_sql))
             hyper_result = cursor.fetchone()
-
-            whole_cmeth_balance = format_value_for_json(hyper_result[0])
-
+            if hyper_result:
+                whole_cmeth_balance = format_value_for_json(hyper_result[0])
+            else:
+                whole_cmeth_balance = 0
             sql = f"""
                 select address,
            sum(balance) / sum(sum(balance)) over () as ratio
