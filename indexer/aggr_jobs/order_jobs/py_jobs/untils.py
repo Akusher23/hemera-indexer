@@ -558,7 +558,8 @@ def timed_call_(method, method_name=None):
     start_time = time.time()
     result = method()
     elapsed_time = time.time() - start_time
-    print(f'Took {elapsed_time:.2f} seconds by {method_name}')
+    if elapsed_time> 0.001:
+        print(f'Took {elapsed_time:.2f} seconds by {method_name}')
     return result
 
 

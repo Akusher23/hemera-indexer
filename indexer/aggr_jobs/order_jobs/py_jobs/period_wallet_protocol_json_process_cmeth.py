@@ -1,3 +1,4 @@
+import os
 import warnings
 from collections import defaultdict
 from datetime import datetime
@@ -718,6 +719,92 @@ class PeriodWalletProtocolJsonProcessCmeth:
         self.insert_protocol_json(protocol_id, results)
         self.get_pool_token_pair_aggr_by_protocol(results2, self.price)
 
+    def get_orms_by_sql(self, file_name):
+        session = self.db_service.Session()
+        sql = self.get_sql_content(file_name)
+        orm_list = session.execute(text(sql)).fetchall()
+        session.close()
+        return orm_list
+
+    def get_sql_content(self, file_name):
+        base_dir = os.path.dirname(__file__)
+        if not file_name.endswith(".sql"):
+            file_name += ".sql"
+        file_path = os.path.join(base_dir, 'sqls', file_name)
+
+        with open(file_path, "r") as f:
+            sql_template = f.read()
+        sql = sql_template.format(
+            start_date=self.start_date, end_date=self.end_date
+        )
+        return sql
+
+    def get_hyper_spectra(self):
+        protocol_id = 'spectra'
+        if protocol_id in self.job_list:
+            results = {}
+            orms = self.get_orms_by_sql('spectra.sql')
+            if orms:
+                for orm in orms:
+                    address = format_value_for_json(orm[0])
+                    wallet_yt_balance = format_value_for_json(orm[1])
+                    if not wallet_yt_balance:
+                        wallet_yt_balance = 0
+                    wallet_yt_token_data = {
+                        "token_data": [
+                            {
+                                "token_symbol": "YT-cmETH-22SEP2025",
+                                "token_address": "0x6bd129974d12d3c3efe1cce95a9bc822d811033c",
+                                "token_balance": wallet_yt_balance,
+                                "token_balance_usd": 0
+                            }
+                        ],
+                        "contract_address": "0x6bd129974d12d3c3efe1cce95a9bc822d811033c "
+                    }
+                    lp_yt_balance = format_value_for_json(orm[2])
+                    if not lp_yt_balance:
+                        lp_yt_balance = 0
+                    lp_pt_balance = format_value_for_json(orm[3])
+                    if not lp_pt_balance:
+                        lp_pt_balance = 0
+                    lp_token_data = {
+                        "token_data": [
+                            {
+                                "token_symbol": "YT-cmETH-22SEP2025",
+                                "token_address": "0xb74e4f4add805a7191a934a05d3a826e8d714a44",
+                                "token_balance": lp_yt_balance,
+                                "token_balance_usd": 0
+                            },
+                            {
+                                "token_symbol": "PT-cmETH-22SEP2025",
+                                "token_address": "0x40defb4b2a451c7bad7c256132085ac4348c3b4c",
+                                "token_balance": lp_pt_balance,
+                                "token_balance_usd": 0
+                            }
+                        ],
+                        "contract_address": "0x1dc93df5d77b705c8c16527ec800961f1a7b3413"
+                    }
+
+                    contract_data = [
+                        {
+                            "pool_data": [
+                                wallet_yt_token_data,
+                                lp_token_data
+                            ], "protocol_id": "spectra"
+                        }
+                    ]
+                    key = (self.start_date, address)
+                    value = {'contract_json': contract_data,
+                             'balance': wallet_yt_balance + lp_yt_balance + lp_pt_balance,
+                             'usd': 0
+                             }
+                    results[key] = value
+
+            self.insert_protocol_json(protocol_id, results)
+            # self.get_token_aggr_by_protocol(results, self.price)
+
+            pass
+
     def process_middle_json(self):
         if self.chain_name == 'mantle':
             timed_call_(self.get_staked_json)
@@ -733,6 +820,7 @@ class PeriodWalletProtocolJsonProcessCmeth:
         elif self.chain_name == 'hyper':
             timed_call_(self.get_staked_json_hyper)
             timed_call_(self.get_uniswapv3_hyper)
+            timed_call_(self.get_hyper_spectra)
 
     def run(self):
         self.process_middle_json()
