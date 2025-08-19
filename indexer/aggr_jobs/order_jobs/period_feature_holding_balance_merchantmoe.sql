@@ -6,7 +6,7 @@ where period_date >= '{start_date}'
 insert into period_feature_merchant_moe_token_bin_records(period_date, token_address, token_id, reserve0_bin, reserve1_bin)
 select date('{start_date}'), token_address, token_id, reserve0_bin, reserve1_bin
 from (select *, row_number() over (partition by token_address, token_id order by block_timestamp desc) as rn
-      from feature_merchant_moe_token_bin_records
+          from feature_merchant_moe_token_bin_records
       where to_timestamp(block_timestamp) < '{end_date}') t
 where rn = 1
 ;
@@ -20,74 +20,65 @@ insert
 into period_feature_holding_balance_merchantmoe(period_date, protocol_id, contract_address, token_id,
                                                 wallet_address, token0_address, token0_symbol, token0_balance,
                                                 token1_address, token1_symbol, token1_balance)
-WITH day_tokens AS (SELECT s.token_address,
-                           s.token_id,
-                           s.total_supply,
-                           b.reserve0_bin,
-                           b.reserve1_bin
-                    FROM period_feature_erc1155_token_supply_records s
-                             JOIN period_feature_merchant_moe_token_bin_records b
-                                  ON b.period_date = s.period_date
-                                      AND b.token_address = s.token_address
-                                      AND b.token_id = s.token_id
-                    WHERE s.period_date = DATE '{start_date}'),
-     erc1155_balances AS (SELECT address, token_address, token_id, balance
-                          FROM period_address_token_balances
-                          WHERE token_type = 'ERC1155'
-                            and balance > 0),
-     pools_token0_fbtc AS (SELECT p.token_address,
-                                   p.token0_address,
-                                   t0.symbol   AS token0_symbol,
-                                   t0.decimals AS token0_decimals,
-                                   p.token1_address,
-                                   t1.symbol   AS token1_symbol,
-                                   t1.decimals AS token1_decimals
-                            FROM feature_merchant_moe_pools p
-                                     JOIN tokens t0 ON t0.address = p.token0_address
-                                     JOIN tokens t1 ON t1.address = p.token1_address
-                            WHERE t0.symbol = 'FBTC'),
-     pools_token1_fbtc AS (SELECT p.token_address,
-                                   p.token0_address,
-                                   t0.symbol   AS token0_symbol,
-                                   t0.decimals AS token0_decimals,
-                                   p.token1_address,
-                                   t1.symbol   AS token1_symbol,
-                                   t1.decimals AS token1_decimals
-                            FROM feature_merchant_moe_pools p
-                                     JOIN tokens t0 ON t0.address = p.token0_address
-                                     JOIN tokens t1 ON t1.address = p.token1_address
-                            WHERE t1.symbol = 'FBTC'),
-     pools_fbtc AS (SELECT *
-                     FROM pools_token0_fbtc
-                     UNION ALL
-                     SELECT *
-                     FROM pools_token1_fbtc)
+with moe_pools_table as (select d0.*,
 
+                                d4.symbol   as token0_symbol,
+                                d4.decimals as token0_decimals,
+                                d5.symbol   as token1_symbol,
+                                d5.decimals as token1_decimals
+                         from feature_merchant_moe_pools d0
+                                  inner join tokens d4 on d0.token0_address = d4.address
+                                  inner join tokens d5 on d0.token1_address = d5.address
+                         where d4.symbol = 'FBTC'
+                            or d5.symbol = 'FBTC'),
 
-SELECT DATE '{start_date}' AS period_date,
-       'merchantmoe'       AS protocol_id,
-       b.token_address     AS nft_address,
-       b.token_id,
-       b.address,
-       pc.token0_address,
-       pc.token0_symbol,
-       CASE
-           WHEN dt.total_supply > 0
-               THEN (b.balance::double precision / dt.total_supply::double precision)
-                        * dt.reserve0_bin::double precision
-               / pow(10, pc.token0_decimals)
-           ELSE 0 END      AS token0_balance,
-       pc.token1_address,
-       pc.token1_symbol,
-       CASE
-           WHEN dt.total_supply > 0
-               THEN (b.balance::double precision / dt.total_supply::double precision)
-                        * dt.reserve1_bin::double precision
-               / pow(10, pc.token1_decimals)
-           ELSE 0 END      AS token1_balance
-FROM day_tokens dt
-         JOIN erc1155_balances b
-              ON b.token_address = dt.token_address AND b.token_id = dt.token_id
-         JOIN pools_fbtc pc
-              ON pc.token_address = dt.token_address;
+     moe_pool_with_records_table as (select d0.*, d1.address, d1.token_id, d1.balance
+                                     from moe_pools_table d0
+                                              inner join
+                                          (select *
+                                           from period_address_token_balances
+                                           where token_type = 'ERC1155' and balance> 0) d1
+                                          on d0.token_address = d1.token_address),
+
+     detail_table as (select d1.address
+                           , d1.token_address
+                           , d1.token_id
+                           , d1.balance
+                           , d2.total_supply
+                           , d3.reserve0_bin
+                           , d3.reserve1_bin
+                           , token0_address
+                           , token0_symbol
+                           , token0_decimals
+                           , token1_address
+                           , token1_symbol
+                           , token1_decimals
+                      from moe_pool_with_records_table d1
+                               inner join
+                           (select *
+                            from period_feature_erc1155_token_supply_records
+                            where period_date = '{start_date}') d2
+                           on d1.token_address = d2.token_address and d1.token_id = d2.token_id
+                               inner join (select *
+                                           from period_feature_merchant_moe_token_bin_records
+                                           where period_date = '{start_date}') d3
+                                          on d1.token_address = d3.token_address and d1.token_id = d3.token_id)
+
+select date('{start_date}'),
+       'merchantmoe'  as protocol_id,
+       token_address  as nft_addres,
+       token_id,
+       address,
+       token0_address,
+       token0_symbol,
+       case
+           when total_supply > 0 then (balance / total_supply) * reserve0_bin / pow(10, token0_decimals)
+           else 0 end as token0_balance,
+       token1_address,
+       token1_symbol,
+       case
+           when total_supply > 0 then (balance / total_supply) * reserve1_bin / pow(10, token1_decimals)
+           else 0 end as token1_balance
+from detail_table
+;
 
