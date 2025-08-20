@@ -761,17 +761,28 @@ class PeriodWalletProtocolJsonProcessCmeth:
                         ],
                         "contract_address": "0x6bd129974d12d3c3efe1cce95a9bc822d811033c "
                     }
-                    lp_yt_balance = format_value_for_json(orm[2])
+
+                    lp_lp_balance = format_value_for_json(orm[2])
+                    if not lp_lp_balance:
+                        lp_lp_balance = 0
+                    lp_yt_balance = format_value_for_json(orm[3])
                     if not lp_yt_balance:
                         lp_yt_balance = 0
-                    lp_pt_balance = format_value_for_json(orm[3])
+                    lp_pt_balance = format_value_for_json(orm[4])
                     if not lp_pt_balance:
                         lp_pt_balance = 0
                     lp_token_data = {
                         "token_data": [
                             {
-                                "token_symbol": "YT-cmETH-22SEP2025",
-                                "token_address": "0xb74e4f4add805a7191a934a05d3a826e8d714a44",
+                                "token_symbol": "SPT-PT/IBT",
+                                "token_address": "0x1dc93df5d77b705c8c16527ec800961f1a7b3413",
+                                "token_balance": lp_lp_balance,
+                                "token_balance_usd": 0
+                            },
+
+                            {
+                                "token_symbol": "cmETH",
+                                "token_address": self.token_address,
                                 "token_balance": lp_yt_balance,
                                 "token_balance_usd": 0
                             },

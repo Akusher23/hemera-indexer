@@ -4,6 +4,7 @@ period_address_token_balances
                                where token_address = '\x6bd129974d12d3c3efe1cce95a9bc822d811033c'),
 
      user_lp_balance_table as (select address,
+                                      balance as lp_balance,
                                       balance / sum(balance) over () as lp_ratio
                                from period_address_token_balances
                                where token_address = '\x1dc93df5d77b705c8c16527ec800961f1a7b3413'),
@@ -17,6 +18,7 @@ period_address_token_balances
 
 select coalesce(yt.address, lp.address)  as address,
        yt.yt_balance,
+       lp.lp_balance,
        lp.lp_ratio,
        pool.token0_balance * lp.lp_ratio as lp_yt_balance,
        pool.token1_balance * lp.lp_ratio as lp_pt_balance
