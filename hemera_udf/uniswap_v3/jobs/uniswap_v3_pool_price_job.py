@@ -81,15 +81,15 @@ class ExportUniSwapV3PoolPriceJob(FilterTransactionDataJob):
             logs = transaction.receipt.logs
             for log in logs:
                 abi_module = None
-                if log.topic0 == uniswapv3_abi.SWAP_EVENT.get_signature() and log.address not in self._exist_pools:
-                    if log.address not in self.pools_requested_by_rpc:
-                        abi_module = uniswapv3_abi
-                        self.pools_requested_by_rpc.add(log.address)
-                elif log.topic0 == swapsicle_abi.SWAP_EVENT.get_signature() and log.address not in self._exist_pools:
-                    if log.address not in self.pools_requested_by_rpc:
-                        abi_module = swapsicle_abi
-                        self.pools_requested_by_rpc.add(log.address)
-                elif log.topic0 == agni_abi.SWAP_EVENT.get_signature() and log.address not in self._exist_pools:
+                # if log.topic0 == uniswapv3_abi.SWAP_EVENT.get_signature() and log.address not in self._exist_pools:
+                #     if log.address not in self.pools_requested_by_rpc:
+                #         abi_module = uniswapv3_abi
+                #         self.pools_requested_by_rpc.add(log.address)
+                # elif log.topic0 == swapsicle_abi.SWAP_EVENT.get_signature() and log.address not in self._exist_pools:
+                #     if log.address not in self.pools_requested_by_rpc:
+                #         abi_module = swapsicle_abi
+                #         self.pools_requested_by_rpc.add(log.address)
+                if log.topic0 == agni_abi.SWAP_EVENT.get_signature() and log.address not in self._exist_pools:
                     if log.address not in self.pools_requested_by_rpc:
                         abi_module = agni_abi
                         self.pools_requested_by_rpc.add(log.address)
