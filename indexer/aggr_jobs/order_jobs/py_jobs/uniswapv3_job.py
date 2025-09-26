@@ -73,7 +73,7 @@ price_table AS (
         SELECT *,
                ROW_NUMBER() OVER (PARTITION BY pool_address ORDER BY block_number DESC) AS rn
         FROM af_uniswap_v3_pool_prices_hist
-        WHERE to_timestamp(block_timestamp) < '{end_date}'
+        WHERE block_timestamp < '{end_date}'
           AND pool_address = decode('e2bb11d6b6a39e55762f5e14d632f0981198b3a7', 'hex')
     ) t
     WHERE t.rn = 1
