@@ -6,11 +6,11 @@ FBTC:
 
   daily_sqls:
     address_token_balance:
-      - daily_address_token_balances
+      - daily_address_token_balances_1.1
     dodo:
-      - daily_feature_erc20_token_supply_records
+      - daily_feature_erc20_token_supply_records_1.1
     staked:
-      - daily_feature_holding_balance_staked_fbtc_detail
+      - daily_feature_holding_balance_staked_fbtc_detail_1.1
 
   period_sqls:
     address_token_balance:

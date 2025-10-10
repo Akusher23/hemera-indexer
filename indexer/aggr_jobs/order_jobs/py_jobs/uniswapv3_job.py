@@ -52,6 +52,7 @@ def uniswapv3_detail_sql_with_new_schema(start_date, position_token_address):
 
 
 def get_thena_uniswapv3_details(end_date):
+    # could be replaced with pg service
     Session = get_engine('BSC_POSTGRES_URL')
     session = Session()
     # sql = uniswapv3_detail_sql_with_new_schema(start_date, '0xa51adb08cbe6ae398046a23bec013979816b77ab')
