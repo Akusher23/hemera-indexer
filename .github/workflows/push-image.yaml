@@ -11,7 +11,7 @@ on:
       runPushAWS:
         description: 'Run push image to aws (yes/no)'
         required: true
-        default: 'false'
+        default: 'yes'
       arch:
         required: false
         default: 'amd64'
