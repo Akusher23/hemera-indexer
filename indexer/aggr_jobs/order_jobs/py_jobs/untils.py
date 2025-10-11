@@ -69,7 +69,7 @@ def get_last_block_number_before_end_date(db_service, end_date):
 
     # 如果当天没有记录，则取全表最后一条
     if row is None:
-        fallback_sql = """
+        fallback_sql = f"""
         select block_number
         from address_token_balances
             where block_timestamp < '{end_date}'
