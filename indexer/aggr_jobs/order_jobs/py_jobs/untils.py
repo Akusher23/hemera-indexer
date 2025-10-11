@@ -51,23 +51,41 @@ def get_last_block_number_before_end_date_(chain_name, end_date):
     return number
 
 
+from sqlalchemy import text
+
 def get_last_block_number_before_end_date(db_service, end_date):
-    sql = f"""select block_number
-from address_token_balances
-where block_timestamp < '{end_date}'
-  and block_timestamp > (date('{end_date}') - INTERVAL '1 day')
-order by block_number desc
-limit 1;
+    sql = f"""
+    select block_number
+    from address_token_balances
+    where block_timestamp < '{end_date}'
+      and block_timestamp > (date('{end_date}') - INTERVAL '1 day')
+    order by block_number desc
+    limit 1;
     """
 
     session = db_service.Session()
     result = session.execute(text(sql))
     row = result.fetchone()
+
+    # 如果当天没有记录，则取全表最后一条
+    if row is None:
+        fallback_sql = """
+        select block_number
+        from address_token_balances
+            where block_timestamp < '{end_date}'
+        order by block_number desc
+        limit 1;
+        """
+        result = session.execute(text(fallback_sql))
+        row = result.fetchone()
+
     session.close()
 
     if row is not None:
-        number = row.block_number
-        return number
+        return row.block_number
+    else:
+        return None
+
 
 
 def get_engine(link_name):
