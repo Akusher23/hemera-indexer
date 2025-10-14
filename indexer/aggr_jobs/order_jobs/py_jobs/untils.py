@@ -35,20 +35,20 @@ def get_block_number_sql(end_date):
     return get_block_number_sql
 
 
-def get_last_block_number_before_end_date_(chain_name, end_date):
-    # temp solution because no blocks sync in the dev env
-    if chain_name == 'eth':
-        Session = get_engine('ETH_POSTGRES_URL')
-    else:
-        Session = get_engine('MANTLE_POSTGRES_URL')
-    session = Session()
-    sql = get_block_number_sql(end_date)
-    result = session.execute(text(sql))
-    row = result.fetchone()
-    number = row.number
-    if chain_name == 'bsc':
-        number = None
-    return number
+# def get_last_block_number_before_end_date_(chain_name, end_date):
+#     # temp solution because no blocks sync in the dev env
+#     if chain_name == 'eth':
+#         Session = get_engine('ETH_POSTGRES_URL')
+#     else:
+#         Session = get_engine('MANTLE_POSTGRES_URL')
+#     session = Session()
+#     sql = get_block_number_sql(end_date)
+#     result = session.execute(text(sql))
+#     row = result.fetchone()
+#     number = row.number
+#     if chain_name == 'bsc':
+#         number = None
+#     return number
 
 
 from sqlalchemy import text
@@ -106,9 +106,9 @@ def get_engine(link_name):
     return Session
 
 
-def get_eigenlayer_orms(period_date):
-    Session = get_engine('ETH_POSTGRES_URL')
-    session = Session()
+def get_eigenlayer_orms(period_date, db_service):
+    # Session = get_engine('ETH_POSTGRES_URL')
+    session = db_service.Session()
     sql = f"""
     with filter_detail_table as (select d1.shares / pow(10, d2.decimals) as balance,
                                     d2.symbol,

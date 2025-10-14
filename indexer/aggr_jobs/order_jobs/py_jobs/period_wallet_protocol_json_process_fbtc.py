@@ -145,7 +145,7 @@ class PeriodWalletProtocolJsonProcessFbtc(PeriodFeatureDefiWalletAggregates):
         return results
 
     def get_eigenlayer_json(self):
-        orm_list = get_eigenlayer_orms(self.start_date)
+        orm_list = get_eigenlayer_orms(self.start_date, self.db_service)
         results = self.get_token_data_old(orm_list)
         return results
 

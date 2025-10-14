@@ -319,7 +319,7 @@ class PeriodWalletProtocolJsonProcessCmeth:
                                  d2.symbol as token_symbol,
                                  row_number()
                                  over (partition by contract_address, wallet_address, token_address order by d1.block_number desc) rn
-                          from feature_staked_transfer_detail_records d1
+                          from af_staked_transferred_balance_hist d1
                                    inner join tokens d2 on d1.token_address = d2.address
                           where d1.token_address = decode('e6829d9a7ee3040e1276fa75293bde931859e8fa', 'hex')
                             and to_timestamp(block_timestamp) < '{self.end_date}'
