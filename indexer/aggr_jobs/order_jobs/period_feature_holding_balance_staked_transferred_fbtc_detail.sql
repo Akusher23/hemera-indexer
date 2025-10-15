@@ -120,7 +120,8 @@ with sbtc_config as (select distinct contract_address, token_address
 
      white_list_balance_table as (select d2.wallet_address,
                                          d1.a_balance,
-                                         least(d1.a_balance, d2.balance) as balance,
+                                         -- add >0 to avoid negative number
+                                         greatest(least(d1.a_balance, d2.balance),0) as balance,
                                          d2.protocol_id,
                                          d2.to_address                   as contract_address,
                                          d2.c_token_address
