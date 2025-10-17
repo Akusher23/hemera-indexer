@@ -6,19 +6,19 @@ FBTC:
 
   daily_sqls:
     address_token_balance:
-      - daily_address_token_balances
+      - daily_address_token_balances_1.1
     dodo:
-      - daily_feature_erc20_token_supply_records
+      - daily_feature_erc20_token_supply_records_1.1
     staked:
-      - daily_feature_holding_balance_staked_fbtc_detail
+      - daily_feature_holding_balance_staked_fbtc_detail_1.1
     uniswapv3:
-      - daily_feature_holding_balance_uniswap_v3
+      - daily_feature_holding_balance_uniswap_v3_1.1
 
   period_sqls:
     address_token_balance:
       - period_address_token_balances
     uniswapv3:
-      - period_feature_holding_balance_uniswap_v3
+      - period_feature_holding_balance_uniswap_v3_1.1
     staked:
       - period_feature_staked_fbtc_detail_records
       - period_feature_holding_balance_staked_transferred_fbtc_detail
