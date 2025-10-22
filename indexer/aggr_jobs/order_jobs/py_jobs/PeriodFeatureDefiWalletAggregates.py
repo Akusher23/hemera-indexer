@@ -62,8 +62,8 @@ class PeriodFeatureDefiWalletAggregates:
             wallet_distinct_list = []
 
             for entity in entity_list:
-                token_usd = float(price * entity.balance)
                 balance = float(entity.balance)
+                token_usd = float(price) * balance
                 protocol_balance += balance
                 protocol_usd += token_usd
                 if entity.wallet_address not in wallet_distinct_list:
@@ -84,6 +84,42 @@ class PeriodFeatureDefiWalletAggregates:
             )
 
         self.results.extend(results)
+
+    @staticmethod
+    def generate_token_balance_query(start_date, tokens_info):
+        queries = []
+        for token in tokens_info:
+            query = f"""
+            SELECT 
+                DATE('{start_date}') AS period_date,
+                '{token["protocol_id"]}' AS protocol_id,
+                '{token["contract_address"]}' AS contract_address,
+                address AS wallet_address,
+                '{token["token_address"]}' AS token_address,
+                '{token["token_symbol"]}' AS token_symbol,
+                balance / POW(10, 8) AS balance
+            FROM period_address_token_balances
+            WHERE token_address = DECODE('{token["token_hex"]}', 'hex')
+            """
+            queries.append(query)
+
+        full_query = " UNION ALL ".join(queries)
+        return full_query
+
+    def get_eth_staked_from_period_address_token_balances(self):
+        tokens_info = [{
+            "protocol_id": "aave",
+            "contract_address": "0xcca43cef272c30415866914351fdfc3e881bb7c2",
+            "token_address": "0xc96de26018a54d51c097160568752c4e3bd6c364",
+            "token_symbol": "FBTC",
+            "token_hex": "cca43cef272c30415866914351fdfc3e881bb7c2"
+        }]
+
+        sql = self.generate_token_balance_query(self.start_date, tokens_info)
+        session = self.db_service.Session()
+        stmt = session.execute(text(sql))
+        orm_result = stmt.fetchall()
+        return orm_result
 
     def get_pool_token_pair_aggr_by_protocol(self, orm_list, price):
         grouped_data = defaultdict(list)
@@ -177,12 +213,13 @@ class PeriodFeatureDefiWalletAggregates:
                     contract_token_usd = 0
 
                     for record in records:
-                        token0_used = float(self.price * record.balance)
+                        record_balance = float(record.balance)
+                        token0_used = float(self.price) * record_balance
 
-                        contract_token_balance += float(record.balance)
+                        contract_token_balance += record_balance
                         contract_token_usd += token0_used
 
-                        total_balance += float(record.balance)
+                        total_balance += record_balance
                         total_usd += token0_used
 
                     token_json = {

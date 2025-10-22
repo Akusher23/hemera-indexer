@@ -140,6 +140,10 @@ class PeriodWalletProtocolJsonProcessFbtc(PeriodFeatureDefiWalletAggregates):
                     filter_orm_list.append(orm)
             else:
                 filter_orm_list.append(orm)
+        if self.chain_name == 'eth':
+            eth_orms = self.get_eth_staked_from_period_address_token_balances()
+            filter_orm_list.extend(eth_orms)
+
         results = self.get_token_data_old(filter_orm_list)
 
         return results
